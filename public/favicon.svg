@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">NASA visualization favicon</title>
+  <desc id="desc">Stylized NASA sphere with orbital swoosh</desc>
+  <rect width="64" height="64" fill="#0B3D91" rx="12" ry="12" />
+  <circle cx="32" cy="28" r="18" fill="#FFFFFF" opacity="0.9" />
+  <path d="M8 40c8 4 16 6 24 6s16-2 24-6" fill="none" stroke="#D9E3F0" stroke-width="4" stroke-linecap="round" />
+  <path d="M14 36c6-6 12-9 18-9s12 3 18 9" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" opacity="0.55" />
+  <circle cx="40" cy="24" r="3" fill="#0B3D91" />
+</svg>
