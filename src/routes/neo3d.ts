@@ -1,4 +1,4 @@
-import { request } from '../api/nasaClient';
+import { parseSbdbOrbit, request } from '../api/nasaClient';
 import type { NeoItem } from '../types/nasa';
 import { fromSbdb } from '../utils/orbit';
 import { Neo3D, type Body } from '../visuals/neo3d';
@@ -94,14 +94,13 @@ export async function initNeo3D(
           {},
           { timeoutMs: 30_000 },
         );
+        const orbitRecord = parseSbdbOrbit(response);
         const target = response.object;
-        if (!target || !target.orbit) {
-          throw new Error('No SBDB orbit for 3I/ATLAS');
-        }
-        const els = fromSbdb(target.orbit);
+        const displayName = target?.object_name ?? target?.fullname ?? target?.des ?? '3I/ATLAS';
+        const els = fromSbdb(orbitRecord);
         simulation.addBodies([
           {
-            name: target.object_name ?? '3I/ATLAS',
+            name: displayName,
             color: 0xdc2626,
             els,
             orbit: {

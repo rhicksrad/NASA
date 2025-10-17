@@ -1,3 +1,6 @@
+import type { SbdbOrbit, SbdbResponse } from '../types/sbdb';
+import type { SbdbOrbitRecord } from '../utils/orbit';
+
 export class HttpError extends Error {
   constructor(public status: number, public url: string, public body?: unknown) {
     super(`HTTP ${status} for ${url}`);
@@ -90,6 +93,81 @@ function isAbortError(error: unknown): error is DOMException | Error {
     return error.name === 'AbortError';
   }
   return error instanceof Error && error.name === 'AbortError';
+}
+
+function sbdbValueFromOrbit(orbit: SbdbOrbit, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const direct = (orbit as Record<string, unknown>)[key];
+    if (typeof direct === 'string' && direct.trim() !== '') {
+      return direct;
+    }
+  }
+
+  const { elements } = orbit;
+  if (Array.isArray(elements)) {
+    for (const key of keys) {
+      const found = elements.find(el => el.name === key || el.label === key);
+      if (!found) {
+        continue;
+      }
+      const value = found.value;
+      if (value == null) {
+        continue;
+      }
+      const asString = typeof value === 'string' ? value : String(value);
+      if (asString.trim() !== '') {
+        return asString;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+export function ensureSbdbOrbit(response: SbdbResponse): SbdbOrbit {
+  if (!response.orbit) {
+    throw new Error('No SBDB orbit');
+  }
+  return response.orbit;
+}
+
+export function parseSbdbOrbit(response: SbdbResponse): SbdbOrbitRecord {
+  const orbit = ensureSbdbOrbit(response);
+  const epochRaw = typeof orbit.epoch === 'string' && orbit.epoch.trim() !== '' ? orbit.epoch : undefined;
+  const epochFallback = typeof orbit.cov_epoch === 'string' && orbit.cov_epoch.trim() !== '' ? orbit.cov_epoch : undefined;
+  const epoch = epochRaw ?? epochFallback;
+  const e = sbdbValueFromOrbit(orbit, ['e']);
+  const i = sbdbValueFromOrbit(orbit, ['i']);
+  const om = sbdbValueFromOrbit(orbit, ['om', 'node']);
+  const w = sbdbValueFromOrbit(orbit, ['w', 'peri']);
+
+  if (!epoch || !e || !i || !om || !w) {
+    throw new Error('Incomplete SBDB orbit');
+  }
+
+  const record: SbdbOrbitRecord = { e, i, om, w, epoch };
+
+  const a = sbdbValueFromOrbit(orbit, ['a']);
+  if (a) {
+    record.a = a;
+  }
+
+  const q = sbdbValueFromOrbit(orbit, ['q']);
+  if (q) {
+    record.q = q;
+  }
+
+  const ma = sbdbValueFromOrbit(orbit, ['ma', 'M']);
+  if (ma) {
+    record.ma = ma;
+  }
+
+  const M = sbdbValueFromOrbit(orbit, ['M', 'ma']);
+  if (M) {
+    record.M = M;
+  }
+
+  return record;
 }
 
 export async function request<T>(
