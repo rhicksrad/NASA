@@ -50,13 +50,14 @@ export async function initNeo3D(
     return null;
   }
 
-  const simulation = new Neo3D({ host: container });
+  const dateEl = document.getElementById('neo3d-date');
+  const simulation = new Neo3D({ host: container, dateLabel: dateEl });
   let started = false;
   const apply = (neos: NeoItem[]) => {
     const bodies = buildBodies(neos);
     simulation.addBodies(bodies);
     simulation.setPaused(false);
-    simulation.setTimeScale(600);
+    simulation.setTimeScale(86400);
     if (!started) {
       simulation.start();
       started = true;
@@ -68,7 +69,7 @@ export async function initNeo3D(
   // UI wiring
   const speedSel = document.getElementById('neo3d-speed') as HTMLSelectElement | null;
   if (speedSel) {
-    speedSel.value = '600';
+    speedSel.value = '86400';
     speedSel.addEventListener('change', () => {
       const v = Number(speedSel.value);
       if (v === 0) simulation.setPaused(true);
