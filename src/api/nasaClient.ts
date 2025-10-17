@@ -14,6 +14,13 @@ type RequestParams = Record<string, string | number>;
 
 type RequestOptions = RequestInit & { timeoutMs?: number };
 
+type HttpErrorLike = { url?: string; status?: number };
+
+function hasHttpErrorMeta(value: unknown): value is HttpErrorLike {
+  if (typeof value !== 'object' || value === null) return false;
+  return 'url' in value || 'status' in value;
+}
+
 function buildUrl(path: string, params: RequestParams = {}): string {
   if (/^https?:\/\//i.test(path)) {
     throw new Error('Absolute URLs are not supported. Use worker-relative paths.');
@@ -237,11 +244,11 @@ export async function request<T>(
     }
 
     // Suppress noisy logs for expected unauthenticated NEO browse calls
-    const isNeoBrowse = typeof (finalError as any)?.url === 'string'
-      ? ((finalError as any).url as string).includes('/neo/browse')
-      : url.includes('/neo/browse');
+    const httpMeta = hasHttpErrorMeta(finalError) ? finalError : null;
+    const errorUrl = typeof httpMeta?.url === 'string' ? httpMeta.url : url;
+    const isNeoBrowse = errorUrl.includes('/neo/browse');
 
-    const status = (finalError as any)?.status as number | undefined;
+    const status = typeof httpMeta?.status === 'number' ? httpMeta.status : undefined;
     const expectedAuthError = status === 401 || status === 429;
 
     if (!(isNeoBrowse && expectedAuthError)) {

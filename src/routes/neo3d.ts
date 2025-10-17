@@ -248,8 +248,9 @@ class PlanetEphemeris {
       .then((samples) => {
         for (const s of samples) {
           if (!isFinite3(s.posAU)) continue;
-          const jd = (s as any).jd ?? jdFromDate(s.t);
-          const item: InternalSample = { ...s, jd };
+          const withOptionalJd = s as VectorSample & { jd?: number };
+          const jd = typeof withOptionalJd.jd === 'number' ? withOptionalJd.jd : jdFromDate(s.t);
+          const item: InternalSample = { ...withOptionalJd, jd };
           const existingIndex = this.samples.findIndex((it) => Math.abs(it.jd - item.jd) < 1e-6);
           if (existingIndex >= 0) {
             this.samples[existingIndex] = item;

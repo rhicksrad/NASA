@@ -2,6 +2,8 @@
 // Data layer for NEO 3D: Horizons vectors, SBDB elements, and propagation.
 // Only talks to the Cloudflare worker; no direct NASA/JPL calls.
 
+import type { NeoBrowse } from '../types/nasa';
+
 const BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
 
 // ---------- HTTP ----------
@@ -12,31 +14,52 @@ export class HttpError extends Error {
   }
 }
 
-async function getTextOrJSON(path: string): Promise<string | any> {
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function firstRecordFromArray(value: unknown): Record<string, unknown> | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  return asRecord(value[0]);
+}
+
+async function getTextOrJSON<T = unknown>(path: string): Promise<string | T> {
   const url = `${BASE}${path}`;
   const r = await fetch(url, { credentials: 'omit' });
   const t = await r.text();
   if (!r.ok) throw new HttpError(url, r.status, t);
-  try { return JSON.parse(t); } catch { return t; }
+  try {
+    return JSON.parse(t) as T;
+  } catch {
+    return t;
+  }
 }
 
 // Gate NEO suggestions behind an explicit opt-in to avoid noisy 401s by default.
 function suggestionsEnabled(): boolean {
   try {
     const params = new URLSearchParams(globalThis.location?.search ?? '');
-    if (params.get('neos') === '1' || params.get('suggest') === '1') return true;
+    const queryEnable = params.get('neos') ?? params.get('suggest');
+    if (queryEnable === '1' || queryEnable?.toLowerCase() === 'true') return true;
+    if (queryEnable === '0' || queryEnable?.toLowerCase() === 'false') return false;
+
     const ls = globalThis.localStorage?.getItem('neo3d:suggestNeos');
-    return ls === '1' || ls === 'true';
+    if (ls === '0' || ls?.toLowerCase() === 'false') return false;
+    if (ls === '1' || ls?.toLowerCase() === 'true') return true;
   } catch {
-    return false;
+    // If storage or URL parsing fails, fall through to default behaviour.
   }
+  // Default to enabled so the page shows NEOs out of the box; 401s/429s are still tolerated below.
+  return true;
 }
 
 // Optional helper; callers can ignore null when disabled or when /neo/browse hits 401/429
-export async function tryNeoBrowse(size = 20) {
+export async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
   if (!suggestionsEnabled()) return null;
-  try { return await getTextOrJSON(`/neo/browse?size=${size}`); }
-  catch (e) {
+  try {
+    return await getTextOrJSON<NeoBrowse>(`/neo/browse?size=${size}`);
+  } catch (e) {
     if (e instanceof HttpError && (e.status === 401 || e.status === 429)) return null;
     throw e;
   }
@@ -74,7 +97,7 @@ export async function horizonsVectors(spk: number | string, iso: string) {
   const cmd = encodeURIComponent(String(spk));
   const path =
     `/horizons?COMMAND='${cmd}'&EPHEM_TYPE=VECTORS&TLIST='${t}'&OBJ_DATA=NO&OUT_UNITS=AU-D&format=json`;
-  const resp = await getTextOrJSON(path);
+  const resp = await getTextOrJSON<{ result?: string }>(path);
   const text: string = typeof resp === 'string' ? resp : (resp.result ?? '');
   return parseHorizonsVectors(text);
 }
@@ -128,16 +151,21 @@ export type Elements = {
 };
 
 export async function loadAtlasSBDB(): Promise<Elements> {
-  const data = await getTextOrJSON(`/sbdb?sstr=3I`);
+  const data = await getTextOrJSON<Record<string, unknown>>(`/sbdb?sstr=3I`);
+  const root = asRecord(data);
+  const objectOrbit = asRecord(asRecord(root?.object)?.orbit);
+  const rootOrbit = asRecord(root?.orbit);
+
   const el =
-    data?.object?.orbit?.elements?.[0] ??
-    data?.orbit?.elements?.[0] ??
-    data?.orbit ??
-    data?.elements?.[0] ?? null;
+    firstRecordFromArray(objectOrbit?.elements) ??
+    firstRecordFromArray(rootOrbit?.elements) ??
+    rootOrbit ??
+    firstRecordFromArray(root?.elements) ??
+    null;
 
   if (!el) throw new Error('ATLAS SBDB: no elements');
 
-  const N = (x: any) => (x == null ? NaN : Number(x));
+  const N = (x: unknown) => (x == null ? Number.NaN : Number(x));
 
   const a     = N(el.a);
   const e     = N(el.e);
