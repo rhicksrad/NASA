@@ -8,11 +8,13 @@ import {
   loadAtlasSBDB,
   propagateConic,
   isFiniteVec3,
+  type Elements,
 } from '../api/neo3dData';
 import { type Keplerian } from '../utils/orbit';
 
 const DEG2RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;
+const GAUSSIAN_K = 0.01720209895;
 
 interface PlanetConfig {
   spk: number;
@@ -91,6 +93,55 @@ function buildSmallBodies(neos: NeoItem[]): SmallBodySpec[] {
     bodies.push({ name: neo.name, color, els, orbit });
   }
   return bodies;
+}
+
+function elementsToKeplerian(elements: Elements): Keplerian | null {
+  const { a, e, i, Omega, omega, epochJD, M0, tp_jd, q } = elements;
+
+  if (!(Number.isFinite(e) && e > 0)) return null;
+  if (![i, Omega, omega].every(Number.isFinite)) return null;
+
+  let semiMajor = typeof a === 'number' && Number.isFinite(a) ? a : undefined;
+  if (semiMajor == null && typeof q === 'number' && Number.isFinite(q)) {
+    if (e < 1) {
+      semiMajor = q / (1 - e);
+    } else if (e > 1) {
+      semiMajor = -q / (e - 1);
+    }
+  }
+  if (!(typeof semiMajor === 'number' && Number.isFinite(semiMajor) && semiMajor !== 0)) {
+    return null;
+  }
+
+  const epoch = typeof epochJD === 'number' && Number.isFinite(epochJD)
+    ? epochJD
+    : typeof tp_jd === 'number' && Number.isFinite(tp_jd)
+      ? tp_jd
+      : null;
+  if (epoch == null) return null;
+
+  let mean = typeof M0 === 'number' && Number.isFinite(M0) ? M0 : null;
+  if (mean == null && typeof tp_jd === 'number' && Number.isFinite(tp_jd)) {
+    const aAbs = Math.abs(semiMajor);
+    if (aAbs <= 0) return null;
+    const n = Math.sqrt((GAUSSIAN_K * GAUSSIAN_K) / (aAbs * aAbs * aAbs));
+    mean = n * (epoch - tp_jd);
+    if (e < 1) {
+      const twoPi = Math.PI * 2;
+      mean = ((mean % twoPi) + twoPi) % twoPi;
+    }
+  }
+  if (mean == null || !Number.isFinite(mean)) return null;
+
+  return {
+    a: semiMajor,
+    e,
+    i,
+    Omega,
+    omega,
+    M: mean,
+    epochJD: epoch,
+  };
 }
 
 type CachedSample = { jd: number; posAU: [number, number, number] };
@@ -364,6 +415,7 @@ export async function initNeo3D(
       add3iBtn.textContent = 'Loading…';
       try {
         const elements = await loadAtlasSBDB();
+        const keplerEls = elementsToKeplerian(elements);
         const initial = propagateConic(elements, jdFromDateUTC(simulation.getCurrentDate()));
         if (!isFiniteVec3(initial.posAU)) {
           throw new Error('3I/ATLAS propagation invalid');
@@ -380,10 +432,17 @@ export async function initNeo3D(
 
         const atlasSpec: SmallBodySpec = {
           name: '3I/ATLAS',
+          label: 'C/2025 N1 (ATLAS)',
           color: 0xf87171,
           sample,
           orbit: { color: 0xf87171, segments: 1600, spanDays: 3200 },
         };
+
+        if (keplerEls) {
+          atlasSpec.els = keplerEls;
+        } else {
+          console.warn('[neo3d] 3I/ATLAS Keplerian conversion failed; using sample propagation only');
+        }
 
         extras.push(atlasSpec);
         applyNeos(getSelectedNeos());

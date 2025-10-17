@@ -399,12 +399,13 @@ export class Neo3D {
 
     for (const body of this.bodies) {
       let pos: [number, number, number] | null = null;
-      if (body.spec.sample) {
-        const state = body.spec.sample(now);
-        if (state && isFiniteVec3(state.posAU)) pos = state.posAU;
-      } else if (body.spec.els) {
+      if (body.spec.els) {
         const propagated = propagate(body.spec.els, jd);
         if (isFiniteVec3(propagated)) pos = [propagated[0], propagated[1], propagated[2]];
+      }
+      if (!pos && body.spec.sample) {
+        const state = body.spec.sample(now);
+        if (state && isFiniteVec3(state.posAU)) pos = state.posAU;
       }
 
       if (!pos) {
