@@ -15,6 +15,17 @@ import { type Keplerian } from '../utils/orbit';
 const DEG2RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;
 const GAUSSIAN_K = 0.01720209895;
+const DEFAULT_RANGE_DAYS = 120;
+const MIN_RANGE_SPAN_DAYS = 1 / 24;
+const SLIDER_STEP_DAYS = 1 / 24;
+
+const SPEED_PRESETS: Array<{ seconds: number; label: string }> = [
+  { seconds: 1, label: '1 sec/s' },
+  { seconds: 60, label: '1 min/s' },
+  { seconds: 600, label: '10 min/s' },
+  { seconds: 3600, label: '1 hr/s' },
+  { seconds: 86400, label: '1 day/s' },
+];
 
 interface PlanetConfig {
   spk: number;
@@ -44,6 +55,30 @@ function parseNumber(value: string | number | null | undefined): number {
     return Number.isFinite(n) ? n : Number.NaN;
   }
   return Number.NaN;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function formatDateLabel(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function toDateTimeLocalValue(date: Date): string {
+  const pad = (v: number, len = 2) => v.toString().padStart(len, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function parseDateTimeLocal(value: string): Date | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function differenceInDays(start: Date, end: Date): number {
+  return (end.getTime() - start.getTime()) / DAY_MS;
 }
 
 function buildSmallBodies(neos: NeoItem[]): SmallBodySpec[] {
@@ -343,23 +378,229 @@ export async function initNeo3D(
   }
 
   const now = new Date();
-  const dateLabel =
+  let rangeStart = new Date(now.getTime() - (DEFAULT_RANGE_DAYS / 2) * DAY_MS);
+  let rangeEnd = new Date(now.getTime() + (DEFAULT_RANGE_DAYS / 2) * DAY_MS);
+
+  const timeLabel =
     (document.getElementById('neo3d-date') as HTMLElement | null) ??
     (document.getElementById('neo3d-time-label') as HTMLElement | null);
 
+  let onDateChangeHandler: ((date: Date) => void) | null = null;
+
   const simulation = new Neo3D({
     host: container,
-    dateLabel,
+    dateLabel: timeLabel,
     initialDate: now,
+    minDate: rangeStart,
+    maxDate: rangeEnd,
+    onDateChange: (date) => {
+      onDateChangeHandler?.(date);
+    },
   });
 
   const planetManager = new PlanetManager(PLANET_CONFIG);
   await planetManager.prime(now);
   simulation.setPlanets(planetManager.providers());
 
-  simulation.setTimeScale(86_400);
-  simulation.setPaused(false);
+  simulation.setTimeScale(SPEED_PRESETS[SPEED_PRESETS.length - 1].seconds);
+  simulation.setPaused(true);
   simulation.start();
+
+  const playBtn = document.getElementById('neo3d-play') as HTMLButtonElement | null;
+  const pauseBtn = document.getElementById('neo3d-pause') as HTMLButtonElement | null;
+  const speedSlider = document.getElementById('neo3d-speed') as HTMLInputElement | null;
+  const speedLabel = document.getElementById('neo3d-speed-label') as HTMLElement | null;
+  const timeSlider = document.getElementById('neo3d-time') as HTMLInputElement | null;
+  const rangeStartInput = document.getElementById('neo3d-range-start') as HTMLInputElement | null;
+  const rangeEndInput = document.getElementById('neo3d-range-end') as HTMLInputElement | null;
+  const neosToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
+
+  let sliderBaseMs = rangeStart.getTime();
+  let sliderSpanDays = Math.max(MIN_RANGE_SPAN_DAYS, differenceInDays(rangeStart, rangeEnd));
+  let playingRange = false;
+  let scrubbing = false;
+
+  const updateTimeLabel = (date: Date) => {
+    if (timeLabel) {
+      timeLabel.textContent = formatDateLabel(date);
+    }
+  };
+
+  const updateSliderBounds = () => {
+    if (!timeSlider) return;
+    timeSlider.min = '0';
+    timeSlider.max = sliderSpanDays.toString();
+    timeSlider.step = SLIDER_STEP_DAYS.toString();
+  };
+
+  const updateSliderFromDate = (date: Date) => {
+    if (!timeSlider) return;
+    const offsetDays = (date.getTime() - sliderBaseMs) / DAY_MS;
+    const clampedOffset = clamp(offsetDays, 0, sliderSpanDays);
+    if (!scrubbing) {
+      timeSlider.value = clampedOffset.toString();
+    }
+  };
+
+  const updatePlayControls = () => {
+    const paused = simulation.isPaused();
+    const disabledPlay = !paused || rangeEnd.getTime() <= rangeStart.getTime();
+    if (playBtn) playBtn.disabled = disabledPlay;
+    if (pauseBtn) pauseBtn.disabled = paused;
+  };
+
+  const applyRange = (start: Date, end: Date) => {
+    if (end.getTime() <= start.getTime()) {
+      toastError('Range end must be after start');
+      if (rangeStartInput) rangeStartInput.value = toDateTimeLocalValue(rangeStart);
+      if (rangeEndInput) rangeEndInput.value = toDateTimeLocalValue(rangeEnd);
+      return;
+    }
+    if (differenceInDays(start, end) < MIN_RANGE_SPAN_DAYS) {
+      toastError('Date range must span at least one hour');
+      if (rangeStartInput) rangeStartInput.value = toDateTimeLocalValue(rangeStart);
+      if (rangeEndInput) rangeEndInput.value = toDateTimeLocalValue(rangeEnd);
+      return;
+    }
+
+    rangeStart = start;
+    rangeEnd = end;
+    sliderBaseMs = rangeStart.getTime();
+    sliderSpanDays = differenceInDays(rangeStart, rangeEnd);
+
+    simulation.setBounds(rangeStart, rangeEnd);
+    updateSliderBounds();
+
+    simulation.setPaused(true);
+    playingRange = false;
+
+    const current = simulation.getCurrentDate();
+    const clampedMs = clamp(current.getTime(), sliderBaseMs, rangeEnd.getTime());
+    const clampedDate = new Date(clampedMs);
+    simulation.setDate(clampedDate);
+    updateSliderFromDate(clampedDate);
+    updateTimeLabel(clampedDate);
+    updatePlayControls();
+
+    if (rangeStartInput) rangeStartInput.value = toDateTimeLocalValue(rangeStart);
+    if (rangeEndInput) rangeEndInput.value = toDateTimeLocalValue(rangeEnd);
+  };
+
+  if (rangeStartInput) {
+    rangeStartInput.value = toDateTimeLocalValue(rangeStart);
+    rangeStartInput.addEventListener('change', () => {
+      const parsed = parseDateTimeLocal(rangeStartInput.value);
+      if (!parsed) {
+        toastError('Invalid start date');
+        rangeStartInput.value = toDateTimeLocalValue(rangeStart);
+        return;
+      }
+      applyRange(parsed, rangeEnd);
+    });
+  }
+
+  if (rangeEndInput) {
+    rangeEndInput.value = toDateTimeLocalValue(rangeEnd);
+    rangeEndInput.addEventListener('change', () => {
+      const parsed = parseDateTimeLocal(rangeEndInput.value);
+      if (!parsed) {
+        toastError('Invalid end date');
+        rangeEndInput.value = toDateTimeLocalValue(rangeEnd);
+        return;
+      }
+      applyRange(rangeStart, parsed);
+    });
+  }
+
+  if (timeSlider) {
+    timeSlider.step = SLIDER_STEP_DAYS.toString();
+    const stopScrubbing = () => {
+      scrubbing = false;
+    };
+    timeSlider.addEventListener('pointerdown', () => {
+      scrubbing = true;
+      simulation.setPaused(true);
+      playingRange = false;
+      updatePlayControls();
+    });
+    timeSlider.addEventListener('pointerup', stopScrubbing);
+    timeSlider.addEventListener('pointercancel', stopScrubbing);
+    window.addEventListener('pointerup', stopScrubbing);
+    timeSlider.addEventListener('input', () => {
+      const offset = Number(timeSlider.value);
+      if (!Number.isFinite(offset)) return;
+      const next = new Date(sliderBaseMs + offset * DAY_MS);
+      simulation.setDate(next);
+      updateTimeLabel(next);
+      simulation.setPaused(true);
+      playingRange = false;
+      updatePlayControls();
+    });
+    timeSlider.addEventListener('change', stopScrubbing);
+  }
+
+  if (speedSlider) {
+    speedSlider.min = '0';
+    speedSlider.max = String(SPEED_PRESETS.length - 1);
+    speedSlider.step = '1';
+    const updateSpeed = () => {
+      const index = clamp(Math.round(Number(speedSlider.value)), 0, SPEED_PRESETS.length - 1);
+      const preset = SPEED_PRESETS[index];
+      speedSlider.value = String(index);
+      simulation.setTimeScale(preset.seconds);
+      if (speedLabel) speedLabel.textContent = preset.label;
+    };
+    speedSlider.addEventListener('input', updateSpeed);
+    updateSpeed();
+  }
+
+  if (neosToggle) {
+    simulation.setSmallBodiesVisible(neosToggle.checked);
+    neosToggle.addEventListener('change', () => {
+      simulation.setSmallBodiesVisible(neosToggle.checked);
+    });
+  } else {
+    simulation.setSmallBodiesVisible(true);
+  }
+
+  if (playBtn) {
+    playBtn.addEventListener('click', () => {
+      simulation.setDate(rangeStart);
+      simulation.setPaused(false);
+      playingRange = true;
+      updateSliderFromDate(rangeStart);
+      updateTimeLabel(rangeStart);
+      updatePlayControls();
+    });
+  }
+
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', () => {
+      simulation.setPaused(true);
+      playingRange = false;
+      updatePlayControls();
+    });
+  }
+
+  onDateChangeHandler = (date) => {
+    updateTimeLabel(date);
+    if (!scrubbing) {
+      updateSliderFromDate(date);
+    }
+    if (playingRange && date.getTime() >= rangeEnd.getTime() - 1) {
+      simulation.setDate(rangeEnd);
+      simulation.setPaused(true);
+      playingRange = false;
+      updateSliderFromDate(rangeEnd);
+      updateTimeLabel(rangeEnd);
+      updatePlayControls();
+    }
+  };
+
+  updateSliderBounds();
+  updateSliderFromDate(simulation.getCurrentDate());
+  updateTimeLabel(simulation.getCurrentDate());
+  updatePlayControls();
 
   const extras: SmallBodySpec[] = [];
   const applyNeos = (neos: NeoItem[]) => {
@@ -369,32 +610,50 @@ export async function initNeo3D(
 
   applyNeos(getSelectedNeos());
 
-  const speedSel = document.getElementById('neo3d-speed') as HTMLSelectElement | null;
-  if (speedSel) {
-    if ([...speedSel.options].some((opt) => opt.value === '86400')) {
-      speedSel.value = '86400';
-    }
-    speedSel.addEventListener('change', () => {
-      const value = Number(speedSel.value);
-      if (!Number.isFinite(value)) return;
-      if (value === 0) {
-        simulation.setPaused(true);
-      } else {
-        simulation.setPaused(false);
-        simulation.setTimeScale(value);
+  const loadAtlas = async () => {
+    try {
+      const elements = await loadAtlasSBDB();
+      const keplerEls = elementsToKeplerian(elements);
+      const initial = propagateConic(elements, jdFromDateUTC(simulation.getCurrentDate()));
+      if (!isFiniteVec3(initial.posAU)) {
+        throw new Error('3I/ATLAS propagation invalid');
       }
-    });
-  }
 
-  const timeSlider = document.getElementById('neo3d-time') as HTMLInputElement | null;
-  if (timeSlider) {
-    const baseMs = now.getTime();
-    timeSlider.addEventListener('input', () => {
-      const offset = Number(timeSlider.value);
-      if (!Number.isFinite(offset)) return;
-      simulation.setDate(new Date(baseMs + offset * DAY_MS));
-    });
-  }
+      const sample: NonNullable<SmallBodySpec['sample']> = (date) => {
+        try {
+          const state = propagateConic(elements, jdFromDateUTC(date));
+          return isFiniteVec3(state.posAU) ? state : null;
+        } catch (error) {
+          console.warn('[neo3d] 3I/ATLAS propagation failed', error);
+          return null;
+        }
+      };
+
+      const atlasSpec: SmallBodySpec = {
+        name: '3I/ATLAS',
+        label: 'C/2025 N1 (ATLAS)',
+        color: 0xf87171,
+        sample,
+        orbit: { color: 0xf87171, segments: 1600, spanDays: 3200 },
+      };
+
+      if (keplerEls) {
+        atlasSpec.els = keplerEls;
+      } else {
+        console.warn('[neo3d] 3I/ATLAS Keplerian conversion failed; using sample propagation only');
+      }
+
+      extras.push(atlasSpec);
+      applyNeos(getSelectedNeos());
+      console.info('[neo3d] ATLAS loaded from sbdb?sstr=3I');
+      toast('3I/ATLAS loaded from SBDB 3I');
+    } catch (error) {
+      console.error('[neo3d] ATLAS load failed', error);
+      toastError('3I/ATLAS failed to load');
+    }
+  };
+
+  void loadAtlas();
 
   const iso = '2025-11-19T04:00:02Z';
   void Promise.all([
@@ -404,61 +663,6 @@ export async function initNeo3D(
     console.assert(mercury.posAU.every(Number.isFinite), 'Mercury Horizons VECTORS invalid', mercury);
     console.assert(venus.posAU.every(Number.isFinite), 'Venus Horizons VECTORS invalid', venus);
   });
-
-  const add3iBtn = document.getElementById('neo3d-load-3i') as HTMLButtonElement | null;
-  if (add3iBtn) {
-    const defaultLabel = add3iBtn.textContent ?? 'Add 3I/ATLAS';
-    let loaded = false;
-    add3iBtn.addEventListener('click', async () => {
-      if (loaded) return;
-      add3iBtn.disabled = true;
-      add3iBtn.textContent = 'Loading…';
-      try {
-        const elements = await loadAtlasSBDB();
-        const keplerEls = elementsToKeplerian(elements);
-        const initial = propagateConic(elements, jdFromDateUTC(simulation.getCurrentDate()));
-        if (!isFiniteVec3(initial.posAU)) {
-          throw new Error('3I/ATLAS propagation invalid');
-        }
-        const sample: NonNullable<SmallBodySpec['sample']> = (date) => {
-          try {
-            const state = propagateConic(elements, jdFromDateUTC(date));
-            return isFiniteVec3(state.posAU) ? state : null;
-          } catch (error) {
-            console.warn('[neo3d] 3I/ATLAS propagation failed', error);
-            return null;
-          }
-        };
-
-        const atlasSpec: SmallBodySpec = {
-          name: '3I/ATLAS',
-          label: 'C/2025 N1 (ATLAS)',
-          color: 0xf87171,
-          sample,
-          orbit: { color: 0xf87171, segments: 1600, spanDays: 3200 },
-        };
-
-        if (keplerEls) {
-          atlasSpec.els = keplerEls;
-        } else {
-          console.warn('[neo3d] 3I/ATLAS Keplerian conversion failed; using sample propagation only');
-        }
-
-        extras.push(atlasSpec);
-        applyNeos(getSelectedNeos());
-        console.info('[neo3d] ATLAS loaded from sbdb?sstr=3I');
-        toast('3I/ATLAS loaded from SBDB 3I');
-        add3iBtn.textContent = '3I/ATLAS';
-        loaded = true;
-      } catch (error) {
-        console.error('[neo3d] ATLAS load failed', error);
-        toastError('3I/ATLAS failed to load');
-        add3iBtn.textContent = defaultLabel;
-      } finally {
-        if (!loaded) add3iBtn.disabled = false;
-      }
-    });
-  }
 
   return {
     setNeos(neos: NeoItem[]) {

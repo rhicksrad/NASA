@@ -39,6 +39,7 @@ export interface Neo3DOptions {
   initialDate?: Date;
   minDate?: Date;
   maxDate?: Date;
+  onDateChange?: (date: Date) => void;
 }
 
 interface RenderBody {
@@ -192,6 +193,7 @@ export class Neo3D {
   private planets = new Map<string, PlanetNode>();
   private minMs: number;
   private maxMs: number;
+  private smallBodiesVisible = true;
   private raycaster = new THREE.Raycaster();
   private pointer = new THREE.Vector2();
   private pointerClient = { x: 0, y: 0 };
@@ -297,6 +299,16 @@ export class Neo3D {
     }
   }
 
+  isPaused(): boolean {
+    return this.paused;
+  }
+
+  setBounds(minDate?: Date | null, maxDate?: Date | null): void {
+    this.minMs = minDate ? minDate.getTime() : Number.NEGATIVE_INFINITY;
+    this.maxMs = maxDate ? maxDate.getTime() : Number.POSITIVE_INFINITY;
+    this.simMs = THREE.MathUtils.clamp(this.simMs, this.minMs, this.maxMs);
+  }
+
   setPlanets(providers: PlanetSampleProvider[]): void {
     for (const planet of this.planets.values()) {
       this.scene.remove(planet.mesh);
@@ -346,6 +358,7 @@ export class Neo3D {
         if (points && points.length >= 6) {
           const closed = spec.els ? spec.els.e < 1 : false;
           orbitLine = makeOrbitLine(points, spec.orbit.color, closed);
+          orbitLine.visible = this.smallBodiesVisible;
           this.scene.add(orbitLine);
         }
       }
@@ -354,6 +367,18 @@ export class Neo3D {
     }
 
     this.refreshInteractiveMeshes();
+  }
+
+  setSmallBodiesVisible(visible: boolean): void {
+    this.smallBodiesVisible = visible;
+    for (const body of this.bodies) {
+      if (!visible) {
+        body.mesh.visible = false;
+      }
+      if (body.orbitLine) {
+        body.orbitLine.visible = visible;
+      }
+    }
   }
 
   clearSmallBodies(): void {
@@ -398,6 +423,12 @@ export class Neo3D {
     }
 
     for (const body of this.bodies) {
+      if (!this.smallBodiesVisible) {
+        body.mesh.visible = false;
+        if (body.orbitLine) body.orbitLine.visible = false;
+        continue;
+      }
+
       let pos: [number, number, number] | null = null;
       if (body.spec.els) {
         const propagated = propagate(body.spec.els, jd);
@@ -416,11 +447,16 @@ export class Neo3D {
 
       body.mesh.visible = true;
       body.mesh.position.copy(toScene(pos));
+      if (body.orbitLine) body.orbitLine.visible = true;
     }
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
     this.updateHover();
+
+    if (this.options.onDateChange) {
+      this.options.onDateChange(now);
+    }
   }
 
   private onResize(): void {
