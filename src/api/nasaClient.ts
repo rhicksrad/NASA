@@ -11,6 +11,12 @@ type RequestParams = Record<string, string | number>;
 type RequestOptions = RequestInit & { timeoutMs?: number };
 
 function buildUrl(path: string, params: RequestParams = {}): string {
+  if (/^https?:\/\//i.test(path)) {
+    const url = new URL(path);
+    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+    return url.toString();
+  }
+
   const clean = path.startsWith('/') ? path : `/${path}`;
   const full = API_BASE ? `${API_BASE}${clean}` : clean;
   const url = new URL(full, window.location.href);

@@ -1,7 +1,8 @@
-import { getSbdb } from '../api/fetch_sbdb';
+import { request } from '../api/nasaClient';
 import type { NeoItem } from '../types/nasa';
 import { fromSbdb } from '../utils/orbit';
 import { Neo3D, type Body } from '../visuals/neo3d';
+import type { SbdbResponse } from '../types/sbdb';
 
 function orbitFromNeo(neo: NeoItem): Body | null {
   const orbital = neo.orbital_data;
@@ -88,7 +89,11 @@ export async function initNeo3D(
       add3iBtn.disabled = true;
       add3iBtn.textContent = 'Loading…';
       try {
-        const response = await getSbdb('3I/ATLAS', true);
+        const response = await request<SbdbResponse>(
+          'https://lively-haze-4b2c.hicksrch.workers.dev/sbdb?sstr=3I',
+          {},
+          { timeoutMs: 30_000 },
+        );
         const target = response.object;
         if (!target || !target.orbit) {
           throw new Error('No SBDB orbit for 3I/ATLAS');
@@ -99,6 +104,12 @@ export async function initNeo3D(
             name: target.object_name ?? '3I/ATLAS',
             color: 0xdc2626,
             els,
+            orbit: {
+              color: 0xef4444,
+              segments: 1200,
+              spanDays: 2600,
+            },
+            label: '3I/ATLAS',
           },
         ]);
         loaded = true;
