@@ -1,6 +1,6 @@
 import './styles/main.css';
 import { getApod } from './api/fetch_apod';
-import { getNeoBrowse } from './api/fetch_neo';
+import { initNeoSection } from './routes/neo';
 
 function qs<T extends Element>(sel: string): T {
   const el = document.querySelector(sel);
@@ -27,16 +27,6 @@ function renderApod(container: HTMLElement, apod: any): void {
   } else {
     container.textContent = 'Unsupported media type';
   }
-}
-
-function renderNeo(summaryEl: HTMLElement, listEl: HTMLElement, data: any): void {
-  const total = data.page?.total_elements ?? 0;
-  summaryEl.textContent = `Sample size: ${data.page?.size ?? 0} • Total known (reported): ${total}`;
-  listEl.replaceChildren();
-  const first = data.near_earth_objects?.[0];
-  const li = document.createElement('li');
-  li.textContent = first ? `First sample object: ${first.name}` : 'No objects returned in this sample.';
-  listEl.appendChild(li);
 }
 
 function friendlyError(e: unknown): string {
@@ -70,13 +60,12 @@ async function init() {
   }
 
   try {
-    const neo = await getNeoBrowse({ size: 5 });
-    neoSummary.classList.remove('loading');
-    renderNeo(neoSummary, neoList, neo);
+    await initNeoSection(neoSummary, neoList);
   } catch (err) {
-    neoSummary.classList.remove('loading');
     neoSummary.textContent = `NEO sample failed to load. ${friendlyError(err)}`;
     console.error(err);
+  } finally {
+    neoSummary.classList.remove('loading');
   }
 }
 
