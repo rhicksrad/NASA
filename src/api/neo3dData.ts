@@ -9,6 +9,28 @@ const DAY_MS = 86_400_000;
 const AU_IN_KM = 149_597_870.7;
 const SECONDS_PER_DAY = 86_400;
 
+type HorizonsElementsRecord = Record<string, unknown> & {
+  a?: unknown;
+  e?: unknown;
+  i?: unknown;
+  IN?: unknown;
+  incl?: unknown;
+  om?: unknown;
+  OM?: unknown;
+  node?: unknown;
+  Omega?: unknown;
+  w?: unknown;
+  W?: unknown;
+  peri?: unknown;
+  M?: unknown;
+  MA?: unknown;
+  ma?: unknown;
+  mean_anomaly?: unknown;
+  epoch?: unknown;
+  epoch_jd?: unknown;
+  jd_tdb?: unknown;
+};
+
 export interface VectorSample {
   jd: number;
   posAU: [number, number, number];
@@ -67,6 +89,13 @@ function formatUtc(date: Date): string {
   return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
 }
 
+function wrapWithQuotes(value: string): string {
+  const trimmed = value.trim();
+  const bare = trimmed.replace(/^'+|'+$/g, '');
+  const withSpace = bare.startsWith(' ') ? bare : ` ${bare}`;
+  return `'${withSpace}'`;
+}
+
 function parseLineNumbers(line: string): number[] {
   const matches = Array.from(line.matchAll(/[-+]?\d+(?:\.\d+)?(?:E[-+]?\d+)?/gi));
   return matches.map(match => Number(match[0]));
@@ -121,6 +150,41 @@ function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * DAY_MS);
 }
 
+function toNumericValue(value: unknown): number {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      return Number.NaN;
+    }
+    const parsed = Number(trimmed.replace(/[,\s]+/g, ''));
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
+  }
+  if (value && typeof value === 'object') {
+    const record = value as { value?: unknown };
+    if ('value' in record) {
+      return toNumericValue(record.value);
+    }
+  }
+  return Number.NaN;
+}
+
+function readElement(record: HorizonsElementsRecord, keys: string[]): number {
+  for (const key of keys) {
+    if (!(key in record)) {
+      continue;
+    }
+    const raw = (record as Record<string, unknown>)[key];
+    const value = toNumericValue(raw);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return Number.NaN;
+}
+
 export async function horizonsVectors(spk: string | number, times: Date[]): Promise<VectorSample[]> {
   if (!times.length) {
     return [];
@@ -165,16 +229,66 @@ function degToRad(value: number): number {
 
 export async function horizonsElements(command: string, date: Date): Promise<Keplerian> {
   const params = new URLSearchParams({
-    COMMAND: ` ${command}`,
+    COMMAND: wrapWithQuotes(command),
     EPHEM_TYPE: 'ELEMENTS',
-    TLIST: ` ${formatUtc(date)}`,
+    TLIST: wrapWithQuotes(formatUtc(date)),
     OBJ_DATA: 'NO',
     format: 'json',
   });
-  const data = await getJSON<{ result?: string }>(`/horizons?${params.toString()}`);
-  const result = data.result;
+  const data = await getJSON<{ result?: string | { elements?: HorizonsElementsRecord[] }; elements?: HorizonsElementsRecord[] }>(
+    `/horizons?${params.toString()}`,
+  );
+
+  const candidates: HorizonsElementsRecord[][] = [];
+  if (data.result && typeof data.result === 'object' && 'elements' in data.result) {
+    const fromResult = (data.result as { elements?: HorizonsElementsRecord[] }).elements;
+    if (Array.isArray(fromResult) && fromResult.length) {
+      candidates.push(fromResult);
+    }
+  }
+  if (Array.isArray((data as { elements?: HorizonsElementsRecord[] }).elements)) {
+    const fromRoot = (data as { elements: HorizonsElementsRecord[] }).elements;
+    if (fromRoot.length) {
+      candidates.push(fromRoot);
+    }
+  }
+
+  for (const list of candidates) {
+    const record = list[0];
+    if (!record) {
+      continue;
+    }
+    const e = readElement(record, ['e', 'ecc']);
+    const a = readElement(record, ['a']);
+    const iDeg = readElement(record, ['i', 'IN', 'incl']);
+    const OmegaDeg = readElement(record, ['Omega', 'om', 'OM', 'node', 'longascnode']);
+    const omegaDeg = readElement(record, ['omega', 'w', 'W', 'peri', 'arg_peri']);
+    const MDeg = readElement(record, ['M', 'MA', 'ma', 'mean_anomaly']);
+    const epochJD = readElement(record, ['epoch_jd', 'epoch', 'jd_tdb', 'jdref']);
+    if (
+      Number.isFinite(a) &&
+      Number.isFinite(e) &&
+      Number.isFinite(iDeg) &&
+      Number.isFinite(OmegaDeg) &&
+      Number.isFinite(omegaDeg) &&
+      Number.isFinite(MDeg) &&
+      Number.isFinite(epochJD)
+    ) {
+      return {
+        a,
+        e,
+        i: degToRad(iDeg),
+        Omega: degToRad(OmegaDeg),
+        omega: degToRad(omegaDeg),
+        M: degToRad(MDeg),
+        epochJD,
+      };
+    }
+  }
+
+  const result = typeof data.result === 'string' ? data.result : undefined;
   if (typeof result !== 'string' || !result.includes('$$SOE')) {
-    throw new Error('Horizons ELEMENTS response missing ephemeris block');
+    throw new Error('no elements');
   }
   const start = result.indexOf('$$SOE');
   const end = result.indexOf('$$EOE', start);
@@ -218,26 +332,38 @@ export interface Atlas3IResult {
 }
 
 export async function atlas3I(referenceDate: Date): Promise<Atlas3IResult> {
-  try {
-    const primary = await sbdbElements('3I/ATLAS');
-    const pos = propagate(primary.els, jdFromDate(referenceDate));
-    const finite = pos.every(value => Number.isFinite(value));
-    if (!finite) {
-      throw new Error('3I/ATLAS SBDB propagation produced non-finite values');
+  const sbdbQueries = ['3I/2019 N2 (ATLAS)', '3I/ATLAS'];
+  for (const query of sbdbQueries) {
+    try {
+      const primary = await sbdbElements(query);
+      const pos = propagate(primary.els, jdFromDate(referenceDate));
+      if (!pos.every(value => Number.isFinite(value))) {
+        throw new Error('non-finite propagation');
+      }
+      return { name: primary.name, els: primary.els, source: 'sbdb', raw: primary.raw };
+    } catch (error) {
+      console.warn(`[neo3dData] SBDB lookup for ${query} failed`, error);
     }
-    return { name: primary.name, els: primary.els, source: 'sbdb', raw: primary.raw };
-  } catch (error) {
-    console.warn('[neo3dData] SBDB lookup for 3I/ATLAS failed', error);
   }
 
   const fallbackDate = new Date(referenceDate);
-  const els = await horizonsElements('3I/ATLAS', fallbackDate);
-  const pos = propagate(els, jdFromDate(referenceDate));
-  const finite = pos.every(value => Number.isFinite(value));
-  if (!finite) {
-    throw new Error('3I/ATLAS fallback propagation failed');
+  const horizonsQueries = ['3I/2019 N2 (ATLAS)', '3I/ATLAS'];
+  let lastError: unknown;
+  for (const query of horizonsQueries) {
+    try {
+      const els = await horizonsElements(query, fallbackDate);
+      const pos = propagate(els, jdFromDate(referenceDate));
+      if (!pos.every(value => Number.isFinite(value))) {
+        throw new Error('non-finite propagation');
+      }
+      return { name: query, els, source: 'horizons' };
+    } catch (error) {
+      lastError = error;
+      console.warn(`[neo3dData] Horizons ELEMENTS lookup for ${query} failed`, error);
+    }
   }
-  return { name: '3I/ATLAS', els, source: 'horizons' };
+
+  throw (lastError ?? new Error('3I/ATLAS fallback failed'));
 }
 
 export const _internal = { parseVectors, isoDay, formatUtc };

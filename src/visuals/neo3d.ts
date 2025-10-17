@@ -4,6 +4,8 @@ import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const SCALE = 120;
 
+const isFiniteVec = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
+
 interface OrbitConfig {
   color: number;
   segments?: number;
@@ -80,7 +82,11 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
     const period = 2 * Math.PI * Math.sqrt(aAbs * aAbs * aAbs) / 0.01720209895;
     for (let i = 0; i <= segments; i += 1) {
       const jd = els.epochJD + (period * i) / segments;
-      const [x, y, z] = propagate(els, jd);
+      const pos = propagate(els, jd);
+      if (!isFiniteVec(pos)) {
+        continue;
+      }
+      const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
   } else {
@@ -88,10 +94,11 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
     const half = span / 2;
     for (let i = 0; i <= segments; i += 1) {
       const offset = -half + (span * i) / segments;
-      const [x, y, z] = propagate(els, els.epochJD + offset);
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+      const pos = propagate(els, els.epochJD + offset);
+      if (!isFiniteVec(pos)) {
         continue;
       }
+      const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
   }
@@ -136,6 +143,9 @@ export class Neo3D {
   private planets = new Map<string, PlanetNode>();
   private minMs: number;
   private maxMs: number;
+  private ready = false;
+  private hasData = false;
+  private hasFinitePositions = false;
 
   constructor(private options: Neo3DOptions) {
     const { host } = options;
@@ -147,6 +157,7 @@ export class Neo3D {
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x020412, 1);
     host.replaceChildren(this.renderer.domElement);
+    this.renderer.domElement.style.visibility = 'hidden';
 
     this.camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 1000 * SCALE);
     this.camera.position.set(0, 6 * SCALE, 6 * SCALE);
@@ -198,6 +209,7 @@ export class Neo3D {
   addSmallBodies(bodies: SmallBodySpec[]): void {
     for (const spec of bodies) {
       const mesh = createBodyMesh(spec.color);
+      mesh.visible = false;
       this.scene.add(mesh);
       let orbitLine: THREE.Line | undefined;
       if (spec.orbit) {
@@ -211,6 +223,11 @@ export class Neo3D {
       }
       this.bodies.push({ spec, mesh, orbitLine });
     }
+    this.hasData = this.bodies.length > 0;
+    if (!this.hasData) {
+      this.hasFinitePositions = false;
+    }
+    this.updateReadyState();
   }
 
   clearSmallBodies(): void {
@@ -219,6 +236,9 @@ export class Neo3D {
       if (body.orbitLine) this.scene.remove(body.orbitLine);
     }
     this.bodies = [];
+    this.hasData = false;
+    this.hasFinitePositions = false;
+    this.updateReadyState();
   }
 
   setPlanets(providers: PlanetSampleProvider[]): void {
@@ -258,6 +278,14 @@ export class Neo3D {
     loop();
   }
 
+  private updateReadyState(): void {
+    const nextReady = this.hasData && this.hasFinitePositions;
+    if (nextReady !== this.ready) {
+      this.ready = nextReady;
+      this.renderer.domElement.style.visibility = nextReady ? 'visible' : 'hidden';
+    }
+  }
+
   private renderFrame(now: Date): void {
     const jd = jdFromDate(now);
     if (this.options.dateLabel) {
@@ -271,13 +299,37 @@ export class Neo3D {
       }
     }
 
+    let finitePositions = this.bodies.length > 0;
     for (const body of this.bodies) {
       const pos = propagate(body.spec.els, jd);
-      if (!pos.every(value => Number.isFinite(value))) {
+      if (!isFiniteVec(pos)) {
+        finitePositions = false;
+        body.mesh.visible = false;
+        if (body.orbitLine) {
+          body.orbitLine.visible = false;
+        }
         continue;
       }
       const vec = toScene([pos[0], pos[1], pos[2]]);
+      body.mesh.visible = true;
+      if (body.orbitLine) {
+        body.orbitLine.visible = true;
+      }
       body.mesh.position.copy(vec);
+    }
+
+    this.hasData = this.bodies.length > 0;
+    this.hasFinitePositions = finitePositions;
+    this.updateReadyState();
+    if (!this.ready) {
+      for (const body of this.bodies) {
+        body.mesh.visible = false;
+        if (body.orbitLine) {
+          body.orbitLine.visible = false;
+        }
+      }
+      this.renderer.clear();
+      return;
     }
 
     this.controls.update();

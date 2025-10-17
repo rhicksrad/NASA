@@ -79,11 +79,17 @@ function toKeplerian(neo: NeoItem): Keplerian | null {
   };
 }
 
+const isFiniteVec = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
+
 function buildBodies(neos: NeoItem[]): SmallBodySpec[] {
   const bodies: SmallBodySpec[] = [];
   for (const neo of neos) {
     const els = toKeplerian(neo);
     if (!els) continue;
+    if (!(els.a > 0) || els.e < 0 || els.e >= 1 || !Number.isFinite(els.epochJD)) {
+      console.warn('[neo3d] bad elements skipped', { name: neo.name, els });
+      continue;
+    }
     const color = neo.is_potentially_hazardous_asteroid ? 0xef4444 : 0x22d3ee;
     const segments = els.e < 1 ? 720 : 1600;
     const orbit: SmallBodySpec['orbit'] = {
@@ -148,6 +154,9 @@ class PlanetEphemeris {
         previous.posAU[2] + (next.posAU[2] - previous.posAU[2]) * t,
       ];
     }
+    if (!isFiniteVec(pos)) {
+      return null;
+    }
     this.lastKnown = [...pos];
     this.approximateRadius = Math.hypot(pos[0], pos[1], pos[2]);
     return pos;
@@ -171,6 +180,9 @@ class PlanetEphemeris {
     const promise = horizonsDailyVectors(this.spk, date)
       .then(samples => {
         for (const sample of samples) {
+          if (!isFiniteVec(sample.posAU)) {
+            continue;
+          }
           const existingIndex = this.samples.findIndex(item => Math.abs(item.jd - sample.jd) < 1e-6);
           if (existingIndex >= 0) {
             this.samples[existingIndex] = sample;
