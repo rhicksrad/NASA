@@ -1,6 +1,7 @@
 const NASA_HOST = 'api.nasa.gov';
 const NASA_BASE = `https://${NASA_HOST}`;
 const API_ORIGIN = NASA_BASE;
+const DEMO_KEY = 'DEMO_KEY';
 
 let NASA_API = '';
 
@@ -31,10 +32,18 @@ function redactKey(u) {
   return copy.toString();
 }
 
+function activeApiKey(key) {
+  if (key && typeof key === 'string' && key.trim().length) {
+    return key.trim();
+  }
+  return DEMO_KEY;
+}
+
 function forceApiKey(u, key) {
   if (u.host === NASA_HOST) {
+    const value = activeApiKey(key);
     u.searchParams.delete('api_key');
-    if (key) u.searchParams.set('api_key', key);
+    if (value) u.searchParams.set('api_key', value);
   }
 }
 
@@ -104,7 +113,19 @@ async function handleRequest(request) {
 
   if (url.pathname === '/health') {
     const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
+    headers['Cache-Control'] = 'public, max-age=300, s-maxage=600';
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
+  }
+
+  if (url.pathname === '/diag') {
+    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
+    const key = typeof NASA_API === 'string' ? NASA_API.trim() : '';
+    const info = {
+      hasNASA_API: key.length > 0,
+      keyLength: key.length,
+      usingDemoKey: key.length === 0,
+    };
+    return new Response(JSON.stringify(info), { status: 200, headers });
   }
 
   // APOD
@@ -200,19 +221,62 @@ async function handleRequest(request) {
     }
   }
 
-  if (!NASA_API) {
-    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
-    return new Response(JSON.stringify({ error: 'NASA_API secret not configured' }), { status: 500, headers });
-  }
-
   if (url.pathname === '/sbdb') {
-    const t = new URL('https://ssd-api.jpl.nasa.gov/sbdb.api');
+    const base = new URL('https://ssd-api.jpl.nasa.gov/sbdb.api');
     for (const [key, value] of url.searchParams.entries()) {
-      t.searchParams.set(key, value);
+      base.searchParams.append(key, value);
     }
-    const cf = { cacheEverything: true, cacheTtl: 600 };
-    const headers = { 'Cache-Control': 'public, max-age=300, s-maxage=600' };
-    return fwd(t, request, origin, debug, cf, headers);
+    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
+    const cacheOpts = { cacheEverything: true, cacheTtl: 600 };
+
+    const attempts = [];
+    attempts.push(base);
+
+    const requested = url.searchParams.get('sstr') || '';
+    const normalized = requested.replace(/\s+/g, '').toUpperCase();
+    if (normalized.includes('3I')) {
+      const aliases = ['3I/2019 N2 (ATLAS)', '2019 N2', '3I'];
+      for (const alias of aliases) {
+        const alt = new URL('https://ssd-api.jpl.nasa.gov/sbdb.api');
+        for (const [key, value] of url.searchParams.entries()) {
+          if (key === 'sstr') continue;
+          alt.searchParams.append(key, value);
+        }
+        alt.searchParams.set('sstr', alias);
+        if (!alt.searchParams.has('fullname')) {
+          alt.searchParams.set('fullname', 'true');
+        }
+        attempts.push(alt);
+      }
+    }
+
+    for (const attempt of attempts) {
+      try {
+        const resp = await fetch(attempt.toString(), { cf: cacheOpts });
+        const text = await resp.text();
+        if (resp.status === 404) {
+          continue;
+        }
+        const mergedHeaders = {
+          ...headers,
+          'Content-Type': resp.headers.get('content-type') || headers['Content-Type'],
+        };
+        return new Response(text, { status: resp.status, headers: mergedHeaders });
+      } catch (error) {
+        if (attempt !== attempts[attempts.length - 1]) {
+          continue;
+        }
+        return new Response(JSON.stringify({ error: 'SBDB fetch failed', url: attempt.toString() }), {
+          status: 502,
+          headers,
+        });
+      }
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'SBDB object not found', attempts: attempts.map(u => u.searchParams.get('sstr')) }),
+      { status: 404, headers },
+    );
   }
 
   const target = buildTargetUrl(url);
