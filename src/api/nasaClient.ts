@@ -6,7 +6,11 @@ export class HttpError extends Error {
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
 
-function buildUrl(path: string, params: Record<string, string | number> = {}): string {
+type RequestParams = Record<string, string | number>;
+
+type RequestOptions = RequestInit & { timeoutMs?: number };
+
+function buildUrl(path: string, params: RequestParams = {}): string {
   const clean = path.startsWith('/') ? path : `/${path}`;
   const full = API_BASE ? `${API_BASE}${clean}` : clean;
   const url = new URL(full, window.location.href);
@@ -14,22 +18,118 @@ function buildUrl(path: string, params: Record<string, string | number> = {}): s
   return url.toString();
 }
 
+function createTimeoutSignal(timeoutMs: number) {
+  let timedOut = false;
+  const abortSignalCtor = AbortSignal as typeof AbortSignal & { timeout?: (ms: number) => AbortSignal };
+
+  if (typeof abortSignalCtor?.timeout === 'function') {
+    const signal = abortSignalCtor.timeout(timeoutMs);
+    const onAbort = () => {
+      timedOut = true;
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    return {
+      signal,
+      cleanup: () => signal.removeEventListener('abort', onAbort),
+      didTimeout: () => timedOut,
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId),
+    didTimeout: () => timedOut,
+  };
+}
+
+function mergeAbortSignals(signals: AbortSignal[]): { signal: AbortSignal; cleanup: () => void } {
+  const controller = new AbortController();
+  const unlisteners: Array<() => void> = [];
+
+  const cleanup = () => {
+    while (unlisteners.length) {
+      const off = unlisteners.pop();
+      if (off) off();
+    }
+  };
+
+  const abortFrom = (signal: AbortSignal) => {
+    if (controller.signal.aborted) return;
+    cleanup();
+    const reason = (signal as { reason?: unknown }).reason;
+    controller.abort(reason);
+  };
+
+  for (const signal of signals) {
+    if (signal.aborted) {
+      abortFrom(signal);
+      break;
+    }
+    const handler = () => abortFrom(signal);
+    signal.addEventListener('abort', handler, { once: true });
+    unlisteners.push(() => signal.removeEventListener('abort', handler));
+  }
+
+  return { signal: controller.signal, cleanup };
+}
+
+function isAbortError(error: unknown): error is DOMException | Error {
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+  return error instanceof Error && error.name === 'AbortError';
+}
+
 export async function request<T>(
   path: string,
-  params: Record<string, string | number> = {},
-  init?: RequestInit
+  params: RequestParams = {},
+  init?: RequestOptions
 ): Promise<T> {
   const url = buildUrl(path, params);
-  const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), 30_000);
+  const { timeoutMs = 30_000, signal: externalSignal, headers: initHeaders, ...restInit } = init ?? {};
+
+  const cleanups: Array<() => void> = [];
+  const signals: AbortSignal[] = [];
+  let didTimeout = () => false;
+
+  if (timeoutMs > 0) {
+    const timeout = createTimeoutSignal(timeoutMs);
+    signals.push(timeout.signal);
+    cleanups.push(timeout.cleanup);
+    didTimeout = timeout.didTimeout;
+  }
+
+  if (externalSignal) {
+    signals.push(externalSignal);
+  }
+
+  let signal: AbortSignal | undefined;
+  if (signals.length === 1) {
+    signal = signals[0];
+  } else if (signals.length > 1) {
+    const merged = mergeAbortSignals(signals);
+    signal = merged.signal;
+    cleanups.push(merged.cleanup);
+  }
+
+  const headers = new Headers(initHeaders);
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
+
+  const requestInit: RequestInit = { ...restInit, headers, signal };
+  if (!requestInit.method) {
+    requestInit.method = 'GET';
+  }
 
   try {
-    const resp = await fetch(url, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      signal: ctrl.signal,
-      ...init,
-    });
+    const resp = await fetch(url, requestInit);
 
     const ct = resp.headers.get('content-type') || '';
     const asJson = ct.includes('application/json');
@@ -37,10 +137,16 @@ export async function request<T>(
 
     if (!resp.ok) throw new HttpError(resp.status, url, data);
     return data as T;
-  } catch (e) {
-    console.error('[nasaClient] request failed', { path, url, params, err: e });
-    throw e;
+  } catch (error) {
+    let finalError: unknown = error;
+    if (isAbortError(error) && didTimeout()) {
+      const timeoutError = new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+      timeoutError.name = 'TimeoutError';
+      finalError = timeoutError;
+    }
+    console.error('[nasaClient] request failed', { path, url, params, err: finalError });
+    throw finalError;
   } finally {
-    clearTimeout(id);
+    for (const cleanup of cleanups) cleanup();
   }
 }
