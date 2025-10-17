@@ -1,42 +1,125 @@
-import { Neo3D, type Body } from '../visuals/neo3d';
-import type { NeoItem } from '../types/nasa';
 import { getSbdb } from '../api/fetch_sbdb';
+import type { NeoItem } from '../types/nasa';
 import { fromSbdb } from '../utils/orbit';
+import { Neo3D, type Body } from '../visuals/neo3d';
 
-function elsFromNeo(n: NeoItem){
-  const o=n.orbital_data!;
-  return { a:Number(o.semi_major_axis), e:Number(o.eccentricity), i:Number(o.inclination),
-           Omega:Number(o.ascending_node_longitude), omega:Number(o.perihelion_argument),
-           M:Number(o.mean_anomaly), epochJD:Number(o.epoch_osculation) };
+function orbitFromNeo(neo: NeoItem): Body | null {
+  const orbital = neo.orbital_data;
+  if (!orbital) {
+    return null;
+  }
+  return {
+    name: neo.name,
+    color: neo.is_potentially_hazardous_asteroid ? 0xef4444 : 0x10b981,
+    els: {
+      a: Number(orbital.semi_major_axis),
+      e: Number(orbital.eccentricity),
+      i: Number(orbital.inclination),
+      Omega: Number(orbital.ascending_node_longitude),
+      omega: Number(orbital.perihelion_argument),
+      M: Number(orbital.mean_anomaly),
+      epochJD: Number(orbital.epoch_osculation),
+    },
+  };
 }
 
-function mapNeos(neos:NeoItem[]):Body[]{
-  return neos.slice(0,50).map((n,i)=>({ name:n.name, els:elsFromNeo(n), color: i%7===0?0xef4444:0x10b981 }));
+function buildBodies(neos: NeoItem[]): Body[] {
+  const bodies: Body[] = [];
+  for (const neo of neos) {
+    const body = orbitFromNeo(neo);
+    if (body) {
+      bodies.push(body);
+    }
+    if (bodies.length >= 50) {
+      break;
+    }
+  }
+  return bodies;
 }
 
-export interface Neo3DController { setNeos(neos: NeoItem[]): void; }
+function applySpeedControls(sim: Neo3D): void {
+  const speed = document.getElementById('neo3d-speed');
+  if (!(speed instanceof HTMLSelectElement)) {
+    return;
+  }
+  speed.addEventListener('change', () => {
+    const value = Number(speed.value);
+    if (value === 0) {
+      sim.setPaused(true);
+    } else {
+      sim.setPaused(false);
+      sim.setTimeScale(value);
+    }
+  });
+}
 
-export async function initNeo3D(getSelectedNeos:()=>NeoItem[]):Promise<Neo3DController|null>{
-  const host=document.getElementById('neo3d-host') as HTMLDivElement | null; if(!host) return null;
-  const sim=new Neo3D({host});
-  sim.setBodies(mapNeos(getSelectedNeos()));
-  sim.start();
+function setupAtlasButton(sim: Neo3D): void {
+  const button = document.getElementById('neo3d-load-3i');
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  const defaultLabel = button.textContent ?? 'Add 3I/ATLAS';
+  let loaded = false;
+  button.addEventListener('click', async () => {
+    if (loaded) {
+      return;
+    }
+    button.disabled = true;
+    button.textContent = 'Loading…';
+    try {
+      const response = await getSbdb('3I/ATLAS', true);
+      const target = response.object;
+      if (!target || !target.orbit) {
+        throw new Error('No SBDB orbit for 3I/ATLAS');
+      }
+      const els = fromSbdb(target.orbit);
+      sim.addBodies([
+        {
+          name: target.object_name ?? '3I/ATLAS',
+          color: 0xdc2626,
+          els,
+        },
+      ]);
+      loaded = true;
+      button.textContent = '3I/ATLAS added';
+    } catch (error) {
+      console.error('3I/ATLAS load failed', error);
+      button.disabled = false;
+      button.textContent = '3I unavailable';
+      setTimeout(() => {
+        if (!loaded) {
+          button.textContent = defaultLabel;
+        }
+      }, 3_000);
+    }
+  });
+}
 
-  const speed=document.getElementById('neo3d-speed') as HTMLSelectElement|null;
-  if(speed){ speed.addEventListener('change',()=>{ const v=Number(speed.value); if(v===0) sim.setPaused(true); else { sim.setPaused(false); sim.setTimeScale(v); } }); }
+export interface Neo3DController {
+  setNeos(neos: NeoItem[]): void;
+}
 
-  const add3i=document.getElementById('neo3d-load-3i') as HTMLButtonElement|null;
-  if(add3i){
-    add3i.addEventListener('click', async ()=>{
-      add3i.disabled=true;
-      try{
-        const res=await getSbdb('3I/ATLAS', true);
-        const obj=res.object; if(!obj||!obj.orbit) throw new Error('No SBDB orbit');
-        const els=fromSbdb(obj.orbit);
-        sim.addBodies([{ name: obj.object_name || '3I/ATLAS', els, color: 0xdc2626 }]);
-      }catch(e){ console.error('3I error', e); add3i.textContent='3I unavailable'; }
-    });
+export async function initNeo3D(
+  getSelectedNeos: () => NeoItem[],
+  host?: HTMLElement | null,
+): Promise<Neo3DController | null> {
+  const container = host ?? document.getElementById('neo3d-host');
+  if (!(container instanceof HTMLElement)) {
+    return null;
   }
 
-  return { setNeos(neos:NeoItem[]){ sim.setBodies(mapNeos(neos)); } };
+  const simulation = new Neo3D({ host: container });
+  const apply = (neos: NeoItem[]) => {
+    simulation.setBodies(buildBodies(neos));
+  };
+
+  apply(getSelectedNeos());
+  simulation.start();
+
+  applySpeedControls(simulation);
+  setupAtlasButton(simulation);
+
+  return {
+    setNeos: apply,
+  };
 }
