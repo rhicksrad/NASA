@@ -11,45 +11,41 @@ export class HttpError extends Error {
   }
 }
 
-interface FetchResult {
-  url: string;
-  status: number;
-  ok: boolean;
-  text: string;
-}
-
-async function request(path: string): Promise<FetchResult> {
+async function getTextOrJSON(path: string): Promise<string | unknown> {
   const url = `${BASE}${path}`;
   const response = await fetch(url, { credentials: 'omit' });
   const text = await response.text();
-  return { url, status: response.status, ok: response.ok, text };
-}
-
-function parseJSON<T>(text: string, url: string): T {
+  if (!response.ok) throw new HttpError(url, response.status, text);
   try {
-    return JSON.parse(text) as T;
-  } catch (error) {
-    throw new Error(`Invalid JSON from ${url}: ${(error as Error).message}`);
+    return JSON.parse(text);
+  } catch {
+    return text;
   }
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
   return value as Record<string, unknown>;
 }
 
-function firstRecordFromArray(value: unknown): Record<string, unknown> | null {
-  if (!Array.isArray(value) || value.length === 0) return null;
+function firstRecordFromArray(value: unknown): Record<string, unknown> | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
   return asRecord(value[0]);
 }
 
 export async function tryNeoBrowse(size = 50): Promise<NeoBrowse | null> {
-  const { url, status, ok, text } = await request(`/neo/browse?size=${size}`);
-  if (!ok) {
-    if (status === 401 || status === 429) return null;
-    throw new HttpError(url, status, text);
+  try {
+    const data = await getTextOrJSON(`/neo/browse?size=${size}`);
+    if (typeof data !== 'object' || data === null) {
+      throw new Error('NEO browse: unexpected response type');
+    }
+    return data as NeoBrowse;
+  } catch (error) {
+    if (error instanceof HttpError && (error.status === 401 || error.status === 429)) {
+      return null;
+    }
+    throw error;
   }
-  return parseJSON<NeoBrowse>(text, url);
 }
 
 export type VectorSample = {
@@ -75,10 +71,10 @@ export async function horizonsVectors(spk: number | string, iso: string) {
   const tlist = normalizeIso(iso).replace('T', ' ').replace(/Z$/, '');
   const path =
     `/horizons?COMMAND='${encodeURIComponent(String(spk))}'&EPHEM_TYPE=VECTORS&TLIST='${encodeURIComponent(tlist)}'&OBJ_DATA=NO&OUT_UNITS=AU-D&TIME_TYPE=UT&format=json&MAKE_EPHEM=YES&CENTER=500@10&REF_PLANE=ECLIPTIC&REF_SYSTEM=J2000`;
-  const { url, ok, status, text } = await request(path);
-  if (!ok) throw new HttpError(url, status, text);
+  const result = await getTextOrJSON(path);
+  const resultText = typeof result === 'string' ? result : JSON.stringify(result);
 
-  const block = extractHorizonsBlock(text);
+  const block = extractHorizonsBlock(resultText);
   const pos = extractVector(block, 'X', 'Y', 'Z');
   const vel = extractVector(block, 'VX', 'VY', 'VZ');
   return { posAU: pos, velAUPerDay: vel };
@@ -141,10 +137,7 @@ export type Elements = {
 };
 
 export async function loadAtlasSBDB(): Promise<Elements> {
-  const params = new URLSearchParams({ sstr: '3I', fullname: 'true' });
-  const { url, ok, status, text } = await request(`/sbdb?${params.toString()}`);
-  if (!ok) throw new HttpError(url, status, text);
-  const data = parseJSON<Record<string, unknown>>(text, url);
+  const data = await getTextOrJSON(`/sbdb?sstr=3I&fullname=true`);
 
   const root = asRecord(data);
   const objectOrbit = asRecord(asRecord(root?.object)?.orbit);
@@ -153,76 +146,41 @@ export async function loadAtlasSBDB(): Promise<Elements> {
     firstRecordFromArray(asRecord(root?.orbit)?.elements) ??
     asRecord(root?.orbit) ??
     firstRecordFromArray(root?.elements) ??
-    null;
+    undefined;
 
-  if (!orbitRecord) {
-    throw new Error('ATLAS SBDB: missing orbit elements');
-  }
+  if (!orbitRecord) throw new Error('ATLAS SBDB: no elements');
 
-  const getRawNumber = (key: string): number => {
-    const value = orbitRecord[key];
-    if (value == null) return Number.NaN;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : Number.NaN;
-  };
+  const N = (value: unknown): number => (value == null ? Number.NaN : Number(value));
 
-  const pick = (...keys: string[]): number => {
-    for (const key of keys) {
-      const n = getRawNumber(key);
-      if (Number.isFinite(n)) return n;
-    }
-    return Number.NaN;
-  };
+  const rawA = N(orbitRecord['a']);
+  const rawE = N(orbitRecord['e']);
+  const rawI = N(orbitRecord['i'] ?? orbitRecord['inc'] ?? orbitRecord['incl']);
+  const rawOmega = N(orbitRecord['om'] ?? orbitRecord['Omega'] ?? orbitRecord['node']);
+  const rawOmegaArg = N(orbitRecord['w'] ?? orbitRecord['argp'] ?? orbitRecord['peri']);
+  const rawEpochJD = N(orbitRecord['epoch_jd'] ?? orbitRecord['epoch']);
+  const rawM = N(orbitRecord['ma'] ?? orbitRecord['M']);
 
-  const a = getRawNumber('a');
-  const e = getRawNumber('e');
-  const iDeg = pick('i', 'inc', 'incl');
-  const OmegaDeg = pick('om', 'Omega', 'node');
-  const omegaDeg = pick('w', 'argp', 'peri');
-  const epochJD = pick('epoch_jd', 'epoch');
-  const mDeg = pick('ma', 'M');
-  const tp_jd = pick('tp_jd', 'tp');
-  const q = pick('q');
+  const rawTp = N(orbitRecord['tp_jd'] ?? orbitRecord['tp']);
+  const rawQ = N(orbitRecord['q']);
 
-  if (!(e > 0)) {
-    throw new Error('ATLAS SBDB: eccentricity must be > 0');
-  }
+  const e = rawE;
+  if (!Number.isFinite(e) || e <= 0) throw new Error('ATLAS SBDB: invalid element values');
 
-  const i = degToRad(iDeg);
-  const Omega = degToRad(OmegaDeg);
-  const omega = degToRad(omegaDeg);
-  if (![i, Omega, omega].every(Number.isFinite)) {
-    throw new Error('ATLAS SBDB: invalid angular elements');
-  }
+  const i = degToRad(rawI);
+  const Omega = degToRad(rawOmega);
+  const omega = degToRad(rawOmegaArg);
 
-  const elements: Elements = {
+  return {
+    a: Number.isFinite(rawA) ? rawA : undefined,
     e,
     i,
     Omega,
     omega,
+    epochJD: Number.isFinite(rawEpochJD) ? rawEpochJD : undefined,
+    M0: Number.isFinite(rawM) ? degToRad(rawM) : undefined,
+    tp_jd: Number.isFinite(rawTp) ? rawTp : undefined,
+    q: Number.isFinite(rawQ) ? rawQ : undefined,
   };
-
-  if (Number.isFinite(a)) {
-    elements.a = a;
-  } else if (Number.isFinite(q)) {
-    if (e < 1) {
-      elements.a = q / (1 - e);
-    } else {
-      elements.a = -Math.abs(q) / (e - 1);
-    }
-  }
-
-  if (Number.isFinite(epochJD)) elements.epochJD = epochJD;
-  const M0 = Number.isFinite(mDeg) ? degToRad(mDeg) : Number.NaN;
-  if (Number.isFinite(M0)) elements.M0 = M0;
-  if (Number.isFinite(tp_jd)) elements.tp_jd = tp_jd;
-  if (Number.isFinite(q)) elements.q = q;
-
-  if (e > 1 && (!Number.isFinite(elements.tp_jd ?? Number.NaN) || !Number.isFinite(elements.q ?? Number.NaN))) {
-    throw new Error('ATLAS SBDB: hyperbolic orbit missing tp_jd or q');
-  }
-
-  return elements;
 }
 
 export type ConicState = {
@@ -231,144 +189,96 @@ export type ConicState = {
 };
 
 export function propagateConic(el: Elements, tJD: number): ConicState {
-  const e = el.e;
-  if (!(e > 0)) {
-    throw new Error('Conic propagation requires eccentricity > 0');
+  const { a, e, i, Omega, omega, epochJD, M0, tp_jd, q } = el;
+
+  if (!(e > 0)) throw new Error('Conic propagation requires eccentricity > 0');
+
+  if (e > 1 + 1e-12) {
+    const aAbs = Number.isFinite(a) && (a as number) !== 0
+      ? Math.abs(a as number)
+      : Number.isFinite(q) ? (q as number) / (e - 1) : Number.NaN;
+    if (!Number.isFinite(aAbs)) throw new Error('hyperbolic: missing a/q');
+
+    const n = Math.sqrt(MU / (aAbs * aAbs * aAbs));
+    const M = Number.isFinite(tp_jd)
+      ? n * (tJD - (tp_jd as number))
+      : Number.isFinite(M0) && Number.isFinite(epochJD)
+        ? (M0 as number) + n * (tJD - (epochJD as number))
+        : Number.NaN;
+    if (!Number.isFinite(M)) throw new Error('hyperbolic: missing epoch');
+
+    let H = Math.asinh((M as number) / e);
+    for (let k = 0; k < 60; k += 1) {
+      const sH = Math.sinh(H);
+      const cH = Math.cosh(H);
+      const f = e * sH - H - (M as number);
+      const fp = e * cH - 1;
+      const dH = -f / fp;
+      H += dH;
+      if (Math.abs(dH) < 1e-13) break;
+    }
+
+    const r = aAbs * (e * Math.cosh(H) - 1);
+    const nu = 2 * Math.atan2(
+      Math.sqrt(e + 1) * Math.sinh(H / 2),
+      Math.sqrt(e - 1) * Math.cosh(H / 2),
+    );
+    return perifocalToEcliptic(r, nu, e, aAbs, i, Omega, omega);
   }
 
-  if (e < 1 - 1e-12) {
-    return propagateElliptic(el, tJD);
-  }
   if (Math.abs(e - 1) <= 1e-12) {
-    return propagateParabolic(el, tJD);
-  }
-  return propagateHyperbolic(el, tJD);
-}
-
-function propagateElliptic(el: Elements, tJD: number): ConicState {
-  if (!(el.a && el.a > 0)) throw new Error('Elliptic orbit requires positive semi-major axis');
-  const a = el.a;
-  const e = el.e;
-  const n = Math.sqrt(MU / (a * a * a));
-  let M = Number.NaN;
-  if (Number.isFinite(el.tp_jd)) {
-    M = n * (tJD - (el.tp_jd as number));
-  } else if (Number.isFinite(el.M0) && Number.isFinite(el.epochJD)) {
-    M = (el.M0 as number) + n * (tJD - (el.epochJD as number));
-  }
-  if (!Number.isFinite(M)) {
-    throw new Error('Elliptic orbit missing epoch information');
+    const qp = Number.isFinite(q) ? (q as number) : Number.isFinite(a) ? (a as number) * (1 - e) : Number.NaN;
+    if (!Number.isFinite(qp) || !Number.isFinite(tp_jd)) throw new Error('parabolic: missing q or tp');
+    const D = solveBarker(tJD - (tp_jd as number), qp);
+    const r = qp * (1 + D * D);
+    const nu = 2 * Math.atan(D);
+    return perifocalToEcliptic(r, nu, e, qp, i, Omega, omega);
   }
 
-  let E = M;
-  for (let k = 0; k < 80; k += 1) {
-    const f = E - e * Math.sin(E) - M;
+  if (!(Number.isFinite(a) && (a as number) > 0)) throw new Error('elliptic: a<=0');
+  const aEll = a as number;
+  const n = Math.sqrt(MU / (aEll * aEll * aEll));
+  const M = Number.isFinite(epochJD) && Number.isFinite(M0)
+    ? (M0 as number) + n * (tJD - (epochJD as number))
+    : Number.NaN;
+  if (!Number.isFinite(M)) throw new Error('elliptic: missing M0/epoch');
+
+  let E = M as number;
+  for (let k = 0; k < 60; k += 1) {
+    const f = E - e * Math.sin(E) - (M as number);
     const fp = 1 - e * Math.cos(E);
     const dE = -f / fp;
     E += dE;
-    if (Math.abs(dE) < 1e-12) break;
+    if (Math.abs(dE) < 1e-13) break;
   }
-
-  const cosE = Math.cos(E);
-  const r = a * (1 - e * cosE);
-  const sinHalf = Math.sin(E / 2);
-  const cosHalf = Math.cos(E / 2);
-  const nu = 2 * Math.atan2(Math.sqrt(1 + e) * sinHalf, Math.sqrt(1 - e) * cosHalf);
-  return finalizeState(r, nu, e, a, el);
-}
-
-function propagateParabolic(el: Elements, tJD: number): ConicState {
-  let q = el.q;
-  if (!Number.isFinite(q) && Number.isFinite(el.a)) {
-    q = (el.a as number) * (1 - el.e);
-  }
-  if (!Number.isFinite(q) || !Number.isFinite(el.tp_jd)) {
-    throw new Error('Parabolic orbit requires q and tp_jd');
-  }
-  const dt = tJD - (el.tp_jd as number);
-  const D = solveBarker(dt, q as number);
-  const nu = 2 * Math.atan(D);
-  const r = (q as number) * (1 + D * D);
-  return finalizeState(r, nu, el.e, undefined, el, 2 * (q as number));
-}
-
-function propagateHyperbolic(el: Elements, tJD: number): ConicState {
-  let a = Number.isFinite(el.a) ? (el.a as number) : Number.NaN;
-  if (!Number.isFinite(a) && Number.isFinite(el.q)) {
-    a = -Math.abs(el.q as number) / (el.e - 1);
-  }
-  if (!Number.isFinite(a) || a === 0) {
-    throw new Error('Hyperbolic orbit requires semi-major axis or q');
-  }
-  if (a > 0) a = -a;
-
-  const e = el.e;
-  const n = Math.sqrt(MU / Math.abs(a * a * a));
-  let M = Number.NaN;
-  if (Number.isFinite(el.tp_jd)) {
-    M = n * (tJD - (el.tp_jd as number));
-  } else if (Number.isFinite(el.M0) && Number.isFinite(el.epochJD)) {
-    M = (el.M0 as number) + n * (tJD - (el.epochJD as number));
-  }
-  if (!Number.isFinite(M)) {
-    throw new Error('Hyperbolic orbit missing epoch information');
-  }
-
-  let H = Math.asinh(M / e);
-  for (let k = 0; k < 80; k += 1) {
-    const s = Math.sinh(H);
-    const c = Math.cosh(H);
-    const f = e * s - H - M;
-    const fp = e * c - 1;
-    const dH = -f / fp;
-    H += dH;
-    if (Math.abs(dH) < 1e-12) break;
-  }
-
+  const r = aEll * (1 - e * Math.cos(E));
   const nu = 2 * Math.atan2(
-    Math.sqrt(e + 1) * Math.sinh(H / 2),
-    Math.sqrt(e - 1) * Math.cosh(H / 2),
+    Math.sqrt(1 + e) * Math.sin(E / 2),
+    Math.sqrt(1 - e) * Math.cos(E / 2),
   );
-  const p = Math.abs(a) * (e * e - 1);
-  const r = p / (1 + e * Math.cos(nu));
-  return finalizeState(r, nu, e, a, el, p);
+  return perifocalToEcliptic(r, nu, e, aEll, i, Omega, omega);
 }
 
-function finalizeState(
+function perifocalToEcliptic(
   r: number,
   nu: number,
   e: number,
-  a: number | undefined,
-  el: Elements,
-  pOverride?: number,
+  a: number,
+  inc: number,
+  Omega: number,
+  omega: number,
 ): ConicState {
   const cosNu = Math.cos(nu);
   const sinNu = Math.sin(nu);
   const xP = r * cosNu;
   const yP = r * sinNu;
 
-  let p = pOverride;
-  if (!Number.isFinite(p)) {
-    if (a && e < 1) {
-      p = a * (1 - e * e);
-    } else if (a) {
-      p = Math.abs(a) * (e * e - 1);
-    }
-  }
-  if (!Number.isFinite(p) || (p as number) === 0) {
-    throw new Error('Unable to determine semi-latus rectum');
-  }
-
-  const sqrtMuOverP = Math.sqrt(MU / (p as number));
-  const vxP = -sqrtMuOverP * Math.sin(nu);
-  const vyP = sqrtMuOverP * (e + Math.cos(nu));
-
-  const cO = Math.cos(el.Omega);
-  const sO = Math.sin(el.Omega);
-  const ci = Math.cos(el.i);
-  const si = Math.sin(el.i);
-  const cw = Math.cos(el.omega);
-  const sw = Math.sin(el.omega);
+  const cO = Math.cos(Omega);
+  const sO = Math.sin(Omega);
+  const ci = Math.cos(inc);
+  const si = Math.sin(inc);
+  const cw = Math.cos(omega);
+  const sw = Math.sin(omega);
 
   const R11 = cO * cw - sO * sw * ci;
   const R12 = -cO * sw - sO * cw * ci;
@@ -377,23 +287,25 @@ function finalizeState(
   const R31 = sw * si;
   const R32 = cw * si;
 
-  const pos: [number, number, number] = [
-    R11 * xP + R12 * yP,
-    R21 * xP + R22 * yP,
-    R31 * xP + R32 * yP,
-  ];
+  const x = R11 * xP + R12 * yP;
+  const y = R21 * xP + R22 * yP;
+  const z = R31 * xP + R32 * yP;
 
-  const vel: [number, number, number] = [
-    R11 * vxP + R12 * vyP,
-    R21 * vxP + R22 * vyP,
-    R31 * vxP + R32 * vyP,
-  ];
+  const p = Math.abs(e - 1) <= 1e-12
+    ? 2 * a
+    : e >= 1
+      ? a * (e * e - 1)
+      : a * (1 - e * e);
+  if (!Number.isFinite(p) || p === 0) throw new Error('Invalid semi-latus rectum');
+  const h = Math.sqrt(MU * Math.abs(p));
+  const rx = (-h / p) * Math.sin(nu);
+  const ry = (h / p) * (e + Math.cos(nu));
 
-  if (![...pos, ...vel].every(Number.isFinite)) {
-    throw new Error('Conic propagation produced non-finite state');
-  }
+  const vx = R11 * rx + R12 * ry;
+  const vy = R21 * rx + R22 * ry;
+  const vz = R31 * rx + R32 * ry;
 
-  return { posAU: pos, velAUPerDay: vel };
+  return { posAU: [x, y, z], velAUPerDay: [vx, vy, vz] };
 }
 
 function solveBarker(dtDays: number, q: number): number {

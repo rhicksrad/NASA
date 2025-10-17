@@ -11,12 +11,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!(host instanceof HTMLElement)) return;
 
   let neos: NeoItem[] = [];
+  const controller = await initNeo3D(() => neos, host);
+
   try {
     const page = await tryNeoBrowse(50);
     neos = page?.near_earth_objects ?? [];
-  } catch {
-    // tolerate missing browse data
+    controller?.setNeos(neos);
+  } catch (error) {
+    console.error('[neo3d] failed to load NEOs', error);
   }
-
-  await initNeo3D(() => neos, host);
 });
