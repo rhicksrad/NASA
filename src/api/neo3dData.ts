@@ -1,6 +1,6 @@
-// src/neo3dData.ts
-// Single-source data layer for NEO 3D: Horizons vectors, SBDB elements, and propagation.
-// No direct NASA/JPL calls; everything goes through the Cloudflare worker.
+// src/api/neo3dData.ts
+// Data layer for NEO 3D: Horizons vectors, SBDB elements, and propagation.
+// Only talks to the Cloudflare worker; no direct NASA/JPL calls.
 
 const BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
 
@@ -20,6 +20,7 @@ async function getTextOrJSON(path: string): Promise<string | any> {
   try { return JSON.parse(t); } catch { return t; }
 }
 
+// Optional helper; callers can ignore null when /neo/browse hits 401/429
 export async function tryNeoBrowse(size = 20) {
   try { return await getTextOrJSON(`/neo/browse?size=${size}`); }
   catch (e) {
@@ -41,8 +42,21 @@ function toHorizonsCalendar(iso: string): string {
   // Horizons wants 'YYYY-MM-DD HH:MM:SS' (space, no trailing Z)
   return iso.replace('T', ' ').replace(/Z$/i, '');
 }
+function addDaysISO(iso: string, d: number): string {
+  const dt = new Date(iso);
+  dt.setUTCDate(dt.getUTCDate() + d);
+  // Keep seconds; zero-pad
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth()+1)}-${pad(dt.getUTCDate())} ${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}:${pad(dt.getUTCSeconds())}`;
+}
 
 // ---------- Horizons (planets, moons) ----------
+
+export type VectorSample = {
+  t: Date;
+  posAU: [number, number, number];
+  velAUPerDay: [number, number, number];
+};
 
 export async function horizonsVectors(spk: number | string, iso: string) {
   const t = encodeURIComponent(toHorizonsCalendar(iso));
@@ -52,6 +66,16 @@ export async function horizonsVectors(spk: number | string, iso: string) {
   const resp = await getTextOrJSON(path);
   const text: string = typeof resp === 'string' ? resp : (resp.result ?? '');
   return parseHorizonsVectors(text);
+}
+
+export async function horizonsDailyVectors(spk: number | string, startIso: string, days: number): Promise<VectorSample[]> {
+  const out: VectorSample[] = [];
+  for (let i = 0; i < days; i++) {
+    const iso = addDaysISO(toHorizonsCalendar(startIso), i);
+    const v = await horizonsVectors(spk, iso);
+    out.push({ t: new Date(iso.replace(' ', 'T') + 'Z'), posAU: v.posAU, velAUPerDay: v.velAUPerDay });
+  }
+  return out;
 }
 
 export function parseHorizonsVectors(resultText: string) {
@@ -116,7 +140,17 @@ export async function loadAtlasSBDB(): Promise<Elements> {
   const q     = N(el.q);
 
   if (!isFinite(e) || e <= 0) throw new Error('ATLAS SBDB: invalid element values');
-  return { a: isFinite(a) ? a : undefined, e, i, Omega, omega, epochJD: isFinite(epochJD) ? epochJD : undefined, M0: isFinite(M0) ? M0 : undefined, tp_jd: isFinite(tp_jd) ? tp_jd : undefined, q: isFinite(q) ? q : undefined };
+  return {
+    a: isFinite(a) ? a : undefined,
+    e,
+    i,
+    Omega,
+    omega,
+    epochJD: isFinite(epochJD) ? epochJD : undefined,
+    M0: isFinite(M0) ? M0 : undefined,
+    tp_jd: isFinite(tp_jd) ? tp_jd : undefined,
+    q: isFinite(q) ? q : undefined
+  };
 }
 
 // ---------- Propagation (universal conic) ----------
@@ -206,25 +240,15 @@ function perifocalToEcliptic(r: number, nu: number, e: number, a: number, inc: n
   const z = R31 * xP + R32 * yP + R33 * 0;
 
   // Velocity (AU/day)
-  let vx = 0, vy = 0, vz = 0;
-  if (e >= 1) {
-    // hyperbola/parabola: express using p and h
-    const p = e > 1 ? a * (1 - e * e) : 2 * (isFinite(a) ? a * (1 - e) : r / (1 + Math.cos(nu))); // p positive
-    const h = Math.sqrt(MU * Math.abs(p));
-    const rx = -h / p * Math.sin(nu);
-    const ry =  h / p * (e + Math.cos(nu));
-    vx = R11 * rx + R12 * ry;
-    vy = R21 * rx + R22 * ry;
-    vz = R31 * rx + R32 * ry;
-  } else {
-    const p = a * (1 - e * e);
-    const h = Math.sqrt(MU * p);
-    const rx = -h / p * Math.sin(nu);
-    const ry =  h / p * (e + Math.cos(nu));
-    vx = R11 * rx + R12 * ry;
-    vy = R21 * rx + R22 * ry;
-    vz = R31 * rx + R32 * ry;
-  }
+  const p = e >= 1 ? a * (1 - e * e) : a * (1 - e * e);
+  const h = Math.sqrt(MU * Math.abs(p));
+  const rx = -h / p * Math.sin(nu);
+  const ry =  h / p * (e + Math.cos(nu));
+  const rz =  0;
+
+  const vx = R11 * rx + R12 * ry + R13 * rz;
+  const vy = R21 * rx + R22 * ry + R23 * rz;
+  const vz = R31 * rx + R32 * ry + R33 * rz;
 
   return { posAU: [x, y, z] as [number, number, number], velAUPerDay: [vx, vy, vz] as [number, number, number] };
 }
@@ -236,4 +260,3 @@ function degToRad(d: number) { return (d * Math.PI) / 180; }
 export function isFiniteVec3(v: number[] | undefined | null): v is [number, number, number] {
   return !!v && v.length === 3 && v.every(Number.isFinite);
 }
-
