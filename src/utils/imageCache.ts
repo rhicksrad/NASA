@@ -18,7 +18,9 @@ class ImageCache {
         const obj = JSON.parse(raw) as Record<string, { url: string; title: string; asset?: string }>;
         for (const [k, v] of Object.entries(obj)) this.map.set(k, v);
       }
-    } catch {}
+    } catch (err) {
+      void err; // ignore storage unavailability
+    }
   }
 
   get(k: string) {
@@ -38,7 +40,9 @@ class ImageCache {
       const obj: Record<string, { url: string; title: string; asset?: string }> = {};
       for (const [kk, vv] of this.map.entries()) obj[kk] = vv;
       sessionStorage.setItem(this.key, JSON.stringify(obj));
-    } catch {}
+    } catch (err) {
+      void err; // ignore quota errors
+    }
   }
 
   stats(): CacheStats {
