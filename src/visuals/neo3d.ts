@@ -208,7 +208,7 @@ export class Neo3D {
     this.renderer.domElement.style.visibility = 'visible';
 
     this.camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 2000 * SCALE);
-    this.camera.position.set(4 * SCALE, 3.5 * SCALE, 6 * SCALE);
+    this.camera.position.set(6 * SCALE, 6 * SCALE, 10 * SCALE);
     this.camera.lookAt(0, 0, 0);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
