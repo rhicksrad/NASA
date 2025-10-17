@@ -1,10 +1,6 @@
+import { ATLAS_SBDB_PATH, BASE } from './base';
 import type { NeoBrowse } from '../types/nasa';
 
-const BASE = import.meta.env.VITE_API_BASE ?? '';
-if (!BASE) {
-  // eslint-disable-next-line no-console
-  console.error('[neo3dData] VITE_API_BASE missing');
-}
 const JD_UNIX_EPOCH = 2440587.5;
 const K = 0.01720209895;
 const MU = K * K;
@@ -141,7 +137,7 @@ export type Elements = {
 };
 
 export async function loadAtlasSBDB(): Promise<Elements> {
-  const data = await getTextOrJSON(`/sbdb?sstr=3I&fullname=true`);
+  const data = await getTextOrJSON(ATLAS_SBDB_PATH);
 
   const root = asRecord(data);
   const objectOrbit = asRecord(asRecord(root?.object)?.orbit);
