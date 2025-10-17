@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const SCALE = 120;
+const DAY_MS = 86_400_000;
 
 const isFinite3 = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
 
@@ -12,10 +13,16 @@ interface OrbitConfig {
   spanDays?: number;
 }
 
+export interface OrbitSample {
+  posAU: [number, number, number];
+  velAUPerDay?: [number, number, number];
+}
+
 export interface SmallBodySpec {
   name: string;
-  els: Keplerian;
+  els?: Keplerian;
   color: number;
+  sample?: (date: Date) => OrbitSample | null;
   orbit?: OrbitConfig;
   label?: string;
 }
@@ -214,9 +221,15 @@ export class Neo3D {
       let orbitLine: THREE.Line | undefined;
       if (spec.orbit) {
         const segments = Math.max(32, spec.orbit.segments ?? 512);
-        const points = buildOrbitPoints(spec.els, segments, spec.orbit.spanDays);
-        if (points.length >= 6) {
-          orbitLine = makeOrbitLine(points, spec.orbit.color, spec.els.e < 1);
+        let points: Float32Array | null = null;
+        if (spec.els) {
+          points = buildOrbitPoints(spec.els, segments, spec.orbit.spanDays);
+        } else if (spec.sample) {
+          points = this.buildSampleOrbitPoints(spec, segments, spec.orbit.spanDays);
+        }
+        if (points && points.length >= 6) {
+          const closed = spec.els ? spec.els.e < 1 : false;
+          orbitLine = makeOrbitLine(points, spec.orbit.color, closed);
           orbitLine.renderOrder = 1;
           this.scene.add(orbitLine);
         }
@@ -311,8 +324,20 @@ export class Neo3D {
 
     let finitePositions = this.bodies.length > 0;
     for (const body of this.bodies) {
-      const pos = propagate(body.spec.els, jd);
-      if (!isFinite3(pos)) {
+      let pos: [number, number, number] | null = null;
+      if (body.spec.sample) {
+        const sample = body.spec.sample(now);
+        if (sample && isFinite3(sample.posAU)) {
+          pos = sample.posAU;
+        }
+      } else if (body.spec.els) {
+        const propagated = propagate(body.spec.els, jd);
+        if (isFinite3(propagated)) {
+          pos = [propagated[0], propagated[1], propagated[2]];
+        }
+      }
+
+      if (!pos) {
         finitePositions = false;
         body.mesh.visible = false;
         if (body.orbitLine) {
@@ -344,6 +369,26 @@ export class Neo3D {
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  private buildSampleOrbitPoints(spec: SmallBodySpec, segments: number, spanDays?: number): Float32Array | null {
+    if (!spec.sample) {
+      return null;
+    }
+    const span = spanDays ?? 2200;
+    const half = span / 2;
+    const points: number[] = [];
+    for (let i = 0; i <= segments; i += 1) {
+      const offsetDays = -half + (span * i) / segments;
+      const sampleDate = new Date(this.simMs + offsetDays * DAY_MS);
+      const state = spec.sample(sampleDate);
+      if (!state || !isFinite3(state.posAU)) {
+        continue;
+      }
+      const [x, y, z] = state.posAU;
+      points.push(x * SCALE, z * SCALE, y * SCALE);
+    }
+    return points.length >= 6 ? new Float32Array(points) : null;
   }
 
   private onResize(): void {

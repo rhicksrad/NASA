@@ -243,8 +243,9 @@ export async function request<T>(
 }
 
 export async function getJSON<T = unknown>(path: string): Promise<T> {
-  const clean = path.startsWith('/') ? path : `/${path}`;
-  const url = `${BASE}${clean}`;
+  const isAbsolute = /^https?:\/\//i.test(path);
+  const clean = path.startsWith('/') || isAbsolute ? path : `/${path}`;
+  const url = isAbsolute ? path : `${BASE}${clean}`;
   const response = await fetch(url, { credentials: 'omit' });
   const text = await response.text();
   if (!response.ok) {
@@ -262,7 +263,7 @@ export async function getJSON<T = unknown>(path: string): Promise<T> {
 
 export async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
   try {
-    return await request<NeoBrowse>('/neo/browse', { size });
+    return await getJSON<NeoBrowse>(`${BASE}/neo/browse?size=${size}`);
   } catch (e) {
     if (e instanceof HttpError && (e.status === 401 || e.status === 429)) {
       return null;
