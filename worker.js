@@ -256,13 +256,32 @@ async function handleRequest(request) {
     const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
     const cacheOpts = { cacheEverything: true, cacheTtl: 600 };
 
+    if (!base.searchParams.has('fullname')) {
+      base.searchParams.set('fullname', 'true');
+    }
+
     const attempts = [];
-    attempts.push(base);
+    const seen = new Set();
+    const pushAttempt = (candidate) => {
+      const key = candidate.toString();
+      if (seen.has(key)) return;
+      seen.add(key);
+      attempts.push(candidate);
+    };
+    pushAttempt(base);
 
     const requested = url.searchParams.get('sstr') || '';
     const normalized = requested.replace(/\s+/g, '').toUpperCase();
     if (normalized.includes('3I')) {
-      const aliases = ['3I/2019 N2 (ATLAS)', '2019 N2', '3I'];
+      const aliases = [
+        'C/2025 N1 (ATLAS)',
+        '3I/2025 N1 (ATLAS)',
+        '2025 N1 (ATLAS)',
+        '2025 N1',
+        '3I/2019 N2 (ATLAS)',
+        '2019 N2',
+        '3I',
+      ];
       for (const alias of aliases) {
         const alt = new URL('https://ssd-api.jpl.nasa.gov/sbdb.api');
         for (const [key, value] of url.searchParams.entries()) {
@@ -273,7 +292,7 @@ async function handleRequest(request) {
         if (!alt.searchParams.has('fullname')) {
           alt.searchParams.set('fullname', 'true');
         }
-        attempts.push(alt);
+        pushAttempt(alt);
       }
     }
 

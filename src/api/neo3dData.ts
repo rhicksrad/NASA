@@ -141,7 +141,8 @@ export type Elements = {
 };
 
 export async function loadAtlasSBDB(): Promise<Elements> {
-  const { url, ok, status, text } = await request(`/sbdb?sstr=3I`);
+  const params = new URLSearchParams({ sstr: '3I', fullname: 'true' });
+  const { url, ok, status, text } = await request(`/sbdb?${params.toString()}`);
   if (!ok) throw new HttpError(url, status, text);
   const data = parseJSON<Record<string, unknown>>(text, url);
 
