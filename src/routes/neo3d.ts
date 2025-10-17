@@ -110,7 +110,10 @@ export async function initNeo3D(
 
   const simulation = new Neo3D({ host: container });
   const apply = (neos: NeoItem[]) => {
-    simulation.setBodies(buildBodies(neos));
+    const bodies = buildBodies(neos);
+    simulation.addBodies(bodies);
+    simulation.setPaused(false);
+    simulation.setTimeScale(600);
   };
 
   apply(getSelectedNeos());
