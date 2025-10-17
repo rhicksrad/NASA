@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Near-Earth Objects Dashboard • NASA Open APIs Visualization Hub</title>
+  </head>
+  <body>
+    <header>
+      <h1>NASA Near-Earth Objects Dashboard</h1>
+      <p class="tagline">Live data via Cloudflare Worker proxy</p>
+      <p class="meta"><a href="index.html">Back to home</a></p>
+    </header>
+    <main>
+      <section id="neo-page">
+        <header class="subhead">
+          <h2>Near-Earth Objects</h2>
+          <p class="meta">Live data from NASA NeoWs via Worker</p>
+        </header>
+
+        <form id="neo-controls" class="controls" aria-label="NEO filters">
+          <label>Start <input type="date" id="neo-start" required></label>
+          <label>End <input type="date" id="neo-end" required></label>
+          <label><input type="checkbox" id="neo-hazard"> Hazardous only</label>
+          <label>
+            Sort
+            <select id="neo-sort">
+              <option value="date">Date</option>
+              <option value="miss_ld">Miss distance (LD)</option>
+              <option value="vel_kps">Velocity (km/s)</option>
+              <option value="dia_km">Diameter (km)</option>
+            </select>
+          </label>
+          <button id="neo-load" type="submit">Load</button>
+        </form>
+
+        <div id="neo-viz-wrap">
+          <div id="neo-timeline" role="img" aria-label="NEO timeline scatter"></div>
+          <div id="neo-hist" role="img" aria-label="NEO size histogram"></div>
+        </div>
+
+        <div id="neo-list-wrap">
+          <ul id="neo-list" aria-live="polite"></ul>
+          <nav id="neo-pager">
+            <button id="neo-prev" disabled>Prev</button>
+            <span id="neo-page-info"></span>
+            <button id="neo-next" disabled>Next</button>
+          </nav>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <p><a href="https://api.nasa.gov/">api.nasa.gov</a></p>
+    </footer>
+    <script type="module" src="/NASA/src/main.ts"></script>
+  </body>
+</html>
