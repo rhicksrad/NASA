@@ -166,8 +166,10 @@ function buildBodies(neos: NeoItem[]): SmallBodySpec[] {
   return bodies;
 }
 
+type InternalSample = VectorSample & { jd: number };
+
 class PlanetEphemeris {
-  private samples: VectorSample[] = [];
+  private samples: InternalSample[] = [];
   private pending = new Map<string, Promise<void>>();
   private lastKnown: [number, number, number] | null = null;
   private approximateRadius = 0;
@@ -240,21 +242,23 @@ class PlanetEphemeris {
     const key = date.toISOString().slice(0, 10);
     const existing = this.pending.get(key);
     if (existing) return existing;
-    const promise = horizonsDailyVectors(this.spk, date)
-      .then(samples => {
-        for (const sample of samples) {
-          if (!isFinite3(sample.posAU)) {
-            continue;
-          }
-          const existingIndex = this.samples.findIndex(item => Math.abs(item.jd - sample.jd) < 1e-6);
+
+    // horizonsDailyVectors expects a string; pass ISO
+    const promise = horizonsDailyVectors(this.spk, date.toISOString())
+      .then((samples) => {
+        for (const s of samples) {
+          if (!isFinite3(s.posAU)) continue;
+          const jd = (s as any).jd ?? jdFromDate(s.t);
+          const item: InternalSample = { ...s, jd };
+          const existingIndex = this.samples.findIndex((it) => Math.abs(it.jd - item.jd) < 1e-6);
           if (existingIndex >= 0) {
-            this.samples[existingIndex] = sample;
+            this.samples[existingIndex] = item;
           } else {
-            this.samples.push(sample);
+            this.samples.push(item);
           }
           if (!this.lastKnown) {
-            this.lastKnown = [...sample.posAU];
-            this.approximateRadius = Math.hypot(sample.posAU[0], sample.posAU[1], sample.posAU[2]);
+            this.lastKnown = [...item.posAU];
+            this.approximateRadius = Math.hypot(item.posAU[0], item.posAU[1], item.posAU[2]);
           }
         }
         this.samples.sort((a, b) => a.jd - b.jd);
@@ -262,13 +266,14 @@ class PlanetEphemeris {
           this.samples.splice(0, this.samples.length - 10);
         }
       })
-      .catch(error => {
+      .catch((error) => {
         console.error(`[neo3d] Horizons vector fetch failed for ${this.spk}`, error);
         throw error;
       })
       .finally(() => {
         this.pending.delete(key);
       });
+
     this.pending.set(key, promise);
     return promise;
   }
@@ -278,7 +283,7 @@ class PlanetManager {
   private nodes: Array<{ config: PlanetConfig; ephemeris: PlanetEphemeris }>;
 
   constructor(configs: PlanetConfig[]) {
-    this.nodes = configs.map(config => ({ config, ephemeris: new PlanetEphemeris(config.spk) }));
+    this.nodes = configs.map((config) => ({ config, ephemeris: new PlanetEphemeris(config.spk) }));
   }
 
   async prime(date: Date): Promise<void> {
@@ -351,11 +356,12 @@ export async function initNeo3D(
 
   apply(getSelectedNeos());
 
+  // Validation: horizonsVectors expects a string; pass ISO, not a Date
   const validationTime = new Date('2025-11-19T04:00:02Z');
   try {
     const [mercury, venus] = await Promise.all([
-      horizonsVectors(199, validationTime),
-      horizonsVectors(299, validationTime),
+      horizonsVectors(199, validationTime.toISOString()),
+      horizonsVectors(299, validationTime.toISOString()),
     ]);
     console.assert(
       mercury.posAU.every(Number.isFinite),
@@ -371,7 +377,7 @@ export async function initNeo3D(
     console.assert(false, 'Horizons validation failed', error);
   }
 
-  const earthProvider = planetProviders.find(p => p.name.toLowerCase() === 'earth');
+  const earthProvider = planetProviders.find((p) => p.name.toLowerCase() === 'earth');
   const earthPos = earthProvider?.getPosition(now);
   if (earthPos && isFinite3(earthPos)) {
     const distance = Math.hypot(earthPos[0], earthPos[1], earthPos[2]);
@@ -408,7 +414,7 @@ export async function initNeo3D(
           throw new Error('3I/ATLAS propagation invalid');
         }
         let sampleWarned = false;
-        const sample: NonNullable<SmallBodySpec['sample']> = date => {
+        const sample: NonNullable<SmallBodySpec['sample']> = (date) => {
           try {
             const state = propagateConic(el, jdFromDateUTC(date));
             return isFinite3(state.posAU) ? state : null;
@@ -450,3 +456,4 @@ export async function initNeo3D(
     setNeos: apply,
   };
 }
+
