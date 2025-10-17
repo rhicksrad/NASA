@@ -11,13 +11,7 @@ async function fetchDefault(): Promise<NeoItem[]> {
 document.addEventListener('DOMContentLoaded', async () => {
   const host = document.getElementById('neo3d-host');
   if (!host) return;
-
   let neos: NeoItem[] = [];
-  try {
-    neos = await fetchDefault();
-  } catch (e) {
-    console.error('NEO load failed', e);
-  }
-
-  await initNeo3D(() => neos, host);
+  try { neos = await fetchDefault(); } catch (e) { console.error('NEO load failed', e); }
+  await initNeo3D(() => neos);
 });
