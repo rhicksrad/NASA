@@ -9,6 +9,8 @@ async function fetchDefaults(): Promise<NeoItem[]> {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  document.documentElement.classList.add('neo3d-fullscreen');
+  document.body.classList.add('neo3d-fullscreen');
   const host = document.getElementById('neo3d-host');
   if (!host) return;
   let neos: NeoItem[] = [];
