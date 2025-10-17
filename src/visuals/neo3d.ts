@@ -5,19 +5,19 @@ import { jdFromDate, propagate, earthElementsApprox, type Keplerian } from '../u
 const SCALE = 120, SUN_R = 0.12*SCALE, EARTH_R = 0.03*SCALE;
 
 export interface Body { name: string; els: Keplerian; color: number; mesh?: THREE.Object3D; trail?: THREE.Line; }
-export interface Neo3DOptions { host: HTMLElement; }
+export interface Neo3DOptions { host: HTMLElement; dateLabel?: HTMLElement | null; }
 
 export class Neo3D {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
-  private clock = new THREE.Clock();          // NEW
+  private clock = new THREE.Clock();
   private earth: Body;
   private bodies: Body[] = [];
-  private t = Date.now();
-  private dtMult = 600;                       // run fast by default
-  private paused = false;                     // UNPAUSED by default
+  private simMs = Date.now();       // simulated UTC ms
+  private dtMult = 86400;           // seconds of sim-time per real second (1 day/s)
+  private paused = false;
 
   constructor(private opts: Neo3DOptions){
     const { host } = opts;
@@ -33,11 +33,9 @@ export class Neo3D {
     this.camera.position.set(0,2.2*SCALE,3.2*SCALE);
     this.camera.lookAt(0,0,0);
 
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);   // NEW
-    this.controls.enableDamping = true;
-    this.controls.enablePan = true;
-    this.controls.enableZoom = true;
-    this.controls.dampingFactor = 0.05;
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true; this.controls.dampingFactor = 0.05;
+    this.controls.enablePan = true; this.controls.enableZoom = true;
 
     const amb = new THREE.AmbientLight(0xffffff,0.7);
     const dir = new THREE.DirectionalLight(0xffffff,0.9);
@@ -55,17 +53,18 @@ export class Neo3D {
 
     const N=256, pts:THREE.Vector3[]=[];
     for(let k=0;k<=N;k++){ const a=(k/N)*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*SCALE,0,Math.sin(a)*SCALE)); }
-    const ring=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineBasicMaterial({ color:0xffffff, linewidth:2 }));
-    this.scene.add(ring);
+    this.scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color:0xffffff, linewidth:2 })));
 
     const grid=new THREE.GridHelper(3*SCALE,24,0xd9e3f0,0x4267b2);
-    (grid.material as THREE.Material).transparent = true;
-    (grid.material as THREE.Material).opacity = 0.25;
+    (grid.material as THREE.Material).transparent = true; (grid.material as THREE.Material).opacity = 0.25;
     this.scene.add(grid);
 
-    window.addEventListener('resize',()=>this.onResize());
-    document.addEventListener('visibilitychange',()=>{ if(document.hidden) this.paused=true; });
+    window.addEventListener('resize', ()=>this.onResize());
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.hidden) { this.paused = true; }
+      else { this.clock.stop(); this.clock.start(); this.paused = false; }  // resume cleanly
+    });
   }
 
   addBodies(list: Body[]){
@@ -81,28 +80,35 @@ export class Neo3D {
   }
 
   setTimeScale(m:number){ this.dtMult = m; }
-  setPaused(p:boolean){ this.paused = p; }
+  setPaused(p:boolean){
+    this.paused = p;
+    if (!p) { this.clock.stop(); this.clock.start(); } // reset delta to avoid jump
+  }
 
   start(){
-    this.clock.start();                                       // NEW
-    const loop=()=>{
+    this.clock.start();
+    const loop = () => {
       requestAnimationFrame(loop);
-      if(!this.paused){
-        const deltaMs = this.clock.getDelta()*1000;           // NEW
-        this.t += deltaMs*this.dtMult;                        // advance simulated time
+      if (!this.paused) {
+        const realSec = this.clock.getDelta();              // real seconds since last frame
+        this.simMs += realSec * 1000 * this.dtMult;         // advance simulated ms
       }
-      this.update(new Date(this.t));
-      this.controls.update();                                 // NEW
-      this.renderer.render(this.scene,this.camera);
+      this.update(new Date(this.simMs));
+      this.controls.update();
+      this.renderer.render(this.scene, this.camera);
     };
     loop();
   }
 
   private update(now:Date){
     const jd = jdFromDate(now);
+    const dateLabel = this.opts.dateLabel;
+    if (dateLabel) dateLabel.textContent = now.toISOString().slice(0,19).replace('T',' ');
+
     { const [x,y,z]=propagate(this.earth.els,jd); this.earth.mesh!.position.set(x*SCALE, z*SCALE, y*SCALE); }
     for(const b of this.bodies){
-      const [x,y,z]=propagate(b.els,jd); const pos=new THREE.Vector3(x*SCALE,z*SCALE,y*SCALE);
+      const [x,y,z]=propagate(b.els,jd);
+      const pos=new THREE.Vector3(x*SCALE,z*SCALE,y*SCALE);
       b.mesh!.position.copy(pos);
       const g=b.trail!.geometry as THREE.BufferGeometry;
       const arr=g.getAttribute('position') as THREE.BufferAttribute;
