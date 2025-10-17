@@ -199,6 +199,7 @@ export class Neo3D {
   private tooltip: HTMLDivElement;
   private interactiveMeshes: THREE.Mesh[] = [];
   private hoveredMesh: THREE.Mesh | null = null;
+  private projected = new THREE.Vector3();
 
   constructor(private readonly options: Neo3DOptions) {
     const { host } = options;
@@ -265,6 +266,7 @@ export class Neo3D {
       opacity: '0',
       transform: 'translate(-9999px, -9999px)',
       transition: 'opacity 0.12s ease',
+      zIndex: '1000',
     });
     host.appendChild(this.tooltip);
 
@@ -475,8 +477,44 @@ export class Neo3D {
     const intersections = this.raycaster.intersectObjects(this.interactiveMeshes, false);
     const hit = intersections.find((entry) => entry.object.visible);
     if (!hit || !(hit.object instanceof THREE.Mesh)) {
-      this.hoveredMesh = null;
-      this.hideTooltip();
+      const hostRect = this.options.host.getBoundingClientRect();
+      const width = hostRect.width;
+      const height = hostRect.height;
+      if (width <= 0 || height <= 0) {
+        this.hoveredMesh = null;
+        this.hideTooltip();
+        return;
+      }
+
+      let closest: { mesh: THREE.Mesh; label: string; distance: number } | null = null;
+      for (const mesh of this.interactiveMeshes) {
+        if (!mesh.visible) continue;
+        const label = typeof mesh.userData.hoverLabel === 'string' ? mesh.userData.hoverLabel : '';
+        if (!label) continue;
+
+        mesh.getWorldPosition(this.projected);
+        this.projected.project(this.camera);
+        if (this.projected.z < -1 || this.projected.z > 1) continue;
+
+        const screenX = ((this.projected.x + 1) / 2) * width;
+        const screenY = ((-this.projected.y + 1) / 2) * height;
+        const dx = screenX - this.pointerClient.x;
+        const dy = screenY - this.pointerClient.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance > 32) continue;
+        if (!closest || distance < closest.distance) {
+          closest = { mesh, label, distance };
+        }
+      }
+
+      if (!closest) {
+        this.hoveredMesh = null;
+        this.hideTooltip();
+        return;
+      }
+
+      this.hoveredMesh = closest.mesh;
+      this.showTooltip(closest.label);
       return;
     }
 
