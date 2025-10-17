@@ -20,8 +20,22 @@ async function getTextOrJSON(path: string): Promise<string | any> {
   try { return JSON.parse(t); } catch { return t; }
 }
 
-// Optional helper; callers can ignore null when /neo/browse hits 401/429
+// Gate NEO suggestions behind an explicit opt-in to avoid noisy 401s by default.
+// Enable via URL: ?neos=1  or localStorage.setItem('neo3d:suggestNeos','1')
+function suggestionsEnabled(): boolean {
+  try {
+    const params = new URLSearchParams(globalThis.location?.search ?? '');
+    if (params.get('neos') === '1' || params.get('suggest') === '1') return true;
+    const ls = globalThis.localStorage?.getItem('neo3d:suggestNeos');
+    return ls === '1' || ls === 'true';
+  } catch {
+    return false;
+  }
+}
+
+// Optional helper; callers can ignore null when disabled or when /neo/browse hits 401/429
 export async function tryNeoBrowse(size = 20) {
+  if (!suggestionsEnabled()) return null; // do not fetch → no 401 noise
   try { return await getTextOrJSON(`/neo/browse?size=${size}`); }
   catch (e) {
     if (e instanceof HttpError && (e.status === 401 || e.status === 429)) return null;
@@ -45,7 +59,6 @@ function toHorizonsCalendar(iso: string): string {
 function addDaysISO(iso: string, d: number): string {
   const dt = new Date(iso);
   dt.setUTCDate(dt.getUTCDate() + d);
-  // Keep seconds; zero-pad
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth()+1)}-${pad(dt.getUTCDate())} ${pad(dt.getUTCHours())}:${pad(dt.getUTCMinutes())}:${pad(dt.getUTCSeconds())}`;
 }
@@ -79,7 +92,6 @@ export async function horizonsDailyVectors(spk: number | string, startIso: strin
 }
 
 export function parseHorizonsVectors(resultText: string) {
-  // Find the $$SOE...$$EOE section and extract first XYZ + VX,VY,VZ lines
   const block = resultText.split('$$SOE')[1]?.split('$$EOE')[0];
   if (!block) throw new Error('Horizons: missing $$SOE/$$EOE block');
   const lines = block.trim().split('\n').map(s => s.trim()).filter(Boolean);
@@ -113,22 +125,18 @@ export type Elements = {
 };
 
 export async function loadAtlasSBDB(): Promise<Elements> {
-  // Canonical working endpoint for ATLAS
   const data = await getTextOrJSON(`/sbdb?sstr=3I`);
-
-  // Accept several shapes SBDB may return
   const el =
     data?.object?.orbit?.elements?.[0] ??
     data?.orbit?.elements?.[0] ??
     data?.orbit ??
-    data?.elements?.[0] ??
-    null;
+    data?.elements?.[0] ?? null;
 
   if (!el) throw new Error('ATLAS SBDB: no elements');
 
   const N = (x: any) => (x == null ? NaN : Number(x));
 
-  const a     = N(el.a);                         // may be negative or NaN
+  const a     = N(el.a);
   const e     = N(el.e);
   const i     = degToRad(N(el.i ?? el.inc ?? el.incl));
   const Omega = degToRad(N(el.om ?? el.Omega ?? el.node));
@@ -142,10 +150,7 @@ export async function loadAtlasSBDB(): Promise<Elements> {
   if (!isFinite(e) || e <= 0) throw new Error('ATLAS SBDB: invalid element values');
   return {
     a: isFinite(a) ? a : undefined,
-    e,
-    i,
-    Omega,
-    omega,
+    e, i, Omega, omega,
     epochJD: isFinite(epochJD) ? epochJD : undefined,
     M0: isFinite(M0) ? M0 : undefined,
     tp_jd: isFinite(tp_jd) ? tp_jd : undefined,
@@ -159,7 +164,6 @@ export function propagateConic(el: Elements, tJD: number) {
   const { a, e, i, Omega, omega, epochJD, M0, tp_jd, q } = el;
 
   if (e > 1 + 1e-12) {
-    // Hyperbolic: prefer perihelion time
     const ah = isFinite(a as number) && (a as number) !== 0 ? (a as number) : (isFinite(q as number) ? (q as number) / (e - 1) : NaN);
     if (!isFinite(ah)) throw new Error('hyperbolic: missing a/q');
     const n = Math.sqrt(MU / Math.abs(ah * ah * ah));
@@ -181,7 +185,6 @@ export function propagateConic(el: Elements, tJD: number) {
   }
 
   if (Math.abs(e - 1) <= 1e-12) {
-    // Parabolic: need q and tp
     const qp = isFinite(q as number) ? (q as number) : (isFinite(a as number) ? (a as number) * (1 - e) : NaN);
     if (!isFinite(qp) || !isFinite(tp_jd as number)) throw new Error('parabolic: missing q or tp');
     const D = solveBarker((tJD - (tp_jd as number)), qp);
@@ -190,7 +193,6 @@ export function propagateConic(el: Elements, tJD: number) {
     return perifocalToEcliptic(r, nu, e, Infinity, i, Omega, omega);
   }
 
-  // Elliptic: 0 < e < 1
   if (!(a as number > 0)) throw new Error('elliptic: a<=0');
   const n = Math.sqrt(MU / ((a as number) * (a as number) * (a as number)));
   const M = isFinite(epochJD as number) && isFinite(M0 as number) ? (M0 as number) + n * (tJD - (epochJD as number)) : NaN;
@@ -240,7 +242,7 @@ function perifocalToEcliptic(r: number, nu: number, e: number, a: number, inc: n
   const z = R31 * xP + R32 * yP + R33 * 0;
 
   // Velocity (AU/day)
-  const p = e >= 1 ? a * (1 - e * e) : a * (1 - e * e);
+  const p = a * (1 - e * e); // sign-safe: positive for ellipse; for hyperbola a<0 → p>0
   const h = Math.sqrt(MU * Math.abs(p));
   const rx = -h / p * Math.sin(nu);
   const ry =  h / p * (e + Math.cos(nu));
@@ -260,3 +262,4 @@ function degToRad(d: number) { return (d * Math.PI) / 180; }
 export function isFiniteVec3(v: number[] | undefined | null): v is [number, number, number] {
   return !!v && v.length === 3 && v.every(Number.isFinite);
 }
+
