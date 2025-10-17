@@ -1,5 +1,6 @@
 const NASA_HOST = 'api.nasa.gov';
 const NASA_BASE = `https://${NASA_HOST}`;
+const API_ORIGIN = NASA_BASE;
 
 let NASA_API = '';
 
@@ -37,10 +38,7 @@ function forceApiKey(u, key) {
   }
 }
 
-async function forward(target, request, origin) {
-  const reqUrl = new URL(request.url);
-  const debug = reqUrl.searchParams.get('debug') === '1';
-
+async function fwd(target, request, origin, debug, cf, extraHeaders = {}) {
   forceApiKey(target, NASA_API);
 
   const outReq = new Request(target.toString(), {
@@ -51,15 +49,19 @@ async function forward(target, request, origin) {
     },
   });
 
-  const resp = await fetch(outReq);
+  const fetchInit = cf ? { cf } : undefined;
+  const resp = await fetch(outReq, fetchInit);
 
-  const headers = { ...secHeaders(), ...corsHeaders(origin) };
+  const headers = { ...secHeaders(), ...corsHeaders(origin), ...extraHeaders };
   if (debug) headers['x-upstream-url-redacted'] = redactKey(target);
 
   const contentType = resp.headers.get('Content-Type') || 'application/octet-stream';
   if (contentType) headers['Content-Type'] = contentType;
-  const cacheControl = resp.headers.get('Cache-Control');
-  if (cacheControl) headers['Cache-Control'] = cacheControl;
+
+  if (!('Cache-Control' in headers)) {
+    const cacheControl = resp.headers.get('Cache-Control');
+    if (cacheControl) headers['Cache-Control'] = cacheControl;
+  }
 
   return new Response(resp.body, {
     status: resp.status,
@@ -98,20 +100,32 @@ async function handleRequest(request) {
   if (request.method !== 'GET') return methodNotAllowed(origin);
 
   const url = new URL(request.url);
+  const debug = url.searchParams.get('debug') === '1';
 
   if (url.pathname === '/health') {
     const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
   }
 
-  const target = buildTargetUrl(url);
-
   if (!NASA_API) {
     const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
     return new Response(JSON.stringify({ error: 'NASA_API secret not configured' }), { status: 500, headers });
   }
 
-  return forward(target, request, origin);
+  // APOD
+  if (url.pathname === '/apod') {
+    const target = new URL('/planetary/apod' + url.search, API_ORIGIN);
+    target.searchParams.delete('debug');
+    const cf = { cacheEverything: true, cacheTtl: 600 }; // 10 min edge cache
+    const headers = {
+      'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
+    };
+    return fwd(target, request, origin, debug, cf, headers);
+  }
+
+  const target = buildTargetUrl(url);
+
+  return fwd(target, request, origin, debug);
 }
 
 export default {

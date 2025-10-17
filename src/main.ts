@@ -1,28 +1,59 @@
 import './styles/main.css';
-import { getApod } from './api/fetch_apod';
+import { getApodRobust } from './api/fetch_apod';
 import { getNeoBrowse } from './api/fetch_neo';
 import { initNeoPage } from './routes/neo';
 import type { Apod, NeoBrowse } from './types/nasa';
 
+async function loadApod(container: HTMLElement) {
+  try {
+    const apod = await getApodRobust();
+    renderApod(container, apod);
+  } catch (e) {
+    console.error(e);
+    container.textContent = 'APOD failed to load.';
+  } finally {
+    container.classList.remove('loading');
+  }
+}
+
 function renderApod(container: HTMLElement, apod: Apod): void {
   container.replaceChildren();
+  const title = document.createElement('h3');
+  title.textContent = apod.title;
+  container.appendChild(title);
+
   if (apod.media_type === 'image') {
     const img = document.createElement('img');
-    img.alt = apod.title || 'Astronomy Picture of the Day';
-    img.loading = 'lazy';
     img.src = apod.hdurl || apod.url;
+    img.alt = apod.title;
+    img.loading = 'lazy';
     container.appendChild(img);
   } else if (apod.media_type === 'video') {
-    const frame = document.createElement('iframe');
-    frame.src = apod.url;
-    frame.title = apod.title || 'APOD Video';
-    frame.setAttribute('allowfullscreen', 'true');
-    frame.setAttribute('referrerpolicy', 'no-referrer');
-    frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
-    container.appendChild(frame);
-  } else {
-    container.textContent = 'Unsupported media type';
+    if (apod.thumbnail_url) {
+      const a = document.createElement('a');
+      a.href = apod.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      const thumb = document.createElement('img');
+      thumb.src = apod.thumbnail_url;
+      thumb.alt = `${apod.title} (video thumbnail)`;
+      thumb.loading = 'lazy';
+      a.appendChild(thumb);
+      container.appendChild(a);
+    } else {
+      const frame = document.createElement('iframe');
+      frame.src = apod.url;
+      frame.allowFullscreen = true;
+      frame.title = apod.title;
+      frame.sandbox = 'allow-scripts allow-same-origin allow-popups';
+      frame.referrerPolicy = 'no-referrer';
+      container.appendChild(frame);
+    }
   }
+
+  const desc = document.createElement('p');
+  desc.textContent = apod.explanation;
+  container.appendChild(desc);
 }
 
 function renderNeoSummary(summaryEl: HTMLElement, listEl: HTMLElement, data: NeoBrowse): void {
@@ -52,19 +83,16 @@ function friendlyError(e: unknown): string {
 }
 
 async function initIndexPage(): Promise<void> {
-  const apodImg = document.querySelector<HTMLDivElement>('#apod-image');
-  if (!apodImg) {
+  const apodContainer = document.querySelector<HTMLDivElement>('#apod-image');
+  if (!apodContainer) {
     return;
   }
 
-  const apodTitle = document.querySelector<HTMLHeadingElement>('#apod-title');
-  const apodDate = document.querySelector<HTMLParagraphElement>('#apod-date');
-  const apodExpl = document.querySelector<HTMLParagraphElement>('#apod-expl');
   const neoSummary = document.querySelector<HTMLParagraphElement>('#neo-summary');
   const neoList = document.querySelector<HTMLUListElement>('#neo-list');
   const neoLink = document.querySelector<HTMLAnchorElement>('#neo-link');
 
-  if (!apodTitle || !apodDate || !apodExpl || !neoSummary || !neoList) {
+  if (!neoSummary || !neoList) {
     throw new Error('Missing index layout elements');
   }
 
@@ -73,18 +101,7 @@ async function initIndexPage(): Promise<void> {
     neoLink.href = `${base.replace(/\/+$/, '')}/neo.html`.replace('//neo.html', '/neo.html');
   }
 
-  try {
-    const apod = await getApod();
-    apodTitle.textContent = apod.title;
-    apodDate.textContent = apod.date;
-    apodExpl.textContent = apod.explanation;
-    apodImg.classList.remove('loading');
-    renderApod(apodImg, apod);
-  } catch (err) {
-    apodImg.classList.remove('loading');
-    apodImg.textContent = `APOD failed to load. ${friendlyError(err)}`;
-    console.error(err);
-  }
+  await loadApod(apodContainer);
 
   try {
     const neo = await getNeoBrowse({ size: 5 });
