@@ -106,7 +106,10 @@ function createGradientTexture(stops: GradientStop[], size = 512): THREE.CanvasT
   for (const stop of stops) {
     const alpha = stop.alpha ?? 1;
     const color = new THREE.Color(stop.color);
-    ctx.addColorStop(stop.offset, `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${alpha})`);
+    gradient.addColorStop(
+      stop.offset,
+      `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${alpha})`
+    );
   }
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
