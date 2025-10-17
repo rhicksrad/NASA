@@ -2,7 +2,12 @@ import type { NeoBrowse } from '../types/nasa';
 import type { SbdbOrbit, SbdbResponse } from '../types/sbdb';
 import type { SbdbOrbitRecord } from '../utils/orbit';
 
-export const BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
+export const BASE = import.meta.env.VITE_API_BASE ?? '';
+if (!BASE) {
+  // Fail fast so we don’t silently hit wrong origins
+  // eslint-disable-next-line no-console
+  console.error('[nasaClient] VITE_API_BASE missing.');
+}
 
 export class HttpError extends Error {
   constructor(public url: string, public status: number, public bodyText: string) {
