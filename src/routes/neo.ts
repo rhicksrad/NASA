@@ -248,7 +248,7 @@ export async function initNeoPage() {
     all = flattenFeed(feed);
     applyAndRender();
     if (!neo3dController) {
-      neo3dController = initNeo3D(() => selectedNeos);
+      neo3dController = await initNeo3D(() => selectedNeos);
     }
     if (neo3dController) {
       neo3dController.setNeos(selectedNeos);
