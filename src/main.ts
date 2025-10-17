@@ -1,6 +1,7 @@
 import './styles/main.css';
 import { getApod } from './api/fetch_apod';
 import { getNeoBrowse } from './api/fetch_neo';
+import type { Apod, NeoBrowse } from './types/nasa';
 
 function qs<T extends Element>(sel: string): T {
   const el = document.querySelector(sel);
@@ -8,7 +9,7 @@ function qs<T extends Element>(sel: string): T {
   return el as T;
 }
 
-function renderApod(container: HTMLElement, apod: any): void {
+function renderApod(container: HTMLElement, apod: Apod): void {
   container.replaceChildren();
   if (apod.media_type === 'image') {
     const img = document.createElement('img');
@@ -29,11 +30,11 @@ function renderApod(container: HTMLElement, apod: any): void {
   }
 }
 
-function renderNeo(summaryEl: HTMLElement, listEl: HTMLElement, data: any): void {
-  const total = data.page?.total_elements ?? 0;
-  summaryEl.textContent = `Sample size: ${data.page?.size ?? 0} • Total known (reported): ${total}`;
+function renderNeo(summaryEl: HTMLElement, listEl: HTMLElement, data: NeoBrowse): void {
+  const { page, near_earth_objects: neos } = data;
+  summaryEl.textContent = `Sample size: ${page.size} • Total known (reported): ${page.total_elements}`;
   listEl.replaceChildren();
-  const first = data.near_earth_objects?.[0];
+  const first = neos[0];
   const li = document.createElement('li');
   li.textContent = first ? `First sample object: ${first.name}` : 'No objects returned in this sample.';
   listEl.appendChild(li);
