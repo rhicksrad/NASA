@@ -125,7 +125,9 @@ async function handleRequest(request) {
 
   if (url.pathname === '/sbdb') {
     const t = new URL('https://ssd-api.jpl.nasa.gov/sbdb.api');
-    for (const [k,v] of url.searchParams) t.searchParams.set(k,v);
+    for (const [key, value] of url.searchParams.entries()) {
+      t.searchParams.set(key, value);
+    }
     const cf = { cacheEverything: true, cacheTtl: 600 };
     const headers = { 'Cache-Control': 'public, max-age=300, s-maxage=600' };
     return fwd(t, request, origin, debug, cf, headers);
