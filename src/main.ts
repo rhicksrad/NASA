@@ -1,6 +1,6 @@
 import './styles/main.css';
 import { getApodRobust } from './api/fetch_apod';
-import { getNeoBrowse } from './api/fetch_neo';
+import { tryNeoBrowse } from './api/nasaClient';
 import { initNeoPage } from './routes/neo';
 import type { Apod, NeoBrowse } from './types/nasa';
 
@@ -104,11 +104,19 @@ async function initIndexPage(): Promise<void> {
   await loadApod(apodContainer);
 
   try {
-    const neo = await getNeoBrowse({ size: 5 });
+    const neo = await tryNeoBrowse(5);
     neoSummary.classList.remove('loading');
+    if (!neo) {
+      neoSummary.textContent = 'NEO sample unavailable.';
+      neoList.replaceChildren();
+      neoList.hidden = true;
+      return;
+    }
+    neoList.hidden = false;
     renderNeoSummary(neoSummary, neoList, neo);
   } catch (err) {
     neoSummary.classList.remove('loading');
+    neoList.hidden = true;
     neoSummary.textContent = `NEO sample failed to load. ${friendlyError(err)}`;
     console.error(err);
   }

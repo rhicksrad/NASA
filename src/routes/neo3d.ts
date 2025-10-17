@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import type { NeoItem } from '../types/nasa';
 import { Neo3D, type PlanetSampleProvider, type SmallBodySpec } from '../visuals/neo3d';
-import { atlas3I, horizonsDailyVectors, horizonsVectors, type VectorSample } from '../api/neo3dData';
+import { horizonsDailyVectors, horizonsVectors, loadAtlasSBDB, type VectorSample } from '../api/neo3dData';
 import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const DEG2RAD = Math.PI / 180;
@@ -276,16 +276,16 @@ export async function initNeo3D(
   const validationTime = new Date('2025-11-19T04:00:02Z');
   try {
     const [mercury, venus] = await Promise.all([
-      horizonsVectors(199, [validationTime]),
-      horizonsVectors(299, [validationTime]),
+      horizonsVectors(199, validationTime),
+      horizonsVectors(299, validationTime),
     ]);
     console.assert(
-      mercury.length > 0 && mercury[0].posAU.every(Number.isFinite),
+      mercury.posAU.every(Number.isFinite),
       'Mercury Horizons VECTORS invalid',
       mercury,
     );
     console.assert(
-      venus.length > 0 && venus[0].posAU.every(Number.isFinite),
+      venus.posAU.every(Number.isFinite),
       'Venus Horizons VECTORS invalid',
       venus,
     );
@@ -299,20 +299,6 @@ export async function initNeo3D(
     const distance = Math.hypot(earthPos[0], earthPos[1], earthPos[2]);
     console.assert(Math.abs(distance - 1) <= 0.02, 'Earth barycenter distance sanity', distance);
   }
-
-  let atlasError: unknown;
-  const atlasPrefetch = atlas3I(now)
-    .then(result => {
-      atlasError = undefined;
-      const pos = propagate(result.els, jdFromDate(now));
-      console.assert(pos.every(value => Number.isFinite(value)), '3I/ATLAS propagation validation', result);
-      return result;
-    })
-    .catch(error => {
-      atlasError = error;
-      console.warn('[neo3d] 3I/ATLAS prefetch failed', error);
-      return null;
-    });
 
   const speedSel = document.getElementById('neo3d-speed') as HTMLSelectElement | null;
   if (speedSel) {
@@ -337,28 +323,27 @@ export async function initNeo3D(
       add3iBtn.disabled = true;
       add3iBtn.textContent = 'Loading…';
       try {
-        const existing = await atlasPrefetch;
-        const payload = existing ?? (await atlas3I(simulation.getCurrentDate()));
-        if (!payload) {
-          throw atlasError ?? new Error('3I/ATLAS unavailable');
+        const els = await loadAtlasSBDB();
+        const jdNow = jdFromDate(simulation.getCurrentDate());
+        const pos = propagate(els, jdNow);
+        if (!isFiniteVec(pos)) {
+          throw new Error('3I/ATLAS propagation invalid');
         }
-        atlasError = undefined;
         simulation.addSmallBodies([
           {
-            name: payload.name,
+            name: '3I/ATLAS',
             color: 0xf87171,
-            els: payload.els,
+            els,
             orbit: { color: 0xf87171, segments: 1600, spanDays: 3200 },
             label: '3I/ATLAS',
           },
         ]);
-        const pos = propagate(payload.els, jdFromDate(simulation.getCurrentDate()));
-        console.assert(pos.every(value => Number.isFinite(value)), '3I/ATLAS propagated position finite', payload);
-        add3iBtn.textContent = payload.source === 'sbdb' ? '3I/ATLAS (SBDB)' : '3I/ATLAS (Horizons)';
+        console.assert(pos.every(Number.isFinite), '3I/ATLAS propagated position finite', els);
+        add3iBtn.textContent = '3I/ATLAS (SBDB)';
+        console.info('[neo3d] ATLAS loaded from sbdb?sstr=3I');
         loaded = true;
       } catch (error) {
-        atlasError = error;
-        console.error('3I/ATLAS load failed', error);
+        console.error('[neo3d] ATLAS load failed', error);
         add3iBtn.disabled = false;
         add3iBtn.textContent = '3I unavailable';
         setTimeout(() => {

@@ -1,13 +1,14 @@
+import type { NeoBrowse } from '../types/nasa';
 import type { SbdbOrbit, SbdbResponse } from '../types/sbdb';
 import type { SbdbOrbitRecord } from '../utils/orbit';
 
+export const BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
+
 export class HttpError extends Error {
-  constructor(public status: number, public url: string, public body?: unknown) {
+  constructor(public url: string, public status: number, public bodyText: string) {
     super(`HTTP ${status} for ${url}`);
   }
 }
-
-const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
 
 type RequestParams = Record<string, string | number>;
 
@@ -21,8 +22,7 @@ function buildUrl(path: string, params: RequestParams = {}): string {
   }
 
   const clean = path.startsWith('/') ? path : `/${path}`;
-  const full = API_BASE ? `${API_BASE}${clean}` : clean;
-  const url = new URL(full, window.location.href);
+  const url = new URL(`${BASE}${clean}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
   return url.toString();
 }
@@ -211,15 +211,24 @@ export async function request<T>(
   if (!requestInit.method) {
     requestInit.method = 'GET';
   }
+  if (!requestInit.credentials) {
+    requestInit.credentials = 'omit';
+  }
 
   try {
     const resp = await fetch(url, requestInit);
 
-    const ct = resp.headers.get('content-type') || '';
-    const asJson = ct.includes('application/json');
-    const data = asJson ? await resp.json() : await resp.text();
+    const text = await resp.text();
+    let data: unknown = text;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = text;
+      }
+    }
 
-    if (!resp.ok) throw new HttpError(resp.status, url, data);
+    if (!resp.ok) throw new HttpError(url, resp.status, text);
     return data as T;
   } catch (error) {
     let finalError: unknown = error;
@@ -232,6 +241,21 @@ export async function request<T>(
     throw finalError;
   } finally {
     for (const cleanup of cleanups) cleanup();
+  }
+}
+
+export async function getJSON<T>(path: string, params?: RequestParams, init?: RequestOptions): Promise<T> {
+  return request<T>(path, params ?? {}, init);
+}
+
+export async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
+  try {
+    return await request<NeoBrowse>('/neo/browse', { size });
+  } catch (e) {
+    if (e instanceof HttpError && (e.status === 401 || e.status === 429)) {
+      return null;
+    }
+    throw e;
   }
 }
 
