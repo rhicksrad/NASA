@@ -8,7 +8,6 @@ type QueryValue = string | number | boolean;
 
 const DEFAULT_API_BASE = import.meta.env.DEV ? '/api' : 'https://lively-haze-4b2c.hicksrch.workers.dev';
 const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || DEFAULT_API_BASE).replace(/\/+$/, '');
-const API_KEY = (import.meta.env.VITE_NASA_API_KEY as string | undefined)?.trim() || 'DEMO_KEY';
 
 function normalizeParams(params: Record<string, QueryValue>): Record<string, string> {
   const entries: Record<string, string> = {};
@@ -16,17 +15,11 @@ function normalizeParams(params: Record<string, QueryValue>): Record<string, str
   return entries;
 }
 
-function withApiKey(params: Record<string, QueryValue>): Record<string, string> {
-  if (!API_KEY) return normalizeParams(params);
-  if ('api_key' in params) return normalizeParams(params);
-  return { ...normalizeParams(params), api_key: API_KEY };
-}
-
 function buildUrl(path: string, params: Record<string, QueryValue> = {}): string {
   const clean = path.startsWith('/') ? path : `/${path}`;
   const base = API_BASE ? `${API_BASE}${clean}` : clean;
   const url = new URL(base, window.location.href);
-  const query = withApiKey(params);
+  const query = normalizeParams(params);
   for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
   return url.toString();
 }
@@ -38,7 +31,7 @@ export async function request<T>(
 ): Promise<T> {
   const url = buildUrl(path, params);
   const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), 10_000);
+  const id = setTimeout(() => ctrl.abort(), 30_000);
 
   try {
     const resp = await fetch(url, {
