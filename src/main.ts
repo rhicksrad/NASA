@@ -1,9 +1,6 @@
 import './styles/main.css';
 import { getApod } from './api/fetch_apod';
 import { getNeoBrowse } from './api/fetch_neo';
-import { HttpError } from './api/nasaClient';
-import { renderApod } from './visuals/apod';
-import { renderNeoSummary } from './visuals/neo';
 
 function qs<T extends Element>(sel: string): T {
   const el = document.querySelector(sel);
@@ -11,20 +8,42 @@ function qs<T extends Element>(sel: string): T {
   return el as T;
 }
 
-function friendlyError(e: unknown): string {
-  if (e instanceof HttpError) {
-    const base = `HTTP ${e.status} fetching ${e.url}`;
-    if (typeof e.body === 'string' && e.body.trim().length > 0) return `${base}: ${e.body}`;
-    if (e.body && typeof e.body === 'object') {
-      const maybeMsg =
-        // NASA errors usually nest a `msg` or `message` property.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ((e.body as any).msg as string | undefined) || ((e.body as any).message as string | undefined);
-      if (maybeMsg) return `${base}: ${maybeMsg}`;
-    }
-    return base;
+function renderApod(container: HTMLElement, apod: any): void {
+  container.replaceChildren();
+  if (apod.media_type === 'image') {
+    const img = document.createElement('img');
+    img.alt = apod.title || 'Astronomy Picture of the Day';
+    img.loading = 'lazy';
+    img.src = apod.hdurl || apod.url;
+    container.appendChild(img);
+  } else if (apod.media_type === 'video') {
+    const frame = document.createElement('iframe');
+    frame.src = apod.url;
+    frame.title = apod.title || 'APOD Video';
+    frame.setAttribute('allowfullscreen', 'true');
+    frame.setAttribute('referrerpolicy', 'no-referrer');
+    frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
+    container.appendChild(frame);
+  } else {
+    container.textContent = 'Unsupported media type';
   }
-  if (e instanceof Error && e.message) return e.message;
+}
+
+function renderNeo(summaryEl: HTMLElement, listEl: HTMLElement, data: any): void {
+  const total = data.page?.total_elements ?? 0;
+  summaryEl.textContent = `Sample size: ${data.page?.size ?? 0} • Total known (reported): ${total}`;
+  listEl.replaceChildren();
+  const first = data.near_earth_objects?.[0];
+  const li = document.createElement('li');
+  li.textContent = first ? `First sample object: ${first.name}` : 'No objects returned in this sample.';
+  listEl.appendChild(li);
+}
+
+function friendlyError(e: unknown): string {
+  if (e && typeof e === 'object' && 'status' in e && 'url' in e) {
+    const he = e as { status: number; url: string };
+    return `HTTP ${he.status} fetching ${he.url}`;
+  }
   return 'Request failed';
 }
 
@@ -37,7 +56,6 @@ async function init() {
   const neoSummary = qs<HTMLParagraphElement>('#neo-summary');
   const neoList = qs<HTMLUListElement>('#neo-list');
 
-  // APOD
   try {
     const apod = await getApod();
     apodTitle.textContent = apod.title;
@@ -51,11 +69,10 @@ async function init() {
     console.error(err);
   }
 
-  // NEO
   try {
     const neo = await getNeoBrowse({ size: 5 });
     neoSummary.classList.remove('loading');
-    renderNeoSummary(neoSummary, neoList, neo);
+    renderNeo(neoSummary, neoList, neo);
   } catch (err) {
     neoSummary.classList.remove('loading');
     neoSummary.textContent = `NEO sample failed to load. ${friendlyError(err)}`;

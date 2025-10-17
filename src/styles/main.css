@@ -1,19 +1,13 @@
-:root {
-  --nasa-blue: #0b3d91;
-  --text: #000000;
-  --bg: #ffffff;
-  --light: #d9e3f0;
-}
-
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
-header { padding: 1rem; border-bottom: 4px solid var(--nasa-blue); }
-h1 { margin: 0 0 .25rem 0; }
-.tagline { color: #333; margin: 0; }
-main { padding: 1rem; display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
-section { border: 1px solid var(--light); border-radius: 8px; padding: 1rem; background: #fff; }
-.media img, .media iframe { max-width: 100%; height: auto; border-radius: 6px; display: block; }
-.loading { opacity: 0.7; }
-.meta { color: #444; font-size: 0.9rem; }
-footer { padding: 1rem; border-top: 1px solid var(--light); text-align: center; }
-@media (min-width: 900px) { main { grid-template-columns: 1fr 1fr; } }
+:root { --nasa-blue:#0b3d91; --text:#000; --bg:#fff; --light:#d9e3f0; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Inter,"Segoe UI","Helvetica Neue",Arial,sans-serif}
+header{padding:1rem;border-bottom:4px solid var(--nasa-blue)}
+h1{margin:0 0 .25rem 0}
+.tagline{color:#333;margin:0}
+main{padding:1rem;display:grid;grid-template-columns:1fr;gap:1.25rem}
+section{border:1px solid var(--light);border-radius:8px;padding:1rem;background:#fff}
+.media img,.media iframe{max-width:100%;height:auto;border-radius:6px;display:block}
+.loading{opacity:.7}
+.meta{color:#444;font-size:.9rem}
+footer{padding:1rem;border-top:1px solid var(--light);text-align:center}
+@media (min-width:900px){main{grid-template-columns:1fr 1fr}}
