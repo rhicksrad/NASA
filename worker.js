@@ -43,26 +43,53 @@ function forceApiKey(u, key) {
   if (u.host === NASA_HOST) {
     const value = activeApiKey(key);
     u.searchParams.delete('api_key');
-    if (value) u.searchParams.set('api_key', value);
+    if (value) {
+      u.searchParams.set('api_key', value);
+    }
+    return value;
   }
+  return '';
 }
 
 async function fwd(target, request, origin, debug, cf, extraHeaders = {}) {
-  forceApiKey(target, NASA_API);
+  const fetchInit = cf ? { cf } : undefined;
 
-  const outReq = new Request(target.toString(), {
-    method: 'GET',
-    headers: {
+  const performFetch = async (url, apiKeyHeader) => {
+    const headers = new Headers({
       'User-Agent': 'cf-worker-nasa-proxy',
       Accept: 'application/json, image/*, */*;q=0.1',
-    },
-  });
+    });
+    if (apiKeyHeader) {
+      headers.set('x-api-key', apiKeyHeader);
+    }
+    const outReq = new Request(url.toString(), {
+      method: 'GET',
+      headers,
+    });
+    return fetch(outReq, fetchInit);
+  };
 
-  const fetchInit = cf ? { cf } : undefined;
-  const resp = await fetch(outReq, fetchInit);
+  const initialKey = forceApiKey(target, NASA_API);
+  let effectiveUrl = target;
+  let resp = await performFetch(target, target.host === NASA_HOST ? initialKey : '');
+
+  const configuredKey = (NASA_API || '').trim();
+  const hasConfiguredKey = configuredKey.length > 0 && configuredKey !== DEMO_KEY;
+  if (resp.status === 401 && target.host === NASA_HOST && hasConfiguredKey) {
+    const fallbackUrl = new URL(target.toString());
+    const fallbackKey = forceApiKey(fallbackUrl, '');
+    const retry = await performFetch(
+      fallbackUrl,
+      fallbackUrl.host === NASA_HOST ? fallbackKey : '',
+    );
+    if (retry.status < 500 || retry.status === 401) {
+      resp = retry;
+      effectiveUrl = fallbackUrl;
+    }
+  }
 
   const headers = { ...secHeaders(), ...corsHeaders(origin), ...extraHeaders };
-  if (debug) headers['x-upstream-url-redacted'] = redactKey(target);
+  if (debug) headers['x-upstream-url-redacted'] = redactKey(effectiveUrl);
 
   const contentType = resp.headers.get('Content-Type') || 'application/octet-stream';
   if (contentType) headers['Content-Type'] = contentType;
