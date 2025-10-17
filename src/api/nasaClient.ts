@@ -235,7 +235,19 @@ export async function request<T>(
       timeoutError.name = 'TimeoutError';
       finalError = timeoutError;
     }
-    console.error('[nasaClient] request failed', { path, url, params, err: finalError });
+
+    // Suppress noisy logs for expected unauthenticated NEO browse calls
+    const isNeoBrowse = typeof (finalError as any)?.url === 'string'
+      ? ((finalError as any).url as string).includes('/neo/browse')
+      : url.includes('/neo/browse');
+
+    const status = (finalError as any)?.status as number | undefined;
+    const expectedAuthError = status === 401 || status === 429;
+
+    if (!(isNeoBrowse && expectedAuthError)) {
+      // eslint-disable-next-line no-console
+      console.error('[nasaClient] request failed', { path, url, params, err: finalError });
+    }
     throw finalError;
   } finally {
     for (const cleanup of cleanups) cleanup();
@@ -263,6 +275,7 @@ export async function getJSON<T = unknown>(path: string): Promise<T> {
 
 export async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
   try {
+    // Use worker-relative path to benefit from buildUrl in dev if desired
     return await getJSON<NeoBrowse>(`${BASE}/neo/browse?size=${size}`);
   } catch (e) {
     if (e instanceof HttpError && (e.status === 401 || e.status === 429)) {
@@ -283,7 +296,6 @@ async function withRetry<T>(
   delayMs = 0
 ): Promise<T> {
   let attempt = 0;
-  // Ensure retries is a non-negative integer
   const maxAttempts = Math.max(0, Math.floor(retries)) + 1;
   let lastError: unknown;
 
