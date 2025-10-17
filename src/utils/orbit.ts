@@ -70,7 +70,7 @@ export function propagate(els: Keplerian, jd: number): [number, number, number] 
 
   const X = (cosO * cosw - sinO * sinw * cosi) * x_p + (-cosO * sinw - sinO * cosw * cosi) * y_p;
   const Y = (sinO * cosw + cosO * sinw * cosi) * x_p + (-sinO * sinw + cosO * cosw * cosi) * y_p;
-  const Z = (sini * sinw) * -x_p + (sini * cosw) * y_p; // derived from rotation matrix
+  const Z = (sini * sinw) * x_p + (sini * cosw) * y_p; // derived from rotation matrix
 
   return [X, Y, Z]; // AU
 }
