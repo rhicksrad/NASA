@@ -4,6 +4,7 @@ import { jdFromDate, propagate, earthElementsApprox, type Keplerian } from '../u
 
 const SCALE = 120, SUN_R = 0.12 * SCALE, EARTH_R = 0.03 * SCALE;
 const SPRITE_SIZE = 0.24 * SCALE;
+const GAUSS_K = 0.01720209895; // sqrt(GM_sun) AU^(3/2)/day
 
 type GradientStop = {
   offset: number;
@@ -178,7 +179,88 @@ function createStarfield(radius: number, density = 1400): THREE.Points {
   return new THREE.Points(geometry, material);
 }
 
-export interface Body { name: string; els: Keplerian; color: number; mesh?: THREE.Object3D; trail?: THREE.Line; }
+function createLabelSprite(text: string, color = '#f8fafc'): THREE.Sprite {
+  const canvas = document.createElement('canvas');
+  const width = 512;
+  const height = 256;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Unable to acquire canvas context for label sprite.');
+  }
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.font = '64px "Inter", "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = color;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 6;
+  ctx.fillText(text, width / 2, height - 32);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.center.set(0.5, 0);
+
+  const targetWidth = 0.6 * SCALE;
+  const aspect = height === 0 ? 1 : width / height;
+  const targetHeight = targetWidth / aspect;
+  sprite.scale.set(targetWidth, targetHeight, 1);
+  return sprite;
+}
+
+function buildOrbitPoints(els: Keplerian, segments: number, spanOverride?: number): THREE.Vector3[] {
+  const points: THREE.Vector3[] = [];
+  if (segments < 2) {
+    return points;
+  }
+
+  if (els.e < 1) {
+    const aAbs = Math.abs(els.a);
+    const periodDays = (2 * Math.PI * Math.sqrt(aAbs * aAbs * aAbs)) / GAUSS_K;
+    for (let i = 0; i <= segments; i += 1) {
+      const jd = els.epochJD + (periodDays * i) / segments;
+      const [x, y, z] = propagate(els, jd);
+      points.push(new THREE.Vector3(x * SCALE, z * SCALE, y * SCALE));
+    }
+  } else {
+    const spanDays = spanOverride ?? 2200;
+    const half = spanDays / 2;
+    for (let i = 0; i <= segments; i += 1) {
+      const offset = -half + (spanDays * i) / segments;
+      const [x, y, z] = propagate(els, els.epochJD + offset);
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+        continue;
+      }
+      points.push(new THREE.Vector3(x * SCALE, z * SCALE, y * SCALE));
+    }
+  }
+
+  return points;
+}
+
+interface OrbitConfig {
+  color: number;
+  segments?: number;
+  spanDays?: number;
+}
+
+export interface Body {
+  name: string;
+  els: Keplerian;
+  color: number;
+  orbit?: OrbitConfig;
+  label?: string;
+  mesh?: THREE.Object3D;
+  trail?: THREE.Line;
+  orbitPath?: THREE.Line | THREE.LineLoop;
+  labelSprite?: THREE.Sprite;
+}
 export interface Neo3DOptions { host: HTMLElement; dateLabel?: HTMLElement | null; }
 
 export class Neo3D {
@@ -271,6 +353,7 @@ export class Neo3D {
   }
 
   addBodies(list: Body[]){
+    const currentJd = jdFromDate(new Date(this.simMs));
     for(const b of list){
       const mesh = new THREE.Mesh(
         new THREE.SphereGeometry(0.012 * SCALE, 24, 18),
@@ -281,10 +364,48 @@ export class Neo3D {
           metalness: 0.1
         })
       );
+      mesh.name = b.name;
+
+      if (b.label) {
+        const label = createLabelSprite(b.label, '#fca5a5');
+        label.position.set(0, 0.12 * SCALE, 0);
+        mesh.add(label);
+        b.labelSprite = label;
+      }
+
+      if (b.orbit) {
+        const segments = Math.max(16, b.orbit.segments ?? 720);
+        const points = buildOrbitPoints(b.els, segments, b.orbit.spanDays);
+        if (points.length >= 2) {
+          const geometry = new THREE.BufferGeometry().setFromPoints(points);
+          const material = new THREE.LineBasicMaterial({
+            color: b.orbit.color,
+            transparent: true,
+            opacity: 0.7,
+            linewidth: 1.4,
+          });
+          const orbitLine = b.els.e < 1 && points.length >= 3
+            ? new THREE.LineLoop(geometry, material)
+            : new THREE.Line(geometry, material);
+          orbitLine.renderOrder = 1;
+          b.orbitPath = orbitLine;
+          this.scene.add(orbitLine);
+        }
+      }
+
       const trail = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
         new THREE.LineBasicMaterial({ color: b.color, transparent: true, opacity: 0.55, linewidth: 1.2 })
       );
+      const [x,y,z]=propagate(b.els,currentJd);
+      const pos=new THREE.Vector3(x*SCALE,z*SCALE,y*SCALE);
+      mesh.position.copy(pos);
+      const g=trail.geometry as THREE.BufferGeometry;
+      const arr=g.getAttribute('position') as THREE.BufferAttribute;
+      arr.setXYZ(0,pos.x,pos.y,pos.z);
+      arr.setXYZ(1,pos.x,pos.y,pos.z);
+      arr.needsUpdate=true;
+
       b.mesh = mesh; b.trail = trail; this.scene.add(mesh, trail); this.bodies.push(b);
     }
   }
