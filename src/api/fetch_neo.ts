@@ -1,6 +1,11 @@
 import type { NeoBrowse, NeoFeed, NeoItem } from '../types/nasa';
 import { request } from './nasaClient';
 
+// Uses /neo/browse via the Worker (Worker appends api_key)
+export async function fetchNEOBrowse(size = 20) {
+  return request<NeoBrowse>('/neo/browse', { size });
+}
+
 export function getNeoBrowse(params: { page?: number; size?: number } = {}) {
   const query = {
     size: params.size ?? 20,

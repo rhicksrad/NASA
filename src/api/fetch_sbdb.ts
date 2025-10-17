@@ -1,12 +1,7 @@
-import type { SbdbResponse } from '../types/sbdb';
-import { ensureSbdbOrbit, request } from './nasaClient';
+import { request } from './nasaClient';
 
-export async function getSbdb(sstr: string, fullname = true) {
-  const response = await request<SbdbResponse>(
-    '/sbdb',
-    { sstr, fullname: fullname ? 'true' : 'false' },
-    { timeoutMs: 30_000 },
-  );
-  ensureSbdbOrbit(response);
-  return response;
+// SBDB is keyless. Use sstr lookup, e.g. '3I' for 3I/ATLAS.
+// Some records may not include "orbit"; caller must guard.
+export async function fetchSBDB(sstr: string, fullname = true) {
+  return request('/sbdb', { sstr, fullname });
 }

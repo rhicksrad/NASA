@@ -1,11 +1,14 @@
-import { fetchAllPlanetEls } from '../api/fetch_planets';
-import { parseSbdbOrbit, request } from '../api/nasaClient';
 import type { NeoItem } from '../types/nasa';
-import { fromSbdb } from '../utils/orbit';
+import type { SbdbOrbit } from '../types/sbdb';
+import { fromSbdb, type SbdbOrbitRecord, earthElementsApprox } from '../utils/orbit';
 import { Neo3D, type Body } from '../visuals/neo3d';
-import type { SbdbResponse } from '../types/sbdb';
+import { loadInterstellar3I } from '../neo3d';
 
 const DEG2RAD = Math.PI / 180;
+
+const ROUGH_PLANETS: Array<{ name: string; color: number; els: ReturnType<typeof earthElementsApprox> }> = [
+  { name: 'Earth', color: 0x64b5f6, els: earthElementsApprox() },
+];
 
 function toNumber(value: string | number | null | undefined): number {
   if (typeof value === 'number') {
@@ -70,6 +73,76 @@ function buildBodies(neos: NeoItem[]): Body[] {
   return bodies;
 }
 
+function sbdbValueFromOrbit(orbit: SbdbOrbit, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const direct = (orbit as Record<string, unknown>)[key];
+    if (typeof direct === 'string' && direct.trim() !== '') {
+      return direct;
+    }
+  }
+
+  const { elements } = orbit;
+  if (Array.isArray(elements)) {
+    for (const key of keys) {
+      const found = elements.find(el => el.name === key || el.label === key);
+      if (!found) {
+        continue;
+      }
+      const value = found.value;
+      if (value == null) {
+        continue;
+      }
+      const asString = typeof value === 'string' ? value : String(value);
+      if (asString.trim() !== '') {
+        return asString;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function sbdbOrbitToRecord(orbit?: SbdbOrbit | null): SbdbOrbitRecord {
+  if (!orbit) {
+    throw new Error('No SBDB orbit');
+  }
+  const epochRaw = typeof orbit.epoch === 'string' && orbit.epoch.trim() !== '' ? orbit.epoch : undefined;
+  const epochFallback = typeof orbit.cov_epoch === 'string' && orbit.cov_epoch.trim() !== '' ? orbit.cov_epoch : undefined;
+  const epoch = epochRaw ?? epochFallback;
+  const e = sbdbValueFromOrbit(orbit, ['e']);
+  const i = sbdbValueFromOrbit(orbit, ['i']);
+  const om = sbdbValueFromOrbit(orbit, ['om', 'node']);
+  const w = sbdbValueFromOrbit(orbit, ['w', 'peri']);
+
+  if (!epoch || !e || !i || !om || !w) {
+    throw new Error('Incomplete SBDB orbit');
+  }
+
+  const record: SbdbOrbitRecord = { e, i, om, w, epoch };
+
+  const a = sbdbValueFromOrbit(orbit, ['a']);
+  if (a) {
+    record.a = a;
+  }
+
+  const q = sbdbValueFromOrbit(orbit, ['q']);
+  if (q) {
+    record.q = q;
+  }
+
+  const ma = sbdbValueFromOrbit(orbit, ['ma', 'M']);
+  if (ma) {
+    record.ma = ma;
+  }
+
+  const M = sbdbValueFromOrbit(orbit, ['M', 'ma']);
+  if (M) {
+    record.M = M;
+  }
+
+  return record;
+}
+
 export interface Neo3DController {
   setNeos(neos: NeoItem[]): void;
 }
@@ -85,29 +158,27 @@ export async function initNeo3D(
 
   const dateEl = document.getElementById('neo3d-date');
   const simulation = new Neo3D({ host: container, dateLabel: dateEl });
-  const iso = new Date().toISOString();
+
   try {
-    const planets = await fetchAllPlanetEls(iso);
-    const bodies: Body[] = [];
-    for (const planet of planets) {
+    for (const planet of ROUGH_PLANETS) {
       if (planet.name.toLowerCase() === 'earth') {
         simulation.setEarthElements(planet.els);
-        continue;
+      } else {
+        simulation.addBodies([
+          {
+            name: planet.name,
+            color: planet.color,
+            els: planet.els,
+            orbit: { color: planet.color, segments: 720 },
+          },
+        ]);
       }
-      bodies.push({
-        name: planet.name,
-        color: planet.color,
-        els: planet.els,
-        orbit: { color: planet.color, segments: 720 },
-      });
-    }
-    if (bodies.length) {
-      simulation.addBodies(bodies);
     }
     simulation.setPaused(false);
   } catch (error) {
     console.error('[horizons] planet preload failed', error); // eslint-disable-line no-console
   }
+
   let started = false;
   const apply = (neos: NeoItem[]) => {
     const bodies = buildBodies(neos);
@@ -129,7 +200,10 @@ export async function initNeo3D(
     speedSel.addEventListener('change', () => {
       const v = Number(speedSel.value);
       if (v === 0) simulation.setPaused(true);
-      else { simulation.setPaused(false); simulation.setTimeScale(v); }
+      else {
+        simulation.setPaused(false);
+        simulation.setTimeScale(v);
+      }
     });
   }
 
@@ -144,18 +218,15 @@ export async function initNeo3D(
       add3iBtn.disabled = true;
       add3iBtn.textContent = 'Loading…';
       try {
-        const response = await request<SbdbResponse>(
-          'https://lively-haze-4b2c.hicksrch.workers.dev/sbdb?sstr=3I',
-          {},
-          { timeoutMs: 30_000 },
-        );
-        const orbitRecord = parseSbdbOrbit(response);
-        const target = response.object;
-        const displayName = target?.object_name ?? target?.fullname ?? target?.des ?? '3I/ATLAS';
-        const els = fromSbdb(orbitRecord);
+        const orbit = await loadInterstellar3I();
+        if (!orbit) {
+          throw new Error('3I orbit unavailable');
+        }
+        const record = sbdbOrbitToRecord(orbit);
+        const els = fromSbdb(record);
         simulation.addBodies([
           {
-            name: displayName,
+            name: '3I/ATLAS',
             color: 0xdc2626,
             els,
             orbit: {
