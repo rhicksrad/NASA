@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { jdFromDate, propagate, earthElementsApprox, type Keplerian } from '../utils/orbit';
 
 const SCALE = 120;             // scene units per AU (bigger)
@@ -12,11 +13,13 @@ export class Neo3D {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
+  private controls: OrbitControls;
   private earth: Body;
   private bodies: Body[] = [];
   private t = Date.now();
   private dtMult = 600;       // fast by default so motion is obvious
   private paused = false;
+  private clock = new THREE.Clock();
 
   constructor(private opts: Neo3DOptions){
     const { host } = opts;
@@ -33,6 +36,13 @@ export class Neo3D {
     this.camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 100000);
     this.camera.position.set(0, 2.2 * SCALE, 3.2 * SCALE);
     this.camera.lookAt(0, 0, 0);
+
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.05;
+    this.controls.enablePan = true;
+    this.controls.enableZoom = true;
+    this.controls.zoomSpeed = 1.0;
 
     // lights
     const amb = new THREE.AmbientLight(0xffffff, 0.7);
@@ -76,6 +86,8 @@ export class Neo3D {
     this.scene.add(grid);
 
     window.addEventListener('resize', () => this.onResize());
+
+    this.paused = false;
   }
 
   addBodies(list: Body[]){
@@ -99,10 +111,13 @@ export class Neo3D {
   setPaused(p: boolean){ this.paused = p; }
 
   start(){
+    this.clock.getDelta();
     const loop = () => {
       requestAnimationFrame(loop);
-      if (!this.paused) this.t += 16 * this.dtMult;
+      const delta = this.clock.getDelta() * 1000 * this.dtMult;
+      if (!this.paused) this.t += delta;
       this.update(new Date(this.t));
+      this.controls.update();
       this.renderer.render(this.scene, this.camera);
     };
     loop();
@@ -148,6 +163,8 @@ export class Neo3D {
     this.camera.far = dist * 50;
     this.camera.updateProjectionMatrix();
     this.camera.lookAt(bs.center);
+    this.controls.target.copy(bs.center);
+    this.controls.update();
   }
 
   private onResize(){

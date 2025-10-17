@@ -11,3 +11,6 @@ section{border:1px solid var(--light);border-radius:8px;padding:1rem;background:
 .meta{color:#444;font-size:.9rem}
 footer{padding:1rem;border-top:1px solid var(--light);text-align:center}
 @media (min-width:900px){main{grid-template-columns:1fr 1fr}}
+
+html.neo3d-fullscreen,html.neo3d-fullscreen body{margin:0;padding:0;overflow:hidden;background:#0b3d91}
+body.neo3d-fullscreen #neo3d-host canvas{display:block;width:100%;height:100%;outline:none}
