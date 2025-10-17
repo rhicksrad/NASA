@@ -80,19 +80,16 @@ function toScene(pos: [number, number, number]): THREE.Vector3 {
 function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): Float32Array {
   const key = orbitKey(els, segments, spanDays);
   const cached = orbitCache.get(key);
-  if (cached) {
-    return cached;
-  }
+  if (cached) return cached;
+
   const points: number[] = [];
   if (els.e < 1) {
     const aAbs = Math.abs(els.a);
-    const period = 2 * Math.PI * Math.sqrt(aAbs * aAbs * aAbs) / 0.01720209895;
+    const period = (2 * Math.PI * Math.sqrt(aAbs * aAbs * aAbs)) / 0.01720209895;
     for (let i = 0; i <= segments; i += 1) {
       const jd = els.epochJD + (period * i) / segments;
       const pos = propagate(els, jd);
-      if (!isFinite3(pos)) {
-        continue;
-      }
+      if (!isFinite3(pos)) continue;
       const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
@@ -102,9 +99,7 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
     for (let i = 0; i <= segments; i += 1) {
       const offset = -half + (span * i) / segments;
       const pos = propagate(els, els.epochJD + offset);
-      if (!isFinite3(pos)) {
-        continue;
-      }
+      if (!isFinite3(pos)) continue;
       const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
@@ -150,9 +145,11 @@ export class Neo3D {
   private planets = new Map<string, PlanetNode>();
   private minMs: number;
   private maxMs: number;
+
+  // readiness/visibility bookkeeping
   private ready = false;
-  private hasData = false;
   private hasFinitePositions = false;
+  private planetCount = 0;
 
   constructor(private options: Neo3DOptions) {
     const { host } = options;
@@ -164,7 +161,9 @@ export class Neo3D {
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x020412, 1);
     host.replaceChildren(this.renderer.domElement);
-    this.renderer.domElement.style.visibility = 'hidden';
+
+    // show canvas immediately (we'll toggle meshes as data arrives)
+    this.renderer.domElement.style.visibility = 'visible';
 
     this.camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 1000 * SCALE);
     this.camera.position.set(0, 6 * SCALE, 6 * SCALE);
@@ -182,7 +181,10 @@ export class Neo3D {
     const ambient = new THREE.AmbientLight(0xffffff, 0.55);
     const sunLight = new THREE.PointLight(0xfff5c0, 2.6, 0, 2);
     sunLight.position.set(0, 0, 0);
-    const sun = new THREE.Mesh(new THREE.CircleGeometry(0.06 * SCALE, 48), new THREE.MeshBasicMaterial({ color: 0xfff1a8 }));
+    const sun = new THREE.Mesh(
+      new THREE.CircleGeometry(0.06 * SCALE, 48),
+      new THREE.MeshBasicMaterial({ color: 0xfff1a8 })
+    );
     sun.rotation.x = -Math.PI / 2;
     this.scene.add(ambient, sunLight, sun);
 
@@ -236,10 +238,6 @@ export class Neo3D {
       }
       this.bodies.push({ spec, mesh, orbitLine });
     }
-    this.hasData = this.bodies.length > 0;
-    if (!this.hasData) {
-      this.hasFinitePositions = false;
-    }
     this.updateReadyState();
   }
 
@@ -249,8 +247,6 @@ export class Neo3D {
       if (body.orbitLine) this.scene.remove(body.orbitLine);
     }
     this.bodies = [];
-    this.hasData = false;
-    this.hasFinitePositions = false;
     this.updateReadyState();
   }
 
@@ -275,11 +271,12 @@ export class Neo3D {
         this.scene.add(orbitLine);
       }
       mesh.visible = false;
-      if (orbitLine) {
-        orbitLine.visible = false;
-      }
+      if (orbitLine) orbitLine.visible = false;
       this.planets.set(provider.name, { provider, mesh, orbitLine });
     }
+
+    this.planetCount = this.planets.size;
+    this.updateReadyState();
   }
 
   start(): void {
@@ -297,7 +294,9 @@ export class Neo3D {
   }
 
   private updateReadyState(): void {
-    const nextReady = this.hasData && this.hasFinitePositions;
+    // Consider planets too when deciding to show the canvas.
+    const hasNodes = this.planetCount > 0 || this.bodies.length > 0;
+    const nextReady = hasNodes;
     if (nextReady !== this.ready) {
       this.ready = nextReady;
       this.renderer.domElement.style.visibility = nextReady ? 'visible' : 'hidden';
@@ -310,71 +309,56 @@ export class Neo3D {
       this.options.dateLabel.textContent = now.toISOString().replace('T', ' ').slice(0, 19);
     }
 
+    // Planets: toggle visible as soon as any finite position arrives
+    let anyPlanetFinite = false;
     for (const node of this.planets.values()) {
       const position = node.provider.getPosition(now);
       if (position && isFinite3(position)) {
+        anyPlanetFinite = true;
         node.mesh.visible = true;
         if (node.orbitLine) node.orbitLine.visible = true;
         node.mesh.position.copy(toScene(position as [number, number, number]));
       } else {
+        // keep orbit hidden until we have a position to avoid “floating rings”
         node.mesh.visible = false;
         if (node.orbitLine) node.orbitLine.visible = false;
       }
     }
 
-    let finitePositions = this.bodies.length > 0;
+    // Small bodies
+    let anyBodyFinite = false;
     for (const body of this.bodies) {
       let pos: [number, number, number] | null = null;
       if (body.spec.sample) {
         const sample = body.spec.sample(now);
-        if (sample && isFinite3(sample.posAU)) {
-          pos = sample.posAU;
-        }
+        if (sample && isFinite3(sample.posAU)) pos = sample.posAU;
       } else if (body.spec.els) {
         const propagated = propagate(body.spec.els, jd);
-        if (isFinite3(propagated)) {
-          pos = [propagated[0], propagated[1], propagated[2]];
-        }
+        if (isFinite3(propagated)) pos = [propagated[0], propagated[1], propagated[2]];
       }
 
       if (!pos) {
-        finitePositions = false;
         body.mesh.visible = false;
-        if (body.orbitLine) {
-          body.orbitLine.visible = false;
-        }
+        if (body.orbitLine) body.orbitLine.visible = false;
         continue;
       }
+      anyBodyFinite = true;
       const vec = toScene([pos[0], pos[1], pos[2]]);
       body.mesh.visible = true;
-      if (body.orbitLine) {
-        body.orbitLine.visible = true;
-      }
+      if (body.orbitLine) body.orbitLine.visible = true;
       body.mesh.position.copy(vec);
     }
 
-    this.hasData = this.bodies.length > 0;
-    this.hasFinitePositions = finitePositions;
+    this.hasFinitePositions = anyPlanetFinite || anyBodyFinite;
     this.updateReadyState();
-    if (!this.ready) {
-      for (const body of this.bodies) {
-        body.mesh.visible = false;
-        if (body.orbitLine) {
-          body.orbitLine.visible = false;
-        }
-      }
-      this.renderer.clear();
-      return;
-    }
 
+    // Render even if positions aren’t available yet (sun, background, UI).
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
 
   private buildSampleOrbitPoints(spec: SmallBodySpec, segments: number, spanDays?: number): Float32Array | null {
-    if (!spec.sample) {
-      return null;
-    }
+    if (!spec.sample) return null;
     const span = spanDays ?? 2200;
     const half = span / 2;
     const points: number[] = [];
@@ -382,9 +366,7 @@ export class Neo3D {
       const offsetDays = -half + (span * i) / segments;
       const sampleDate = new Date(this.simMs + offsetDays * DAY_MS);
       const state = spec.sample(sampleDate);
-      if (!state || !isFinite3(state.posAU)) {
-        continue;
-      }
+      if (!state || !isFinite3(state.posAU)) continue;
       const [x, y, z] = state.posAU;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
