@@ -1,18 +1,7 @@
 import '../styles/main.css';
 import { initNeo3D } from '../routes/neo3d';
-import { getJSON, HttpError } from '../api/nasaClient';
-import type { NeoBrowse, NeoItem } from '../types/nasa';
-
-async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
-  try {
-    return await getJSON<NeoBrowse>(`/neo/browse?size=${size}`);
-  } catch (error) {
-    if (error instanceof HttpError && (error.status === 401 || error.status === 429)) {
-      return null;
-    }
-    throw error;
-  }
-}
+import { tryNeoBrowse } from '../api/nasaClient';
+import type { NeoItem } from '../types/nasa';
 
 document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.classList.add('neo3d-fullscreen');

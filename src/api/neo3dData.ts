@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
-import { getJSON } from './nasaClient';
+import { BASE, getJSON } from './nasaClient';
 import type { NeoBrowse } from '../types/nasa';
-import { jdFromDate, type Keplerian } from '../utils/orbit';
+import { jdFromDate } from '../utils/orbit';
+import type { ConicElements } from '../orbits';
 
 const DAY_MS = 86_400_000;
-const DEG2RAD = Math.PI / 180;
 
 export interface VectorSample {
   jd: number;
@@ -90,32 +90,38 @@ export async function horizonsDailyVectors(spk: string | number, date: Date): Pr
   return samples.filter(sample => isFinite3(sample.posAU) && isFinite3(sample.velAUPerDay));
 }
 
-export async function loadAtlasSBDB(): Promise<Keplerian> {
-  const data = await getJSON<any>('/sbdb?sstr=3I');
-  const el = data?.orbit?.elements?.[0] ?? data?.elements?.[0] ?? data?.orbit ?? null;
+export async function loadAtlasSBDB(): Promise<ConicElements> {
+  const data = await getJSON<any>(`${BASE}/sbdb?sstr=3I`);
+  const el =
+    data?.object?.orbit?.elements?.[0] ??
+    data?.orbit?.elements?.[0] ??
+    data?.orbit ??
+    data?.elements?.[0] ??
+    null;
   if (!el) throw new Error('ATLAS SBDB: no elements');
 
-  const a = Number(el.a);
-  const e = Number(el.e);
-  const i = Number(el.i ?? el.inc ?? el.incl);
-  const Omega = Number(el.om ?? el.Omega ?? el.node);
-  const omega = Number(el.w ?? el.argp ?? el.peri);
-  const M = Number(el.ma ?? el.M);
-  const epochJD = Number(el.epoch_jd ?? el.epoch);
+  const N = (value: unknown) => (value == null ? Number.NaN : Number(value));
 
-  if (![a, e, i, Omega, omega, M, epochJD].every(Number.isFinite) || !(a > 0) || e < 0 || e >= 1) {
+  const a = N(el.a);
+  const e = N(el.e);
+  const inc = (N(el.i ?? el.inc ?? el.incl) * Math.PI) / 180;
+  const Omega = (N(el.om ?? el.Omega ?? el.node) * Math.PI) / 180;
+  const omega = (N(el.w ?? el.argp ?? el.peri) * Math.PI) / 180;
+  const epochJD = N(el.epoch_jd ?? el.epoch);
+  const Mdeg = N(el.ma ?? el.M);
+  const M0 = Number.isFinite(Mdeg) ? (Mdeg * Math.PI) / 180 : Number.NaN;
+  const tp_jd = N(el.tp_jd ?? el.tp);
+  const q = N(el.q);
+
+  if (!Number.isFinite(inc) || !Number.isFinite(Omega) || !Number.isFinite(omega)) {
     throw new Error('ATLAS SBDB: invalid element values');
   }
 
-  return {
-    a,
-    e,
-    i: i * DEG2RAD,
-    Omega: Omega * DEG2RAD,
-    omega: omega * DEG2RAD,
-    M: M * DEG2RAD,
-    epochJD,
-  };
+  if (!Number.isFinite(e) || e <= 0) {
+    throw new Error('ATLAS SBDB: invalid element values');
+  }
+
+  return { a, e, inc, Omega, omega, epochJD, M0, tp_jd, q };
 }
 
 export async function neoBrowse(params: { page?: number; size?: number } = {}): Promise<NeoBrowse> {

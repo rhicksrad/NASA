@@ -3,7 +3,9 @@ import type { NeoItem } from '../types/nasa';
 import { Neo3D, type PlanetSampleProvider, type SmallBodySpec } from '../visuals/neo3d';
 import { horizonsDailyVectors, horizonsVectors, loadAtlasSBDB, type VectorSample } from '../api/neo3dData';
 import { HttpError } from '../api/nasaClient';
-import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
+import { jdFromDate, type Keplerian } from '../utils/orbit';
+import { propagateConic } from '../orbits';
+import { jdFromDateUTC } from '../time';
 
 const DEG2RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;
@@ -112,12 +114,12 @@ function ensureToastHost(): HTMLDivElement {
   return host;
 }
 
-function toastError(message: string): void {
+function showToast(message: string, background: string, color = '#fff'): void {
   const host = ensureToastHost();
   const toast = document.createElement('div');
   toast.textContent = message;
-  toast.style.background = 'rgba(17, 24, 39, 0.92)';
-  toast.style.color = '#fff';
+  toast.style.background = background;
+  toast.style.color = color;
   toast.style.padding = '10px 14px';
   toast.style.borderRadius = '6px';
   toast.style.boxShadow = '0 8px 16px rgba(0,0,0,0.35)';
@@ -132,6 +134,14 @@ function toastError(message: string): void {
       toastHost = null;
     }
   }, 6000);
+}
+
+function toastError(message: string): void {
+  showToast(message, 'rgba(17, 24, 39, 0.92)');
+}
+
+function toast(message: string): void {
+  showToast(message, 'rgba(59, 130, 246, 0.92)');
 }
 
 function buildBodies(neos: NeoItem[]): SmallBodySpec[] {
@@ -391,24 +401,38 @@ export async function initNeo3D(
       add3iBtn.disabled = true;
       add3iBtn.textContent = 'Loading…';
       try {
-        const els = await loadAtlasSBDB();
-        const jdNow = jdFromDate(simulation.getCurrentDate());
-        const pos = propagate(els, jdNow);
-        if (!isFinite3(pos)) {
+        const el = await loadAtlasSBDB();
+        const nowDate = simulation.getCurrentDate();
+        const initialState = propagateConic(el, jdFromDateUTC(nowDate));
+        if (!isFinite3(initialState.posAU)) {
           throw new Error('3I/ATLAS propagation invalid');
         }
+        let sampleWarned = false;
+        const sample: NonNullable<SmallBodySpec['sample']> = date => {
+          try {
+            const state = propagateConic(el, jdFromDateUTC(date));
+            return isFinite3(state.posAU) ? state : null;
+          } catch (err) {
+            if (!sampleWarned) {
+              console.warn('[neo3d] 3I/ATLAS sample failed', err);
+              sampleWarned = true;
+            }
+            return null;
+          }
+        };
         simulation.addSmallBodies([
           {
             name: '3I/ATLAS',
             color: 0xf87171,
-            els,
+            sample,
             orbit: { color: 0xf87171, segments: 1600, spanDays: 3200 },
             label: '3I/ATLAS',
           },
         ]);
-        console.assert(pos.every(Number.isFinite), '3I/ATLAS propagated position finite', els);
+        console.assert(initialState.posAU.every(Number.isFinite), '3I/ATLAS propagated position finite', el);
         add3iBtn.textContent = '3I/ATLAS (SBDB)';
         console.info('[neo3d] ATLAS loaded from sbdb?sstr=3I');
+        toast('3I/ATLAS loaded from SBDB 3I');
         loaded = true;
       } catch (error) {
         console.error('[neo3d] ATLAS load failed', error);
