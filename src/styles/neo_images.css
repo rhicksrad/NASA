@@ -1,0 +1,51 @@
+.neo-card {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.neo-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  background: #f2f4f8;
+  object-fit: cover;
+}
+
+.neo-title {
+  font-weight: 600;
+}
+
+.neo-meta {
+  color: #444;
+  font-size: 0.9rem;
+}
+
+.neo-asset-link {
+  font-size: 0.85rem;
+  color: #0b3d91;
+  text-decoration: underline;
+}
+
+.neo-skel {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  background: #e6edf6;
+  animation: neoPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes neoPulse {
+  0% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.5;
+  }
+}

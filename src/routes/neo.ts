@@ -1,10 +1,37 @@
 import '../styles/neo.css';
+import '../styles/neo_images.css';
 import { getNeoFeed } from '../api/fetch_neo';
+import { searchFirstImage } from '../api/fetch_images';
+import { imageCache } from '../utils/imageCache';
 import { flattenFeed, type NeoFlat } from '../utils/neo';
 import { renderNeoTimeline } from '../visuals/neo_timeline';
 import { renderNeoHistogram } from '../visuals/neo_histogram';
 
 const PAGE_SIZE = 20;
+
+const MAX_CONCURRENT = 4;
+let inflight = 0;
+const q: Array<() => Promise<void>> = [];
+
+function schedule(task: () => Promise<void>) {
+  q.push(task);
+  pump();
+}
+
+function pump() {
+  while (inflight < MAX_CONCURRENT && q.length) {
+    const t = q.shift()!;
+    inflight++;
+    t()
+      .catch(err => {
+        console.warn('scheduled task failed', err);
+      })
+      .finally(() => {
+        inflight--;
+        pump();
+      });
+  }
+}
 
 function el<T extends Element>(sel: string): T {
   const n = document.querySelector(sel);
@@ -38,19 +65,122 @@ function renderList(listEl: HTMLUListElement, items: NeoFlat[], page: number) {
   listEl.replaceChildren();
   const start = page * PAGE_SIZE;
   const slice = items.slice(start, start + PAGE_SIZE);
+
   if (!slice.length) {
     const li = document.createElement('li');
     li.textContent = 'No objects match the current filters.';
     listEl.appendChild(li);
     return;
   }
+
+  const observer =
+    typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(
+          entries => {
+            const obs = observer;
+            if (!obs) return;
+            for (const ent of entries) {
+              if (ent.isIntersecting) {
+                const li = ent.target as HTMLLIElement;
+                obs.unobserve(li);
+                const id = li.dataset.neoId || '';
+                const name = li.dataset.neoName || '';
+                if (id || name) loadThumb(li, id, name);
+              }
+            }
+          },
+          { root: listEl, rootMargin: '200px' }
+        )
+      : null;
+
   for (const d of slice) {
     const li = document.createElement('li');
+    li.className = 'neo-card';
+    li.dataset.neoId = d.id;
+    li.dataset.neoName = d.name;
+
+    const skel = document.createElement('div');
+    skel.className = 'neo-skel';
+    skel.setAttribute('aria-hidden', 'true');
+
+    const txt = document.createElement('div');
+    const title = document.createElement('div');
+    title.className = 'neo-title';
+    title.textContent = `${d.name}`;
+    const meta = document.createElement('div');
     const miss = d.miss_ld != null ? `${d.miss_ld.toFixed(2)} LD` : '—';
     const vel = d.vel_kps != null ? `${d.vel_kps.toFixed(2)} km/s` : '—';
     const dia = d.dia_km_max != null ? `${d.dia_km_max.toFixed(2)} km` : '—';
-    li.textContent = `${d.date} • ${d.name} • miss ${miss} • v ${vel} • dia ${dia}${d.is_hazardous ? ' • hazardous' : ''}`;
+    meta.className = 'neo-meta';
+    meta.textContent = `${d.date} • miss ${miss} • v ${vel} • dia ${dia}${d.is_hazardous ? ' • hazardous' : ''}`;
+
+    txt.appendChild(title);
+    txt.appendChild(meta);
+
+    li.appendChild(skel);
+    li.appendChild(txt);
+
     listEl.appendChild(li);
+
+    if (observer) {
+      observer.observe(li);
+    } else {
+      loadThumb(li, d.id, d.name);
+    }
+  }
+}
+
+function loadThumb(li: HTMLLIElement, id: string, name: string) {
+  const cached = imageCache.get(id) || imageCache.get(name);
+  if (cached) {
+    replaceThumb(li, cached.url, cached.title, cached.asset);
+    return;
+  }
+  schedule(async () => {
+    try {
+      const pick = await searchFirstImage(name);
+      if (pick) {
+        imageCache.set(id, pick.thumbUrl, pick.title, pick.assetPage);
+        imageCache.set(name, pick.thumbUrl, pick.title, pick.assetPage);
+        replaceThumb(li, pick.thumbUrl, pick.title, pick.assetPage);
+      }
+    } catch (e) {
+      console.warn('image load failed', name, e);
+    }
+  });
+}
+
+function replaceThumb(li: HTMLLIElement, url: string, title: string, asset?: string) {
+  const img = document.createElement('img');
+  img.className = 'neo-thumb';
+  const fallbackTitle = title || li.dataset.neoName || 'NASA Image';
+  img.alt = `${fallbackTitle} (NASA Image Library)`;
+  img.loading = 'lazy';
+  img.decoding = 'async';
+  img.referrerPolicy = 'no-referrer';
+  img.src = url;
+
+  const curr = li.querySelector('.neo-skel');
+  if (curr) {
+    li.replaceChild(img, curr);
+  } else {
+    li.insertBefore(img, li.firstChild);
+  }
+
+  if (asset) {
+    const txt = li.children.item(1) as HTMLElement | null;
+    if (txt && !txt.querySelector('.neo-asset-link')) {
+      const wrapper = document.createElement('div');
+      wrapper.style.marginTop = '.2rem';
+      const link = document.createElement('a');
+      link.href = asset;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.className = 'neo-asset-link';
+      link.textContent = 'Asset';
+      wrapper.appendChild(link);
+      txt.appendChild(wrapper);
+    }
   }
 }
 
