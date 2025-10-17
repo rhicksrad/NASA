@@ -1,14 +1,10 @@
 import './styles/main.css';
 import { getApod } from './api/fetch_apod';
 import { getNeoBrowse } from './api/fetch_neo';
+import { initNeoPage } from './routes/neo';
+import type { Apod, NeoBrowse } from './types/nasa';
 
-function qs<T extends Element>(sel: string): T {
-  const el = document.querySelector(sel);
-  if (!el) throw new Error(`Missing element: ${sel}`);
-  return el as T;
-}
-
-function renderApod(container: HTMLElement, apod: any): void {
+function renderApod(container: HTMLElement, apod: Apod): void {
   container.replaceChildren();
   if (apod.media_type === 'image') {
     const img = document.createElement('img');
@@ -29,14 +25,22 @@ function renderApod(container: HTMLElement, apod: any): void {
   }
 }
 
-function renderNeo(summaryEl: HTMLElement, listEl: HTMLElement, data: any): void {
+function renderNeoSummary(summaryEl: HTMLElement, listEl: HTMLElement, data: NeoBrowse): void {
   const total = data.page?.total_elements ?? 0;
   summaryEl.textContent = `Sample size: ${data.page?.size ?? 0} • Total known (reported): ${total}`;
   listEl.replaceChildren();
-  const first = data.near_earth_objects?.[0];
-  const li = document.createElement('li');
-  li.textContent = first ? `First sample object: ${first.name}` : 'No objects returned in this sample.';
-  listEl.appendChild(li);
+
+  for (const item of data.near_earth_objects.slice(0, 5)) {
+    const li = document.createElement('li');
+    li.textContent = item.name;
+    listEl.appendChild(li);
+  }
+
+  if (!listEl.childElementCount) {
+    const li = document.createElement('li');
+    li.textContent = 'No objects returned in this sample.';
+    listEl.appendChild(li);
+  }
 }
 
 function friendlyError(e: unknown): string {
@@ -47,14 +51,27 @@ function friendlyError(e: unknown): string {
   return 'Request failed';
 }
 
-async function init() {
-  const apodImg = qs<HTMLDivElement>('#apod-image');
-  const apodTitle = qs<HTMLHeadingElement>('#apod-title');
-  const apodDate = qs<HTMLParagraphElement>('#apod-date');
-  const apodExpl = qs<HTMLParagraphElement>('#apod-expl');
+async function initIndexPage(): Promise<void> {
+  const apodImg = document.querySelector<HTMLDivElement>('#apod-image');
+  if (!apodImg) {
+    return;
+  }
 
-  const neoSummary = qs<HTMLParagraphElement>('#neo-summary');
-  const neoList = qs<HTMLUListElement>('#neo-list');
+  const apodTitle = document.querySelector<HTMLHeadingElement>('#apod-title');
+  const apodDate = document.querySelector<HTMLParagraphElement>('#apod-date');
+  const apodExpl = document.querySelector<HTMLParagraphElement>('#apod-expl');
+  const neoSummary = document.querySelector<HTMLParagraphElement>('#neo-summary');
+  const neoList = document.querySelector<HTMLUListElement>('#neo-list');
+  const neoLink = document.querySelector<HTMLAnchorElement>('#neo-link');
+
+  if (!apodTitle || !apodDate || !apodExpl || !neoSummary || !neoList) {
+    throw new Error('Missing index layout elements');
+  }
+
+  if (neoLink) {
+    const base = import.meta.env.BASE_URL ?? '/';
+    neoLink.href = `${base.replace(/\/+$/, '')}/neo.html`.replace('//neo.html', '/neo.html');
+  }
 
   try {
     const apod = await getApod();
@@ -72,7 +89,7 @@ async function init() {
   try {
     const neo = await getNeoBrowse({ size: 5 });
     neoSummary.classList.remove('loading');
-    renderNeo(neoSummary, neoList, neo);
+    renderNeoSummary(neoSummary, neoList, neo);
   } catch (err) {
     neoSummary.classList.remove('loading');
     neoSummary.textContent = `NEO sample failed to load. ${friendlyError(err)}`;
@@ -80,4 +97,10 @@ async function init() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  initIndexPage().catch(err => console.error('Index init failed', err));
+
+  if (document.querySelector('#neo-page')) {
+    initNeoPage().catch(err => console.error('NEO page init failed', err));
+  }
+});
