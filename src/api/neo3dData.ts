@@ -1,6 +1,10 @@
 import type { NeoBrowse } from '../types/nasa';
 
-const BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
+const BASE = import.meta.env.VITE_API_BASE ?? '';
+if (!BASE) {
+  // eslint-disable-next-line no-console
+  console.error('[neo3dData] VITE_API_BASE missing');
+}
 const JD_UNIX_EPOCH = 2440587.5;
 const K = 0.01720209895;
 const MU = K * K;
