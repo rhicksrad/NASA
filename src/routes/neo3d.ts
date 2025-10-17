@@ -2,6 +2,7 @@
 import type { NeoItem } from '../types/nasa';
 import { Neo3D, type PlanetSampleProvider, type SmallBodySpec } from '../visuals/neo3d';
 import { horizonsDailyVectors, horizonsVectors, loadAtlasSBDB, type VectorSample } from '../api/neo3dData';
+import { HttpError } from '../api/nasaClient';
 import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const DEG2RAD = Math.PI / 180;
@@ -79,7 +80,59 @@ function toKeplerian(neo: NeoItem): Keplerian | null {
   };
 }
 
-const isFiniteVec = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
+const isFinite3 = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
+
+const describeError = (error: unknown, fallback: string): string => {
+  if (error instanceof HttpError) {
+    return `${fallback} (HTTP ${error.status} for ${error.url})`;
+  }
+  if (error instanceof Error && error.message) {
+    return `${fallback}: ${error.message}`;
+  }
+  return fallback;
+};
+
+let toastHost: HTMLDivElement | null = null;
+
+function ensureToastHost(): HTMLDivElement {
+  if (toastHost && document.body.contains(toastHost)) {
+    return toastHost;
+  }
+  const host = document.createElement('div');
+  host.style.position = 'fixed';
+  host.style.bottom = '16px';
+  host.style.right = '16px';
+  host.style.maxWidth = '320px';
+  host.style.zIndex = '9999';
+  host.style.display = 'flex';
+  host.style.flexDirection = 'column';
+  host.style.gap = '8px';
+  toastHost = host;
+  document.body.appendChild(host);
+  return host;
+}
+
+function toastError(message: string): void {
+  const host = ensureToastHost();
+  const toast = document.createElement('div');
+  toast.textContent = message;
+  toast.style.background = 'rgba(17, 24, 39, 0.92)';
+  toast.style.color = '#fff';
+  toast.style.padding = '10px 14px';
+  toast.style.borderRadius = '6px';
+  toast.style.boxShadow = '0 8px 16px rgba(0,0,0,0.35)';
+  toast.style.fontSize = '14px';
+  toast.style.lineHeight = '1.35';
+  host.appendChild(toast);
+
+  window.setTimeout(() => {
+    toast.remove();
+    if (toastHost && !toastHost.childElementCount) {
+      toastHost.remove();
+      toastHost = null;
+    }
+  }, 6000);
+}
 
 function buildBodies(neos: NeoItem[]): SmallBodySpec[] {
   const bodies: SmallBodySpec[] = [];
@@ -118,8 +171,8 @@ class PlanetEphemeris {
 
   getPosition(date: Date): [number, number, number] | null {
     const day = startOfUtcDay(date);
-    void this.ensure(day);
-    void this.ensure(addDays(day, 1));
+    this.ensure(day).catch(() => undefined);
+    this.ensure(addDays(day, 1)).catch(() => undefined);
 
     if (!this.samples.length && this.lastKnown) {
       return [...this.lastKnown];
@@ -154,7 +207,7 @@ class PlanetEphemeris {
         previous.posAU[2] + (next.posAU[2] - previous.posAU[2]) * t,
       ];
     }
-    if (!isFiniteVec(pos)) {
+    if (!isFinite3(pos)) {
       return null;
     }
     this.lastKnown = [...pos];
@@ -180,7 +233,7 @@ class PlanetEphemeris {
     const promise = horizonsDailyVectors(this.spk, date)
       .then(samples => {
         for (const sample of samples) {
-          if (!isFiniteVec(sample.posAU)) {
+          if (!isFinite3(sample.posAU)) {
             continue;
           }
           const existingIndex = this.samples.findIndex(item => Math.abs(item.jd - sample.jd) < 1e-6);
@@ -201,6 +254,7 @@ class PlanetEphemeris {
       })
       .catch(error => {
         console.error(`[neo3d] Horizons vector fetch failed for ${this.spk}`, error);
+        throw error;
       })
       .finally(() => {
         this.pending.delete(key);
@@ -211,24 +265,38 @@ class PlanetEphemeris {
 }
 
 class PlanetManager {
-  private readonly nodes: Array<{ config: PlanetConfig; ephemeris: PlanetEphemeris }>; 
+  private nodes: Array<{ config: PlanetConfig; ephemeris: PlanetEphemeris }>;
 
   constructor(configs: PlanetConfig[]) {
     this.nodes = configs.map(config => ({ config, ephemeris: new PlanetEphemeris(config.spk) }));
   }
 
   async prime(date: Date): Promise<void> {
-    await Promise.all(this.nodes.map(node => node.ephemeris.prime(date)));
+    const survivors: Array<{ config: PlanetConfig; ephemeris: PlanetEphemeris }> = [];
+    for (const node of this.nodes) {
+      try {
+        await node.ephemeris.prime(date);
+        survivors.push(node);
+      } catch (error) {
+        const message = describeError(error, `${node.config.name} ephemeris unavailable`);
+        toastError(message);
+      }
+    }
+    this.nodes = survivors;
   }
 
   providers(): PlanetSampleProvider[] {
-    return this.nodes.map(({ config, ephemeris }) => ({
-      name: config.name,
-      color: config.color,
-      radius: config.radius,
-      orbitRadius: ephemeris.radiusHint(),
-      getPosition: (date: Date) => ephemeris.getPosition(date),
-    }));
+    return this.nodes.map(({ config, ephemeris }) => {
+      const orbitRadius = ephemeris.radiusHint();
+      const finiteRadius = typeof orbitRadius === 'number' && Number.isFinite(orbitRadius) ? orbitRadius : undefined;
+      return {
+        name: config.name,
+        color: config.color,
+        radius: config.radius,
+        orbitRadius: finiteRadius,
+        getPosition: (date: Date) => ephemeris.getPosition(date),
+      };
+    });
   }
 }
 
@@ -295,7 +363,7 @@ export async function initNeo3D(
 
   const earthProvider = planetProviders.find(p => p.name.toLowerCase() === 'earth');
   const earthPos = earthProvider?.getPosition(now);
-  if (earthPos) {
+  if (earthPos && isFinite3(earthPos)) {
     const distance = Math.hypot(earthPos[0], earthPos[1], earthPos[2]);
     console.assert(Math.abs(distance - 1) <= 0.02, 'Earth barycenter distance sanity', distance);
   }
@@ -326,7 +394,7 @@ export async function initNeo3D(
         const els = await loadAtlasSBDB();
         const jdNow = jdFromDate(simulation.getCurrentDate());
         const pos = propagate(els, jdNow);
-        if (!isFiniteVec(pos)) {
+        if (!isFinite3(pos)) {
           throw new Error('3I/ATLAS propagation invalid');
         }
         simulation.addSmallBodies([
@@ -344,6 +412,7 @@ export async function initNeo3D(
         loaded = true;
       } catch (error) {
         console.error('[neo3d] ATLAS load failed', error);
+        toastError(describeError(error, '3I/ATLAS failed to load'));
         add3iBtn.disabled = false;
         add3iBtn.textContent = '3I unavailable';
         setTimeout(() => {

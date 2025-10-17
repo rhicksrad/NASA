@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
-import { getJSON, parseSbdbOrbit } from './nasaClient';
+import { getJSON } from './nasaClient';
 import type { NeoBrowse } from '../types/nasa';
-import type { SbdbResponse } from '../types/sbdb';
-import { fromSbdb, jdFromDate, type Keplerian } from '../utils/orbit';
+import { jdFromDate, type Keplerian } from '../utils/orbit';
 
 const DAY_MS = 86_400_000;
+const DEG2RAD = Math.PI / 180;
 
 export interface VectorSample {
   jd: number;
@@ -12,107 +12,74 @@ export interface VectorSample {
   velAUPerDay: [number, number, number];
 }
 
-const isFiniteVec = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
+const isFinite3 = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
 
-function formatUtc(date: Date): string {
-  const yyyy = date.getUTCFullYear();
-  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(date.getUTCDate()).padStart(2, '0');
-  const hh = String(date.getUTCHours()).padStart(2, '0');
-  const min = String(date.getUTCMinutes()).padStart(2, '0');
-  const ss = String(date.getUTCSeconds()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-}
-
-function toUtcDate(value: Date | string): Date {
-  if (value instanceof Date) {
-    return new Date(value.getTime());
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    throw new Error('Invalid Horizons time input');
-  }
-  let normalized = trimmed;
-  if (!normalized.includes('T') && normalized.includes(' ')) {
-    normalized = normalized.replace(' ', 'T');
-  }
-  if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(normalized)) {
-    normalized = `${normalized}Z`;
-  }
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new Error(`Invalid Horizons time input: ${value}`);
-  }
-  return parsed;
-}
-
-const toHorizonsTime = (iso: string) => formatUtc(toUtcDate(iso));
+const normTime = (iso: string): string => iso.replace('T', ' ').replace(/Z$/i, '');
 
 function addDays(date: Date, days: number): Date {
   return new Date(date.getTime() + days * DAY_MS);
 }
+
+const toIsoSecond = (input: Date | string): string => {
+  if (input instanceof Date) {
+    return input.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  }
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error('Horizons: invalid time input');
+  const hasTime = trimmed.includes('T') || trimmed.includes(' ');
+  const withT = hasTime ? trimmed.replace(' ', 'T') : `${trimmed}T00:00:00Z`;
+  const hasZone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(withT);
+  const normalized = hasZone ? withT : `${withT}Z`;
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) throw new Error(`Horizons: invalid time input ${input}`);
+  return parsed.toISOString().replace(/\.\d{3}Z$/, 'Z');
+};
 
 export function parseHorizonsVectors(resultText: string): {
   jd: number;
   posAU: [number, number, number];
   velAUPerDay: [number, number, number];
 } {
-  const body = resultText.split('$$SOE')[1]?.split('$$EOE')[0];
-  if (!body) {
-    throw new Error('Horizons: missing $$SOE/$$EOE');
-  }
-  const lines = body
+  const block = resultText.split('$$SOE')[1]?.split('$$EOE')[0];
+  if (!block) throw new Error('Horizons: missing SOE/EOE');
+  const lines = block
     .trim()
     .split(/\r?\n/)
-    .map(line => line.trim())
+    .map(s => s.trim())
     .filter(Boolean);
 
-  let jd = Number.NaN;
-  for (const line of lines) {
-    if (/^\d/.test(line)) {
-      const token = line.split('=')[0].trim();
-      const value = Number(token);
-      if (Number.isFinite(value)) {
-        jd = value;
-        break;
-      }
-    }
-  }
+  const jdLine = lines.find(line => /^\d/.test(line)) ?? '';
+  const jd = Number(jdLine.split(/[\s=]+/)[0]);
 
-  const matches = Array.from(body.matchAll(/(V?[XYZ])\s*=\s*([+-]?\d+(?:\.\d+)?(?:E[+-]?\d+)?)/g));
-  const values = new Map<string, number>();
-  for (const [, key, raw] of matches) {
-    const num = Number(raw);
-    if (Number.isFinite(num)) {
-      values.set(key.toUpperCase(), num);
-    }
-  }
+  const xyzLine = lines.find(line => line.startsWith('X ='));
+  const vLine = lines.find(line => line.startsWith('VX='));
+  if (!xyzLine || !vLine) throw new Error('Horizons: missing vector lines');
 
-  const pos = ['X', 'Y', 'Z'].map(label => values.get(label));
-  const vel = ['VX', 'VY', 'VZ'].map(label => values.get(label));
+  const num = (value: string) => Number(value.replace(/[^0-9+-.Ee]/g, ''));
+  const posMatches = [...xyzLine.matchAll(/[XYZ]\s*=\s*([+-]?\d\.\d+E[+-]\d+)/g)].map(match => num(match[1]));
+  const velMatches = [...vLine.matchAll(/V[XYZ]\s*=\s*([+-]?\d\.\d+E[+-]\d+)/g)].map(match => num(match[1]));
 
-  if (pos.some(v => v == null || !Number.isFinite(v)) || vel.some(v => v == null || !Number.isFinite(v))) {
-    throw new Error('Horizons: non-finite vector data');
-  }
+  if (posMatches.length !== 3 || velMatches.length !== 3) throw new Error('Horizons: non-finite');
+  if (![...posMatches, ...velMatches].every(Number.isFinite)) throw new Error('Horizons: non-finite');
 
   return {
     jd,
-    posAU: pos as [number, number, number],
-    velAUPerDay: vel as [number, number, number],
+    posAU: posMatches as [number, number, number],
+    velAUPerDay: velMatches as [number, number, number],
   };
 }
 
-export async function horizonsVectors(spk: string | number, when: Date | string): Promise<VectorSample> {
-  const date = toUtcDate(when);
-  const t = formatUtc(date);
-  const url = `/horizons?COMMAND='${encodeURIComponent(String(spk))}'&EPHEM_TYPE=VECTORS&TLIST='${encodeURIComponent(t)}'&OBJ_DATA=NO&OUT_UNITS=AU-D&format=json`;
-  const resp = await getJSON<{ result?: string } | string>(url);
-  const text = typeof resp === 'string' ? resp : resp?.result ?? '';
-  if (typeof text !== 'string' || !text.trim()) {
-    throw new Error('Horizons: empty VECTORS response');
-  }
+export async function horizonsVectors(command: string | number, when: Date | string): Promise<VectorSample> {
+  const iso = toIsoSecond(when);
+  const t = normTime(iso);
+  const query = `/horizons?COMMAND='${encodeURIComponent(String(command))}'&EPHEM_TYPE=VECTORS&TLIST='${encodeURIComponent(
+    t,
+  )}'&OBJ_DATA=NO&OUT_UNITS=AU-D&format=json`;
+  const resp = await getJSON<{ result?: string } | string>(query);
+  const text: string = typeof resp === 'string' ? resp : resp?.result ?? '';
+  if (!text.trim()) throw new Error('Horizons: empty result');
   const parsed = parseHorizonsVectors(text);
-  const jd = Number.isFinite(parsed.jd) ? parsed.jd : jdFromDate(date);
+  const jd = Number.isFinite(parsed.jd) ? parsed.jd : jdFromDate(new Date(iso));
   return { jd, posAU: parsed.posAU, velAUPerDay: parsed.velAUPerDay };
 }
 
@@ -120,18 +87,35 @@ export async function horizonsDailyVectors(spk: string | number, date: Date): Pr
   const dayStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const nextDay = addDays(dayStart, 1);
   const samples = await Promise.all([horizonsVectors(spk, dayStart), horizonsVectors(spk, nextDay)]);
-  return samples.filter(sample => isFiniteVec(sample.posAU) && isFiniteVec(sample.velAUPerDay));
+  return samples.filter(sample => isFinite3(sample.posAU) && isFinite3(sample.velAUPerDay));
 }
 
 export async function loadAtlasSBDB(): Promise<Keplerian> {
-  const response = await getJSON<SbdbResponse>('/sbdb?sstr=3I');
-  const record = parseSbdbOrbit(response);
-  const els = fromSbdb(record);
-  const values = [els.a, els.e, els.i, els.Omega, els.omega, els.M, els.epochJD];
-  if (!values.every(Number.isFinite) || !(els.a > 0) || els.e < 0 || els.e >= 1) {
-    throw new Error('ATLAS: bad SBDB elements');
+  const data = await getJSON<any>('/sbdb?sstr=3I');
+  const el = data?.orbit?.elements?.[0] ?? data?.elements?.[0] ?? data?.orbit ?? null;
+  if (!el) throw new Error('ATLAS SBDB: no elements');
+
+  const a = Number(el.a);
+  const e = Number(el.e);
+  const i = Number(el.i ?? el.inc ?? el.incl);
+  const Omega = Number(el.om ?? el.Omega ?? el.node);
+  const omega = Number(el.w ?? el.argp ?? el.peri);
+  const M = Number(el.ma ?? el.M);
+  const epochJD = Number(el.epoch_jd ?? el.epoch);
+
+  if (![a, e, i, Omega, omega, M, epochJD].every(Number.isFinite) || !(a > 0) || e < 0 || e >= 1) {
+    throw new Error('ATLAS SBDB: invalid element values');
   }
-  return els;
+
+  return {
+    a,
+    e,
+    i: i * DEG2RAD,
+    Omega: Omega * DEG2RAD,
+    omega: omega * DEG2RAD,
+    M: M * DEG2RAD,
+    epochJD,
+  };
 }
 
 export async function neoBrowse(params: { page?: number; size?: number } = {}): Promise<NeoBrowse> {
@@ -145,8 +129,5 @@ export async function neoBrowse(params: { page?: number; size?: number } = {}): 
 }
 
 export const _internal = {
-  formatUtc,
-  toHorizonsTime,
-  toUtcDate,
   parseHorizonsVectors,
 };

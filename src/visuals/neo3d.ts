@@ -4,7 +4,7 @@ import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const SCALE = 120;
 
-const isFiniteVec = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
+const isFinite3 = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
 
 interface OrbitConfig {
   color: number;
@@ -83,7 +83,7 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
     for (let i = 0; i <= segments; i += 1) {
       const jd = els.epochJD + (period * i) / segments;
       const pos = propagate(els, jd);
-      if (!isFiniteVec(pos)) {
+      if (!isFinite3(pos)) {
         continue;
       }
       const [x, y, z] = pos;
@@ -95,7 +95,7 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
     for (let i = 0; i <= segments; i += 1) {
       const offset = -half + (span * i) / segments;
       const pos = propagate(els, els.epochJD + offset);
-      if (!isFiniteVec(pos)) {
+      if (!isFinite3(pos)) {
         continue;
       }
       const [x, y, z] = pos;
@@ -252,13 +252,18 @@ export class Neo3D {
       const mesh = createPlanetMesh(provider.color, provider.radius ?? 0.03);
       this.scene.add(mesh);
       let orbitLine: THREE.Line | undefined;
-      if (provider.orbitRadius) {
-        const geometry = new THREE.CircleGeometry(provider.orbitRadius * SCALE, 256);
+      const orbitRadius = provider.orbitRadius;
+      if (typeof orbitRadius === 'number' && Number.isFinite(orbitRadius) && orbitRadius > 0) {
+        const geometry = new THREE.CircleGeometry(orbitRadius * SCALE, 256);
         geometry.rotateX(-Math.PI / 2);
         const material = new THREE.LineBasicMaterial({ color: provider.color, transparent: true, opacity: 0.2 });
         orbitLine = new THREE.LineLoop(geometry, material);
         orbitLine.renderOrder = 0;
         this.scene.add(orbitLine);
+      }
+      mesh.visible = false;
+      if (orbitLine) {
+        orbitLine.visible = false;
       }
       this.planets.set(provider.name, { provider, mesh, orbitLine });
     }
@@ -294,15 +299,20 @@ export class Neo3D {
 
     for (const node of this.planets.values()) {
       const position = node.provider.getPosition(now);
-      if (position) {
-        node.mesh.position.copy(toScene(position));
+      if (position && isFinite3(position)) {
+        node.mesh.visible = true;
+        if (node.orbitLine) node.orbitLine.visible = true;
+        node.mesh.position.copy(toScene(position as [number, number, number]));
+      } else {
+        node.mesh.visible = false;
+        if (node.orbitLine) node.orbitLine.visible = false;
       }
     }
 
     let finitePositions = this.bodies.length > 0;
     for (const body of this.bodies) {
       const pos = propagate(body.spec.els, jd);
-      if (!isFiniteVec(pos)) {
+      if (!isFinite3(pos)) {
         finitePositions = false;
         body.mesh.visible = false;
         if (body.orbitLine) {
