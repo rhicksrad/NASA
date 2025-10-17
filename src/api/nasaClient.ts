@@ -4,19 +4,36 @@ export class HttpError extends Error {
   }
 }
 
-const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
+type QueryValue = string | number | boolean;
 
-function buildUrl(path: string, params: Record<string, string | number> = {}): string {
+const DEFAULT_API_BASE = import.meta.env.DEV ? '/api' : 'https://lively-haze-4b2c.hicksrch.workers.dev';
+const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || DEFAULT_API_BASE).replace(/\/+$/, '');
+const API_KEY = (import.meta.env.VITE_NASA_API_KEY as string | undefined)?.trim() || 'DEMO_KEY';
+
+function normalizeParams(params: Record<string, QueryValue>): Record<string, string> {
+  const entries: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) entries[key] = String(value);
+  return entries;
+}
+
+function withApiKey(params: Record<string, QueryValue>): Record<string, string> {
+  if (!API_KEY) return normalizeParams(params);
+  if ('api_key' in params) return normalizeParams(params);
+  return { ...normalizeParams(params), api_key: API_KEY };
+}
+
+function buildUrl(path: string, params: Record<string, QueryValue> = {}): string {
   const clean = path.startsWith('/') ? path : `/${path}`;
   const base = API_BASE ? `${API_BASE}${clean}` : clean;
   const url = new URL(base, window.location.href);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+  const query = withApiKey(params);
+  for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
   return url.toString();
 }
 
 export async function request<T>(
   path: string,
-  params: Record<string, string | number> = {},
+  params: Record<string, QueryValue> = {},
   init?: RequestInit
 ): Promise<T> {
   const url = buildUrl(path, params);
