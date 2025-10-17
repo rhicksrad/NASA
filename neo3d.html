@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NEO 3D — NASA Open APIs Visualization Hub</title>
+  </head>
+  <body>
+    <section id="neo-3d">
+      <header class="subhead">
+        <h2>NEO 3D</h2>
+        <p class="meta">Heliocentric ecliptic J2000 • positions from orbital elements</p>
+      </header>
+      <div id="neo3d-host" style="height:520px;border:1px solid #d9e3f0;border-radius:8px;"></div>
+      <div class="controls" style="margin-top:.5rem;display:flex;gap:.75rem;align-items:center;">
+        <label>Time scale
+          <select id="neo3d-speed">
+            <option value="0">Pause</option>
+            <option value="1">1x</option>
+            <option value="60">60x</option>
+            <option value="600">600x</option>
+            <option value="3600">3600x</option>
+          </select>
+        </label>
+        <button id="neo3d-load-3i" type="button">Add 3I/ATLAS</button>
+      </div>
+    </section>
+    <script type="module" src="/NASA/src/pages/neo3d_page.ts"></script>
+  </body>
+</html>
