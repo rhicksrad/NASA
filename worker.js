@@ -119,7 +119,8 @@ async function handleRequest(request) {
   }
 
   if (url.pathname === '/horizons') {
-    const allowed = new Set([
+    const base = new URL('https://ssd.jpl.nasa.gov/api/horizons.api');
+    const allow = new Set([
       'COMMAND',
       'EPHEM_TYPE',
       'CENTER',
@@ -141,43 +142,62 @@ async function handleRequest(request) {
       'TIME_TYPE',
       'TIME_DIGITS',
     ]);
-
-    const target = new URL('https://ssd.jpl.nasa.gov/api/horizons.api');
-    const defaults = {
-      FORMAT: 'JSON',
-      MAKE_EPHEM: 'YES',
-      EPHEM_TYPE: 'ELEMENTS',
-      CENTER: '500@10',
-      REF_PLANE: 'ECLIPTIC',
-      REF_SYSTEM: 'J2000',
-      OUT_UNITS: 'AU-D',
-    };
-
-    for (const [key, value] of Object.entries(defaults)) {
-      target.searchParams.set(key, value);
-    }
-
-    for (const [key, value] of url.searchParams.entries()) {
-      if (key === 'debug') {
-        continue;
+    let forwarded = 0;
+    for (const [key, value] of url.searchParams) {
+      if (key === 'debug') continue;
+      if (allow.has(key)) {
+        base.searchParams.append(key, value);
+        forwarded += 1;
       }
-      if (!allowed.has(key)) {
-        const headers = {
-          'Content-Type': 'application/json; charset=utf-8',
-          ...secHeaders(),
-          ...corsHeaders(origin),
-        };
-        const body = JSON.stringify({ error: `Unsupported parameter: ${key}` });
-        return new Response(body, { status: 400, headers });
-      }
-      target.searchParams.set(key, value);
     }
-
+    const baseHeaders = { ...secHeaders(), 'Access-Control-Allow-Origin': '*', Vary: 'Origin' };
+    if (forwarded === 0) {
+      const headers = {
+        'Content-Type': 'application/json; charset=utf-8',
+        ...baseHeaders,
+      };
+      return new Response(JSON.stringify({ ok: false, message: 'no valid Horizons params' }), {
+        status: 400,
+        headers,
+      });
+    }
+    if (!base.searchParams.has('FORMAT')) base.searchParams.set('FORMAT', 'JSON');
+    if (!base.searchParams.has('MAKE_EPHEM')) base.searchParams.set('MAKE_EPHEM', 'YES');
+    if (!base.searchParams.has('OBJ_DATA')) base.searchParams.set('OBJ_DATA', 'NO');
+    if (!base.searchParams.has('EPHEM_TYPE')) base.searchParams.set('EPHEM_TYPE', 'ELEMENTS');
+    if (!base.searchParams.has('CENTER')) base.searchParams.set('CENTER', '500@10');
+    if (!base.searchParams.has('REF_PLANE')) base.searchParams.set('REF_PLANE', 'ECLIPTIC');
+    if (!base.searchParams.has('REF_SYSTEM')) base.searchParams.set('REF_SYSTEM', 'J2000');
+    if (!base.searchParams.has('OUT_UNITS')) base.searchParams.set('OUT_UNITS', 'AU-D');
     const cf = { cacheEverything: true, cacheTtl: 600 };
-    const headers = {
-      'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
-    };
-    return fwd(target, request, origin, debug, cf, headers);
+    try {
+      const r = await fetch(base.toString(), { cf });
+      if (!r.ok) {
+        const errorHeaders = {
+          'Content-Type': 'application/json',
+          ...baseHeaders,
+        };
+        return new Response(
+          JSON.stringify({ ok: false, status: r.status, url: base.toString() }),
+          { status: r.status, headers: errorHeaders },
+        );
+      }
+      const body = await r.text();
+      const successHeaders = {
+        'Content-Type': r.headers.get('content-type') || 'application/json; charset=utf-8',
+        ...baseHeaders,
+      };
+      return new Response(body, { status: 200, headers: successHeaders });
+    } catch (err) {
+      const errorHeaders = {
+        'Content-Type': 'application/json',
+        ...baseHeaders,
+      };
+      return new Response(
+        JSON.stringify({ ok: false, status: 502, url: base.toString() }),
+        { status: 502, headers: errorHeaders },
+      );
+    }
   }
 
   if (!NASA_API) {
