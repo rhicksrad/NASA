@@ -410,6 +410,10 @@ export class Neo3D {
     }
   }
 
+  setEarthElements(els: Keplerian){
+    this.earth.els = els;
+  }
+
   setTimeScale(m:number){ this.dtMult = m; }
   setPaused(p:boolean){
     this.paused = p;

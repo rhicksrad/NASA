@@ -107,11 +107,6 @@ async function handleRequest(request) {
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers });
   }
 
-  if (!NASA_API) {
-    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
-    return new Response(JSON.stringify({ error: 'NASA_API secret not configured' }), { status: 500, headers });
-  }
-
   // APOD
   if (url.pathname === '/apod') {
     const target = new URL('/planetary/apod' + url.search, API_ORIGIN);
@@ -121,6 +116,73 @@ async function handleRequest(request) {
       'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
     };
     return fwd(target, request, origin, debug, cf, headers);
+  }
+
+  if (url.pathname === '/horizons') {
+    const allowed = new Set([
+      'COMMAND',
+      'EPHEM_TYPE',
+      'CENTER',
+      'REF_PLANE',
+      'REF_SYSTEM',
+      'MAKE_EPHEM',
+      'OUT_UNITS',
+      'FORMAT',
+      'START_TIME',
+      'STOP_TIME',
+      'STEP_SIZE',
+      'TIME',
+      'TLIST',
+      'TLIST_TYPE',
+      'OBJ_DATA',
+      'CSV_FORMAT',
+      'VEC_TABLE',
+      'VEC_CORR',
+      'TIME_TYPE',
+      'TIME_DIGITS',
+    ]);
+
+    const target = new URL('https://ssd.jpl.nasa.gov/api/horizons.api');
+    const defaults = {
+      FORMAT: 'JSON',
+      MAKE_EPHEM: 'YES',
+      EPHEM_TYPE: 'ELEMENTS',
+      CENTER: '500@10',
+      REF_PLANE: 'ECLIPTIC',
+      REF_SYSTEM: 'J2000',
+      OUT_UNITS: 'AU-D',
+    };
+
+    for (const [key, value] of Object.entries(defaults)) {
+      target.searchParams.set(key, value);
+    }
+
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key === 'debug') {
+        continue;
+      }
+      if (!allowed.has(key)) {
+        const headers = {
+          'Content-Type': 'application/json; charset=utf-8',
+          ...secHeaders(),
+          ...corsHeaders(origin),
+        };
+        const body = JSON.stringify({ error: `Unsupported parameter: ${key}` });
+        return new Response(body, { status: 400, headers });
+      }
+      target.searchParams.set(key, value);
+    }
+
+    const cf = { cacheEverything: true, cacheTtl: 600 };
+    const headers = {
+      'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
+    };
+    return fwd(target, request, origin, debug, cf, headers);
+  }
+
+  if (!NASA_API) {
+    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
+    return new Response(JSON.stringify({ error: 'NASA_API secret not configured' }), { status: 500, headers });
   }
 
   if (url.pathname === '/sbdb') {
