@@ -132,6 +132,27 @@ function createBodyMesh(color: number): THREE.Mesh {
   return mesh;
 }
 
+/** Build a circular polyline in the XZ plane; avoids CircleGeometry’s center vertex spokes. */
+function buildCirclePolyline(radiusAU: number, color: number, segments = 256): THREE.Line {
+  const pts = new Float32Array((segments + 1) * 3);
+  const r = radiusAU * SCALE;
+  for (let i = 0; i <= segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    const x = r * Math.cos(a);
+    const z = r * Math.sin(a);
+    const idx = i * 3;
+    pts[idx + 0] = x;
+    pts[idx + 1] = 0;   // Y up → 0 to lie in ecliptic (XZ)
+    pts[idx + 2] = z;
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.2 });
+  const loop = new THREE.LineLoop(geom, mat);
+  loop.renderOrder = 0;
+  return loop;
+}
+
 export class Neo3D {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -146,7 +167,6 @@ export class Neo3D {
   private minMs: number;
   private maxMs: number;
 
-  // readiness/visibility bookkeeping
   private ready = false;
   private hasFinitePositions = false;
   private planetCount = 0;
@@ -161,8 +181,6 @@ export class Neo3D {
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x020412, 1);
     host.replaceChildren(this.renderer.domElement);
-
-    // show canvas immediately (we'll toggle meshes as data arrives)
     this.renderer.domElement.style.visibility = 'visible';
 
     this.camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 1000 * SCALE);
@@ -260,18 +278,19 @@ export class Neo3D {
     for (const provider of providers) {
       const mesh = createPlanetMesh(provider.color, provider.radius ?? 0.03);
       this.scene.add(mesh);
+
       let orbitLine: THREE.Line | undefined;
       const orbitRadius = provider.orbitRadius;
       if (typeof orbitRadius === 'number' && Number.isFinite(orbitRadius) && orbitRadius > 0) {
-        const geometry = new THREE.CircleGeometry(orbitRadius * SCALE, 256);
-        geometry.rotateX(-Math.PI / 2);
-        const material = new THREE.LineBasicMaterial({ color: provider.color, transparent: true, opacity: 0.2 });
-        orbitLine = new THREE.LineLoop(geometry, material);
-        orbitLine.renderOrder = 0;
+        // draw a true polyline in XZ plane to avoid spokes
+        orbitLine = buildCirclePolyline(orbitRadius, provider.color, 256);
         this.scene.add(orbitLine);
       }
+
+      // hide until first finite sample arrives
       mesh.visible = false;
       if (orbitLine) orbitLine.visible = false;
+
       this.planets.set(provider.name, { provider, mesh, orbitLine });
     }
 
@@ -294,7 +313,6 @@ export class Neo3D {
   }
 
   private updateReadyState(): void {
-    // Consider planets too when deciding to show the canvas.
     const hasNodes = this.planetCount > 0 || this.bodies.length > 0;
     const nextReady = hasNodes;
     if (nextReady !== this.ready) {
@@ -309,7 +327,6 @@ export class Neo3D {
       this.options.dateLabel.textContent = now.toISOString().replace('T', ' ').slice(0, 19);
     }
 
-    // Planets: toggle visible as soon as any finite position arrives
     let anyPlanetFinite = false;
     for (const node of this.planets.values()) {
       const position = node.provider.getPosition(now);
@@ -319,13 +336,11 @@ export class Neo3D {
         if (node.orbitLine) node.orbitLine.visible = true;
         node.mesh.position.copy(toScene(position as [number, number, number]));
       } else {
-        // keep orbit hidden until we have a position to avoid “floating rings”
         node.mesh.visible = false;
         if (node.orbitLine) node.orbitLine.visible = false;
       }
     }
 
-    // Small bodies
     let anyBodyFinite = false;
     for (const body of this.bodies) {
       let pos: [number, number, number] | null = null;
@@ -352,7 +367,6 @@ export class Neo3D {
     this.hasFinitePositions = anyPlanetFinite || anyBodyFinite;
     this.updateReadyState();
 
-    // Render even if positions aren’t available yet (sun, background, UI).
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
@@ -384,3 +398,4 @@ export class Neo3D {
 }
 
 export const _internal = { buildOrbitPoints };
+
