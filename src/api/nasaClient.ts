@@ -150,3 +150,40 @@ export async function request<T>(
     for (const cleanup of cleanups) cleanup();
   }
 }
+
+async function wait(ms: number): Promise<void> {
+  if (ms <= 0) return;
+  await new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  retries = 0,
+  delayMs = 0
+): Promise<T> {
+  let attempt = 0;
+  // Ensure retries is a non-negative integer
+  const maxAttempts = Math.max(0, Math.floor(retries)) + 1;
+  let lastError: unknown;
+
+  while (attempt < maxAttempts) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      attempt += 1;
+      if (attempt >= maxAttempts) {
+        break;
+      }
+      if (delayMs > 0) {
+        await wait(delayMs);
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+export const _internal = {
+  withRetry,
+};
