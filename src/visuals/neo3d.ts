@@ -5,8 +5,6 @@ import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 const SCALE = 120;
 const DAY_MS = 86_400_000;
 
-const isFinite3 = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
-
 interface OrbitConfig {
   color: number;
   segments?: number;
@@ -20,8 +18,8 @@ export interface OrbitSample {
 
 export interface SmallBodySpec {
   name: string;
-  els?: Keplerian;
   color: number;
+  els?: Keplerian;
   sample?: (date: Date) => OrbitSample | null;
   orbit?: OrbitConfig;
   label?: string;
@@ -69,7 +67,7 @@ function orbitKey(els: Keplerian, segments: number, spanDays?: number): string {
     els.M,
     els.epochJD,
   ];
-  return parts.map(v => v.toPrecision(12)).join('|');
+  return parts.map((value) => value.toPrecision(12)).join('|');
 }
 
 function toScene(pos: [number, number, number]): THREE.Vector3 {
@@ -89,24 +87,46 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
     for (let i = 0; i <= segments; i += 1) {
       const jd = els.epochJD + (period * i) / segments;
       const pos = propagate(els, jd);
-      if (!isFinite3(pos)) continue;
+      if (!isFiniteVec3(pos)) continue;
       const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
   } else {
-    const span = spanDays ?? 2200;
+    const span = spanDays ?? 2600;
     const half = span / 2;
     for (let i = 0; i <= segments; i += 1) {
       const offset = -half + (span * i) / segments;
       const pos = propagate(els, els.epochJD + offset);
-      if (!isFinite3(pos)) continue;
+      if (!isFiniteVec3(pos)) continue;
       const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
   }
+
   const array = new Float32Array(points);
   orbitCache.set(key, array);
   return array;
+}
+
+function buildSampleOrbitPoints(
+  spec: SmallBodySpec,
+  segments: number,
+  spanDays: number | undefined,
+  centerMs: number,
+): Float32Array | null {
+  if (!spec.sample) return null;
+  const span = spanDays ?? 2600;
+  const half = span / 2;
+  const points: number[] = [];
+  for (let i = 0; i <= segments; i += 1) {
+    const offsetDays = -half + (span * i) / segments;
+    const sampleDate = new Date(centerMs + offsetDays * DAY_MS);
+    const state = spec.sample(sampleDate);
+    if (!state || !isFiniteVec3(state.posAU)) continue;
+    const [x, y, z] = state.posAU;
+    points.push(x * SCALE, z * SCALE, y * SCALE);
+  }
+  return points.length >= 6 ? new Float32Array(points) : null;
 }
 
 function makeOrbitLine(points: Float32Array, color: number, closed: boolean): THREE.Line {
@@ -117,40 +137,46 @@ function makeOrbitLine(points: Float32Array, color: number, closed: boolean): TH
 }
 
 function createPlanetMesh(color: number, radius = 0.02): THREE.Mesh {
-  const geometry = new THREE.CircleGeometry(radius * SCALE, 48);
-  const material = new THREE.MeshBasicMaterial({ color });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = -Math.PI / 2;
-  return mesh;
+  const geometry = new THREE.SphereGeometry(radius * SCALE, 24, 16);
+  const material = new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.6 });
+  return new THREE.Mesh(geometry, material);
 }
 
 function createBodyMesh(color: number): THREE.Mesh {
-  const geometry = new THREE.CircleGeometry(0.012 * SCALE, 32);
-  const material = new THREE.MeshBasicMaterial({ color });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.rotation.x = -Math.PI / 2;
-  return mesh;
+  const geometry = new THREE.SphereGeometry(0.008 * SCALE, 16, 12);
+  const material = new THREE.MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.4 });
+  return new THREE.Mesh(geometry, material);
 }
 
-/** Build a circular polyline in the XZ plane; avoids CircleGeometry’s center vertex spokes. */
 function buildCirclePolyline(radiusAU: number, color: number, segments = 256): THREE.Line {
   const pts = new Float32Array((segments + 1) * 3);
   const r = radiusAU * SCALE;
-  for (let i = 0; i <= segments; i++) {
-    const a = (i / segments) * Math.PI * 2;
-    const x = r * Math.cos(a);
-    const z = r * Math.sin(a);
+  for (let i = 0; i <= segments; i += 1) {
+    const angle = (i / segments) * Math.PI * 2;
+    const x = r * Math.cos(angle);
+    const z = r * Math.sin(angle);
     const idx = i * 3;
     pts[idx + 0] = x;
-    pts[idx + 1] = 0;   // Y up → 0 to lie in ecliptic (XZ)
+    pts[idx + 1] = 0;
     pts[idx + 2] = z;
   }
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.2 });
-  const loop = new THREE.LineLoop(geom, mat);
-  loop.renderOrder = 0;
-  return loop;
+  const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.25 });
+  return new THREE.LineLoop(geom, mat);
+}
+
+function createGridRing(): THREE.LineLoop {
+  const ring = buildCirclePolyline(1, 0x1f2937, 320);
+  ring.material.transparent = true;
+  (ring.material as THREE.LineBasicMaterial).opacity = 0.18;
+  ring.rotation.set(0, 0, 0);
+  ring.renderOrder = 0;
+  return ring;
+}
+
+function isFiniteVec3(value: readonly number[]): boolean {
+  return value.length === 3 && value.every(Number.isFinite);
 }
 
 export class Neo3D {
@@ -160,18 +186,14 @@ export class Neo3D {
   private controls: OrbitControls;
   private clock = new THREE.Clock();
   private simMs: number;
-  private secondsPerSecond = 86_400;
-  private paused = false;
+  private secondsPerSecond = 1;
+  private paused = true;
   private bodies: RenderBody[] = [];
   private planets = new Map<string, PlanetNode>();
   private minMs: number;
   private maxMs: number;
 
-  private ready = false;
-  private hasFinitePositions = false;
-  private planetCount = 0;
-
-  constructor(private options: Neo3DOptions) {
+  constructor(private readonly options: Neo3DOptions) {
     const { host } = options;
     const width = host.clientWidth || 800;
     const height = host.clientHeight || 520;
@@ -181,10 +203,12 @@ export class Neo3D {
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x020412, 1);
     host.replaceChildren(this.renderer.domElement);
+    this.renderer.domElement.style.width = '100%';
+    this.renderer.domElement.style.height = '100%';
     this.renderer.domElement.style.visibility = 'visible';
 
-    this.camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 1000 * SCALE);
-    this.camera.position.set(0, 6 * SCALE, 6 * SCALE);
+    this.camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 2000 * SCALE);
+    this.camera.position.set(4 * SCALE, 3.5 * SCALE, 6 * SCALE);
     this.camera.lookAt(0, 0, 0);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -192,19 +216,20 @@ export class Neo3D {
     this.controls.enableZoom = true;
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.controls.maxPolarAngle = Math.PI * 0.495;
-    this.controls.minDistance = 0.4 * SCALE;
-    this.controls.maxDistance = 30 * SCALE;
+    this.controls.maxPolarAngle = 0.98 * (Math.PI / 2);
+    this.controls.minDistance = 0.3 * SCALE;
+    this.controls.maxDistance = 40 * SCALE;
+    this.controls.target.set(0, 0, 0);
+    this.controls.update();
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.55);
-    const sunLight = new THREE.PointLight(0xfff5c0, 2.6, 0, 2);
+    const sunLight = new THREE.PointLight(0xfff5c0, 2.4, 0, 2);
     sunLight.position.set(0, 0, 0);
     const sun = new THREE.Mesh(
-      new THREE.CircleGeometry(0.06 * SCALE, 48),
-      new THREE.MeshBasicMaterial({ color: 0xfff1a8 })
+      new THREE.SphereGeometry(0.06 * SCALE, 32, 24),
+      new THREE.MeshBasicMaterial({ color: 0xfff1a8 }),
     );
-    sun.rotation.x = -Math.PI / 2;
-    this.scene.add(ambient, sunLight, sun);
+    this.scene.add(ambient, sunLight, sun, createGridRing());
 
     this.simMs = (options.initialDate ?? new Date()).getTime();
     this.minMs = options.minDate?.getTime() ?? Number.NEGATIVE_INFINITY;
@@ -226,6 +251,7 @@ export class Neo3D {
   }
 
   setPaused(next: boolean): void {
+    if (this.paused === next) return;
     this.paused = next;
     if (!next) {
       this.clock.stop();
@@ -233,30 +259,57 @@ export class Neo3D {
     }
   }
 
+  setPlanets(providers: PlanetSampleProvider[]): void {
+    for (const planet of this.planets.values()) {
+      this.scene.remove(planet.mesh);
+      if (planet.orbitLine) this.scene.remove(planet.orbitLine);
+    }
+    this.planets.clear();
+
+    for (const provider of providers) {
+      const mesh = createPlanetMesh(provider.color, provider.radius ?? 0.03);
+      mesh.visible = false;
+      this.scene.add(mesh);
+
+      let orbitLine: THREE.Line | undefined;
+      if (typeof provider.orbitRadius === 'number' && provider.orbitRadius > 0) {
+        orbitLine = buildCirclePolyline(provider.orbitRadius, provider.color, 256);
+        this.scene.add(orbitLine);
+      }
+
+      this.planets.set(provider.name, { provider, mesh, orbitLine });
+    }
+  }
+
+  setSmallBodies(bodies: SmallBodySpec[]): void {
+    this.clearSmallBodies();
+    this.addSmallBodies(bodies);
+  }
+
   addSmallBodies(bodies: SmallBodySpec[]): void {
     for (const spec of bodies) {
       const mesh = createBodyMesh(spec.color);
       mesh.visible = false;
       this.scene.add(mesh);
+
       let orbitLine: THREE.Line | undefined;
       if (spec.orbit) {
-        const segments = Math.max(32, spec.orbit.segments ?? 512);
+        const segments = Math.max(64, spec.orbit.segments ?? 512);
         let points: Float32Array | null = null;
         if (spec.els) {
           points = buildOrbitPoints(spec.els, segments, spec.orbit.spanDays);
         } else if (spec.sample) {
-          points = this.buildSampleOrbitPoints(spec, segments, spec.orbit.spanDays);
+          points = buildSampleOrbitPoints(spec, segments, spec.orbit.spanDays, this.simMs);
         }
         if (points && points.length >= 6) {
           const closed = spec.els ? spec.els.e < 1 : false;
           orbitLine = makeOrbitLine(points, spec.orbit.color, closed);
-          orbitLine.renderOrder = 1;
           this.scene.add(orbitLine);
         }
       }
+
       this.bodies.push({ spec, mesh, orbitLine });
     }
-    this.updateReadyState();
   }
 
   clearSmallBodies(): void {
@@ -265,37 +318,6 @@ export class Neo3D {
       if (body.orbitLine) this.scene.remove(body.orbitLine);
     }
     this.bodies = [];
-    this.updateReadyState();
-  }
-
-  setPlanets(providers: PlanetSampleProvider[]): void {
-    for (const existing of this.planets.values()) {
-      this.scene.remove(existing.mesh);
-      if (existing.orbitLine) this.scene.remove(existing.orbitLine);
-    }
-    this.planets.clear();
-
-    for (const provider of providers) {
-      const mesh = createPlanetMesh(provider.color, provider.radius ?? 0.03);
-      this.scene.add(mesh);
-
-      let orbitLine: THREE.Line | undefined;
-      const orbitRadius = provider.orbitRadius;
-      if (typeof orbitRadius === 'number' && Number.isFinite(orbitRadius) && orbitRadius > 0) {
-        // draw a true polyline in XZ plane to avoid spokes
-        orbitLine = buildCirclePolyline(orbitRadius, provider.color, 256);
-        this.scene.add(orbitLine);
-      }
-
-      // hide until first finite sample arrives
-      mesh.visible = false;
-      if (orbitLine) orbitLine.visible = false;
-
-      this.planets.set(provider.name, { provider, mesh, orbitLine });
-    }
-
-    this.planetCount = this.planets.size;
-    this.updateReadyState();
   }
 
   start(): void {
@@ -312,79 +334,46 @@ export class Neo3D {
     loop();
   }
 
-  private updateReadyState(): void {
-    const hasNodes = this.planetCount > 0 || this.bodies.length > 0;
-    const nextReady = hasNodes;
-    if (nextReady !== this.ready) {
-      this.ready = nextReady;
-      this.renderer.domElement.style.visibility = nextReady ? 'visible' : 'hidden';
-    }
-  }
-
   private renderFrame(now: Date): void {
     const jd = jdFromDate(now);
     if (this.options.dateLabel) {
-      this.options.dateLabel.textContent = now.toISOString().replace('T', ' ').slice(0, 19);
+      this.options.dateLabel.textContent = now.toISOString().slice(0, 19).replace('T', ' ');
     }
 
-    let anyPlanetFinite = false;
     for (const node of this.planets.values()) {
       const position = node.provider.getPosition(now);
-      if (position && isFinite3(position)) {
-        anyPlanetFinite = true;
+      if (position && isFiniteVec3(position)) {
         node.mesh.visible = true;
+        node.mesh.position.copy(toScene(position));
         if (node.orbitLine) node.orbitLine.visible = true;
-        node.mesh.position.copy(toScene(position as [number, number, number]));
       } else {
         node.mesh.visible = false;
         if (node.orbitLine) node.orbitLine.visible = false;
       }
     }
 
-    let anyBodyFinite = false;
     for (const body of this.bodies) {
       let pos: [number, number, number] | null = null;
       if (body.spec.sample) {
-        const sample = body.spec.sample(now);
-        if (sample && isFinite3(sample.posAU)) pos = sample.posAU;
+        const state = body.spec.sample(now);
+        if (state && isFiniteVec3(state.posAU)) pos = state.posAU;
       } else if (body.spec.els) {
         const propagated = propagate(body.spec.els, jd);
-        if (isFinite3(propagated)) pos = [propagated[0], propagated[1], propagated[2]];
+        if (isFiniteVec3(propagated)) pos = [propagated[0], propagated[1], propagated[2]];
       }
 
       if (!pos) {
         body.mesh.visible = false;
-        if (body.orbitLine) body.orbitLine.visible = false;
+        if (body.orbitLine) body.orbitLine.visible = true;
         continue;
       }
-      anyBodyFinite = true;
-      const vec = toScene([pos[0], pos[1], pos[2]]);
-      body.mesh.visible = true;
-      if (body.orbitLine) body.orbitLine.visible = true;
-      body.mesh.position.copy(vec);
-    }
 
-    this.hasFinitePositions = anyPlanetFinite || anyBodyFinite;
-    this.updateReadyState();
+      body.mesh.visible = true;
+      body.mesh.position.copy(toScene(pos));
+    }
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
-  }
-
-  private buildSampleOrbitPoints(spec: SmallBodySpec, segments: number, spanDays?: number): Float32Array | null {
-    if (!spec.sample) return null;
-    const span = spanDays ?? 2200;
-    const half = span / 2;
-    const points: number[] = [];
-    for (let i = 0; i <= segments; i += 1) {
-      const offsetDays = -half + (span * i) / segments;
-      const sampleDate = new Date(this.simMs + offsetDays * DAY_MS);
-      const state = spec.sample(sampleDate);
-      if (!state || !isFinite3(state.posAU)) continue;
-      const [x, y, z] = state.posAU;
-      points.push(x * SCALE, z * SCALE, y * SCALE);
-    }
-    return points.length >= 6 ? new Float32Array(points) : null;
   }
 
   private onResize(): void {
@@ -396,6 +385,3 @@ export class Neo3D {
     this.camera.updateProjectionMatrix();
   }
 }
-
-export const _internal = { buildOrbitPoints };
-
