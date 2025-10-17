@@ -2,7 +2,8 @@
 // Data layer for NEO 3D: Horizons vectors, SBDB elements, and propagation.
 // Only talks to the Cloudflare worker; no direct NASA/JPL calls.
 
-import type { NeoBrowse } from '../types/nasa';
+import type { NeoBrowse, NeoItem } from '../types/nasa';
+import { buildFallbackBrowse, fallbackNeos } from './neo3dFallback';
 
 const BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
 
@@ -58,11 +59,27 @@ function suggestionsEnabled(): boolean {
 export async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
   if (!suggestionsEnabled()) return null;
   try {
-    return await getTextOrJSON<NeoBrowse>(`/neo/browse?size=${size}`);
+    const result = await getTextOrJSON<NeoBrowse>(`/neo/browse?size=${size}`);
+    if (result && typeof result === 'object' && 'near_earth_objects' in (result as Record<string, unknown>)) {
+      return result as NeoBrowse;
+    }
+    return buildFallbackBrowse(size);
   } catch (e) {
-    if (e instanceof HttpError && (e.status === 401 || e.status === 429)) return null;
+    if (e instanceof HttpError && (e.status === 401 || e.status === 429)) return buildFallbackBrowse(size);
     throw e;
   }
+}
+
+export function areNeoSuggestionsEnabled(): boolean {
+  return suggestionsEnabled();
+}
+
+export function fallbackNeoBrowse(size = 20): NeoBrowse {
+  return buildFallbackBrowse(size);
+}
+
+export function fallbackNeoItems(size = 20): NeoItem[] {
+  return fallbackNeos(size);
 }
 
 // ---------- Time / Units ----------

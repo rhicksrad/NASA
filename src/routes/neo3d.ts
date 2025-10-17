@@ -318,6 +318,8 @@ class PlanetManager {
 
 export interface Neo3DController {
   setNeos(neos: NeoItem[]): void;
+  showInfo(message: string): void;
+  showError(message: string): void;
 }
 
 export async function initNeo3D(
@@ -455,6 +457,8 @@ export async function initNeo3D(
 
   return {
     setNeos: apply,
+    showInfo: toast,
+    showError: toastError,
   };
 }
 
