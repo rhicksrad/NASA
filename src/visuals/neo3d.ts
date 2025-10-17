@@ -2,9 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { jdFromDate, propagate, earthElementsApprox, type Keplerian } from '../utils/orbit';
 
-const SCALE = 120;             // scene units per AU (bigger)
-const SUN_R   = 0.12 * SCALE;  // ~14 units
-const EARTH_R = 0.03 * SCALE;  // ~3.6 units
+const SCALE = 120, SUN_R = 0.12*SCALE, EARTH_R = 0.03*SCALE;
 
 export interface Body { name: string; els: Keplerian; color: number; mesh?: THREE.Object3D; trail?: THREE.Line; }
 export interface Neo3DOptions { host: HTMLElement; }
@@ -14,164 +12,107 @@ export class Neo3D {
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
+  private clock = new THREE.Clock();          // NEW
   private earth: Body;
   private bodies: Body[] = [];
   private t = Date.now();
-  private dtMult = 600;       // fast by default so motion is obvious
-  private paused = false;
-  private clock = new THREE.Clock();
+  private dtMult = 600;                       // run fast by default
+  private paused = false;                     // UNPAUSED by default
 
   constructor(private opts: Neo3DOptions){
     const { host } = opts;
-    const w = host.clientWidth || 800, h = host.clientHeight || 520;
+    const w = host.clientWidth||800, h = host.clientHeight||520;
 
-    // renderer + background
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(w, h, false);
+    this.renderer = new THREE.WebGLRenderer({ antialias:true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    this.renderer.setSize(w,h,false);
     host.replaceChildren(this.renderer.domElement);
-    this.renderer.setClearColor(0x0b3d91, 1);  // NASA blue background
+    this.renderer.setClearColor(0x0b3d91, 1);
 
-    // camera
-    this.camera = new THREE.PerspectiveCamera(55, w / h, 0.1, 100000);
-    this.camera.position.set(0, 2.2 * SCALE, 3.2 * SCALE);
-    this.camera.lookAt(0, 0, 0);
+    this.camera = new THREE.PerspectiveCamera(55, w/h, 0.1, 100000);
+    this.camera.position.set(0,2.2*SCALE,3.2*SCALE);
+    this.camera.lookAt(0,0,0);
 
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);   // NEW
     this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.05;
     this.controls.enablePan = true;
     this.controls.enableZoom = true;
-    this.controls.zoomSpeed = 1.0;
+    this.controls.dampingFactor = 0.05;
 
-    // lights
-    const amb = new THREE.AmbientLight(0xffffff, 0.7);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-    dir.position.set(3 * SCALE, 4 * SCALE, 2 * SCALE);
-    this.scene.add(amb, dir);
+    const amb = new THREE.AmbientLight(0xffffff,0.7);
+    const dir = new THREE.DirectionalLight(0xffffff,0.9);
+    dir.position.set(3*SCALE,4*SCALE,2*SCALE);
+    this.scene.add(amb,dir);
 
-    // sun (bright + emissive so it’s obvious)
-    const sun = new THREE.Mesh(
-      new THREE.SphereGeometry(SUN_R, 48, 32),
-      new THREE.MeshPhongMaterial({ color: 0xffe066, emissive: 0xffd166, emissiveIntensity: 0.8 })
-    );
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(SUN_R,48,32),
+      new THREE.MeshPhongMaterial({ color:0xffe066, emissive:0xffd166, emissiveIntensity:0.8 }));
     this.scene.add(sun);
 
-    // earth
-    this.earth = { name: 'Earth', els: earthElementsApprox(), color: 0x64b5f6 };
-    const earthMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(EARTH_R, 48, 32),
-      new THREE.MeshPhongMaterial({ color: this.earth.color })
-    );
-    this.earth.mesh = earthMesh;
-    this.scene.add(earthMesh);
+    this.earth = { name:'Earth', els: earthElementsApprox(), color:0x64b5f6 };
+    const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R,48,32),
+      new THREE.MeshPhongMaterial({ color:this.earth.color }));
+    this.earth.mesh = earthMesh; this.scene.add(earthMesh);
 
-    // earth orbit ring (thick and high-contrast)
-    const N = 256;
-    const pts: THREE.Vector3[] = [];
-    for (let k = 0; k <= N; k++) {
-      const a = (k / N) * Math.PI * 2;
-      pts.push(new THREE.Vector3(Math.cos(a) * SCALE, 0, Math.sin(a) * SCALE));
-    }
-    const ring = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(pts),
-      new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 })
-    );
+    const N=256, pts:THREE.Vector3[]=[];
+    for(let k=0;k<=N;k++){ const a=(k/N)*Math.PI*2; pts.push(new THREE.Vector3(Math.cos(a)*SCALE,0,Math.sin(a)*SCALE)); }
+    const ring=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color:0xffffff, linewidth:2 }));
     this.scene.add(ring);
 
-    // subtle grid so you can see the ecliptic plane
-    const grid = new THREE.GridHelper(3 * SCALE, 24, 0xd9e3f0, 0x4267b2);
-    (grid.material as THREE.Material).opacity = 0.25;
+    const grid=new THREE.GridHelper(3*SCALE,24,0xd9e3f0,0x4267b2);
     (grid.material as THREE.Material).transparent = true;
+    (grid.material as THREE.Material).opacity = 0.25;
     this.scene.add(grid);
 
-    window.addEventListener('resize', () => this.onResize());
-
-    this.paused = false;
+    window.addEventListener('resize',()=>this.onResize());
+    document.addEventListener('visibilitychange',()=>{ if(document.hidden) this.paused=true; });
   }
 
   addBodies(list: Body[]){
-    for (const b of list) {
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(0.012 * SCALE, 20, 14),
-        new THREE.MeshPhongMaterial({ color: b.color })
-      );
-      const trail = new THREE.Line(
+    for(const b of list){
+      const mesh=new THREE.Mesh(new THREE.SphereGeometry(0.012*SCALE,20,14),
+        new THREE.MeshPhongMaterial({ color:b.color }));
+      const trail=new THREE.Line(
         new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
-        new THREE.LineBasicMaterial({ color: b.color, transparent: true, opacity: 0.7 })
+        new THREE.LineBasicMaterial({ color:b.color, transparent:true, opacity:0.7 })
       );
-      b.mesh = mesh; b.trail = trail;
-      this.scene.add(mesh, trail);
-      this.bodies.push(b);
+      b.mesh=mesh; b.trail=trail; this.scene.add(mesh,trail); this.bodies.push(b);
     }
-    this.autoFrame();
   }
 
-  setTimeScale(m: number){ this.dtMult = m; }
-  setPaused(p: boolean){ this.paused = p; }
+  setTimeScale(m:number){ this.dtMult = m; }
+  setPaused(p:boolean){ this.paused = p; }
 
   start(){
-    this.clock.getDelta();
-    const loop = () => {
+    this.clock.start();                                       // NEW
+    const loop=()=>{
       requestAnimationFrame(loop);
-      const delta = this.clock.getDelta() * 1000 * this.dtMult;
-      if (!this.paused) this.t += delta;
+      if(!this.paused){
+        const deltaMs = this.clock.getDelta()*1000;           // NEW
+        this.t += deltaMs*this.dtMult;                        // advance simulated time
+      }
       this.update(new Date(this.t));
-      this.controls.update();
-      this.renderer.render(this.scene, this.camera);
+      this.controls.update();                                 // NEW
+      this.renderer.render(this.scene,this.camera);
     };
     loop();
   }
 
-  private update(now: Date){
+  private update(now:Date){
     const jd = jdFromDate(now);
-
-    // Earth
-    {
-      const [x, y, z] = propagate(this.earth.els, jd);
-      // Map ecliptic XYZ -> three.js X (right), Y (up), Z (forward)
-      this.earth.mesh!.position.set(x * SCALE, z * SCALE, y * SCALE);
-    }
-
-    // NEOs
-    for (const b of this.bodies) {
-      const [x, y, z] = propagate(b.els, jd);
-      const pos = new THREE.Vector3(x * SCALE, z * SCALE, y * SCALE);
+    { const [x,y,z]=propagate(this.earth.els,jd); this.earth.mesh!.position.set(x*SCALE, z*SCALE, y*SCALE); }
+    for(const b of this.bodies){
+      const [x,y,z]=propagate(b.els,jd); const pos=new THREE.Vector3(x*SCALE,z*SCALE,y*SCALE);
       b.mesh!.position.copy(pos);
-      const geo = b.trail!.geometry as THREE.BufferGeometry;
-      const arr = geo.getAttribute('position') as THREE.BufferAttribute;
-      const prev = new THREE.Vector3().fromBufferAttribute(arr, 1);
-      arr.setXYZ(0, prev.x, prev.y, prev.z);
-      arr.setXYZ(1, pos.x, pos.y, pos.z);
-      arr.needsUpdate = true;
+      const g=b.trail!.geometry as THREE.BufferGeometry;
+      const arr=g.getAttribute('position') as THREE.BufferAttribute;
+      const prev=new THREE.Vector3().fromBufferAttribute(arr,1);
+      arr.setXYZ(0,prev.x,prev.y,prev.z); arr.setXYZ(1,pos.x,pos.y,pos.z); arr.needsUpdate=true;
     }
-  }
-
-  private autoFrame(){
-    // Fit camera to all bodies + Sun/Earth
-    const pts: THREE.Vector3[] = [];
-    pts.push(new THREE.Vector3(0, 0, 0)); // Sun
-    if (this.earth.mesh) pts.push((this.earth.mesh as THREE.Mesh).position.clone());
-    for (const b of this.bodies) if (b.mesh) pts.push((b.mesh as THREE.Mesh).position.clone());
-    const bs = new THREE.Sphere();
-    new THREE.Box3().setFromPoints(pts).getBoundingSphere(bs);
-
-    const r = Math.max(bs.radius, 1 * SCALE);
-    const dist = r / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2));
-    this.camera.position.set(bs.center.x + dist * 0.2, bs.center.y + dist * 0.5, bs.center.z + dist * 0.8);
-    this.camera.near = Math.max(0.1, dist * 0.001);
-    this.camera.far = dist * 50;
-    this.camera.updateProjectionMatrix();
-    this.camera.lookAt(bs.center);
-    this.controls.target.copy(bs.center);
-    this.controls.update();
   }
 
   private onResize(){
-    const host = this.opts.host;
-    const w = host.clientWidth || 800, h = host.clientHeight || 520;
-    this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    const host=this.opts.host, w=host.clientWidth||800, h=host.clientHeight||520;
+    this.renderer.setSize(w,h,false); this.camera.aspect=w/h; this.camera.updateProjectionMatrix();
   }
 }

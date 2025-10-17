@@ -11,20 +11,33 @@
         <h2>NEO 3D</h2>
         <p class="meta">Heliocentric ecliptic J2000 • positions from orbital elements</p>
       </header>
-      <div id="neo3d-host" style="height:640px;"></div>
-      <div class="controls" style="margin-top:.5rem;display:flex;gap:.75rem;align-items:center;">
+      <div id="neo3d-host" style="height:660px;"></div>
+
+      <div id="neo3d-ui" class="ui">
         <label>Time scale
           <select id="neo3d-speed">
             <option value="0">Pause</option>
-            <option value="1">1x</option>
-            <option value="60">60x</option>
-            <option value="600">600x</option>
-            <option value="3600">3600x</option>
+            <option value="1">1×</option>
+            <option value="60">60×</option>
+            <option value="600" selected>600×</option>
+            <option value="3600">3600×</option>
           </select>
         </label>
         <button id="neo3d-load-3i" type="button">Add 3I/ATLAS</button>
       </div>
     </section>
+    
+    <style>
+      html, body { margin:0; padding:0; overflow:hidden; background:#0b3d91; }
+      #neo3d-host canvas { display:block; width:100%; height:100%; outline:none; }
+      #neo3d-ui.ui {
+        position: absolute; left: 16px; bottom: 16px;
+        display: flex; gap: 12px; align-items: center;
+        background: rgba(255,255,255,.12); padding: 8px 12px; border-radius: 8px;
+        color: #fff; backdrop-filter: blur(4px);
+      }
+      #neo3d-ui select, #neo3d-ui button { font: inherit; }
+    </style>
     <!-- Vite will rewrite this module import during build -->
     <script type="module" src="/NASA/src/pages/neo3d_page.ts"></script>
   </body>
