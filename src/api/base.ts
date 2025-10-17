@@ -23,5 +23,5 @@ if (!envBase && typeof console !== 'undefined') {
 }
 
 export const BASE = base;
-export const ATLAS_SBDB_PATH = '/sbdb?sstr=3I&fullname=true';
+export const ATLAS_SBDB_PATH = '/sbdb?sstr=3I';
 export const DEFAULT_ATLAS_WORKER_URL = `${DEFAULT_WORKER_BASE}${ATLAS_SBDB_PATH}`;
