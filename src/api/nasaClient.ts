@@ -16,9 +16,7 @@ type RequestOptions = RequestInit & { timeoutMs?: number };
 
 function buildUrl(path: string, params: RequestParams = {}): string {
   if (/^https?:\/\//i.test(path)) {
-    const url = new URL(path);
-    for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
-    return url.toString();
+    throw new Error('Absolute URLs are not supported. Use worker-relative paths.');
   }
 
   const clean = path.startsWith('/') ? path : `/${path}`;
@@ -244,8 +242,22 @@ export async function request<T>(
   }
 }
 
-export async function getJSON<T>(path: string, params?: RequestParams, init?: RequestOptions): Promise<T> {
-  return request<T>(path, params ?? {}, init);
+export async function getJSON<T = unknown>(path: string): Promise<T> {
+  const clean = path.startsWith('/') ? path : `/${path}`;
+  const url = `${BASE}${clean}`;
+  const response = await fetch(url, { credentials: 'omit' });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new HttpError(url, response.status, text);
+  }
+  if (!text) {
+    return undefined as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as unknown as T;
+  }
 }
 
 export async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
