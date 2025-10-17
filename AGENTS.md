@@ -10,7 +10,7 @@ The frontend renders a **Three.js** heliocentric ecliptic J2000 scene with:
 
 * Planets sampled from Horizons vectors (interpolated).
 * NEOs/comets from SBDB orbital elements propagated by a universal conic solver (elliptic/parabolic/hyperbolic).
-* “Add 3I/ATLAS” pulls **C/2025 N1 (ATLAS)** via `/sbdb?sstr=3I&fullname=true`.
+* “Add 3I/ATLAS” pulls **C/2025 N1 (ATLAS)** via `/sbdb?sstr=3I`.
 
 **Single origin rule:** the browser only talks to the Worker origin.
 
@@ -112,7 +112,7 @@ public/
   `format=json, MAKE_EPHEM=YES, OBJ_DATA=NO, EPHEM_TYPE=ELEMENTS, CENTER=500@10, REF_PLANE=ECLIPTIC, REF_SYSTEM=J2000, OUT_UNITS=AU-D`.
 
 * `GET /sbdb` → forwards to JPL SBDB.
-  **ATLAS:** call **`/sbdb?sstr=3I&fullname=true`** (no client-side alias loops).
+  **ATLAS:** call **`/sbdb?sstr=3I`** (no client-side alias loops).
   Worker may edge-cache successful 2xx.
 
 * `GET /neo/*`, `/apod`, `/epic/*`, `/mars/*`, `/images/*`

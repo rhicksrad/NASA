@@ -256,10 +256,6 @@ async function handleRequest(request) {
     const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
     const cacheOpts = { cacheEverything: true, cacheTtl: 600 };
 
-    if (!base.searchParams.has('fullname')) {
-      base.searchParams.set('fullname', 'true');
-    }
-
     const attempts = [];
     const seen = new Set();
     const pushAttempt = (candidate) => {
@@ -289,9 +285,6 @@ async function handleRequest(request) {
           alt.searchParams.append(key, value);
         }
         alt.searchParams.set('sstr', alias);
-        if (!alt.searchParams.has('fullname')) {
-          alt.searchParams.set('fullname', 'true');
-        }
         pushAttempt(alt);
       }
     }
