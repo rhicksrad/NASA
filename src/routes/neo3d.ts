@@ -37,64 +37,6 @@ function buildBodies(neos: NeoItem[]): Body[] {
   return bodies;
 }
 
-function applySpeedControls(sim: Neo3D): void {
-  const speed = document.getElementById('neo3d-speed');
-  if (!(speed instanceof HTMLSelectElement)) {
-    return;
-  }
-  speed.addEventListener('change', () => {
-    const value = Number(speed.value);
-    if (value === 0) {
-      sim.setPaused(true);
-    } else {
-      sim.setPaused(false);
-      sim.setTimeScale(value);
-    }
-  });
-}
-
-function setupAtlasButton(sim: Neo3D): void {
-  const button = document.getElementById('neo3d-load-3i');
-  if (!(button instanceof HTMLButtonElement)) {
-    return;
-  }
-  const defaultLabel = button.textContent ?? 'Add 3I/ATLAS';
-  let loaded = false;
-  button.addEventListener('click', async () => {
-    if (loaded) {
-      return;
-    }
-    button.disabled = true;
-    button.textContent = 'Loading…';
-    try {
-      const response = await getSbdb('3I/ATLAS', true);
-      const target = response.object;
-      if (!target || !target.orbit) {
-        throw new Error('No SBDB orbit for 3I/ATLAS');
-      }
-      const els = fromSbdb(target.orbit);
-      sim.addBodies([
-        {
-          name: target.object_name ?? '3I/ATLAS',
-          color: 0xdc2626,
-          els,
-        },
-      ]);
-      loaded = true;
-      button.textContent = '3I/ATLAS added';
-    } catch (error) {
-      console.error('3I/ATLAS load failed', error);
-      button.disabled = false;
-      button.textContent = '3I unavailable';
-      setTimeout(() => {
-        if (!loaded) {
-          button.textContent = defaultLabel;
-        }
-      }, 3_000);
-    }
-  });
-}
-
 export interface Neo3DController {
   setNeos(neos: NeoItem[]): void;
 }
@@ -109,18 +51,69 @@ export async function initNeo3D(
   }
 
   const simulation = new Neo3D({ host: container });
+  let started = false;
   const apply = (neos: NeoItem[]) => {
     const bodies = buildBodies(neos);
     simulation.addBodies(bodies);
     simulation.setPaused(false);
     simulation.setTimeScale(600);
+    if (!started) {
+      simulation.start();
+      started = true;
+    }
   };
 
   apply(getSelectedNeos());
-  simulation.start();
 
-  applySpeedControls(simulation);
-  setupAtlasButton(simulation);
+  // UI wiring
+  const speedSel = document.getElementById('neo3d-speed') as HTMLSelectElement | null;
+  if (speedSel) {
+    speedSel.value = '600';
+    speedSel.addEventListener('change', () => {
+      const v = Number(speedSel.value);
+      if (v === 0) simulation.setPaused(true);
+      else { simulation.setPaused(false); simulation.setTimeScale(v); }
+    });
+  }
+
+  const add3iBtn = document.getElementById('neo3d-load-3i') as HTMLButtonElement | null;
+  if (add3iBtn) {
+    const defaultLabel = add3iBtn.textContent ?? 'Add 3I/ATLAS';
+    let loaded = false;
+    add3iBtn.addEventListener('click', async () => {
+      if (loaded) {
+        return;
+      }
+      add3iBtn.disabled = true;
+      add3iBtn.textContent = 'Loading…';
+      try {
+        const response = await getSbdb('3I/ATLAS', true);
+        const target = response.object;
+        if (!target || !target.orbit) {
+          throw new Error('No SBDB orbit for 3I/ATLAS');
+        }
+        const els = fromSbdb(target.orbit);
+        simulation.addBodies([
+          {
+            name: target.object_name ?? '3I/ATLAS',
+            color: 0xdc2626,
+            els,
+          },
+        ]);
+        loaded = true;
+        add3iBtn.textContent = '3I/ATLAS added';
+      } catch (error) {
+        console.error('3I/ATLAS load failed', error);
+        add3iBtn.disabled = false;
+        add3iBtn.textContent = '3I unavailable';
+        setTimeout(() => {
+          if (!loaded) {
+            add3iBtn.textContent = defaultLabel;
+          }
+        }, 3_000);
+      }
+    });
+  }
 
   return {
     setNeos: apply,
