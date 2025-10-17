@@ -1,27 +1,55 @@
-import { fetchAllPlanetEls } from '../api/fetch_planets';
-import { parseSbdbOrbit, request } from '../api/nasaClient';
+/* eslint-disable no-console */
 import type { NeoItem } from '../types/nasa';
-import { fromSbdb } from '../utils/orbit';
-import { Neo3D, type Body } from '../visuals/neo3d';
-import type { SbdbResponse } from '../types/sbdb';
+import { Neo3D, type PlanetSampleProvider, type SmallBodySpec } from '../visuals/neo3d';
+import { atlas3I, horizonsDailyVectors, horizonsVectors, type VectorSample } from '../api/neo3dData';
+import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const DEG2RAD = Math.PI / 180;
+const DAY_MS = 86_400_000;
+const MIN_TIME = Date.UTC(1900, 0, 1);
+const MAX_TIME = Date.UTC(2100, 0, 1);
+
+interface PlanetConfig {
+  spk: number;
+  name: string;
+  color: number;
+  radius?: number;
+}
+
+const PLANET_CONFIG: PlanetConfig[] = [
+  { spk: 199, name: 'Mercury', color: 0x9ca3af, radius: 0.022 },
+  { spk: 299, name: 'Venus', color: 0xf59e0b, radius: 0.028 },
+  { spk: 399, name: 'Earth', color: 0x3b82f6, radius: 0.03 },
+  { spk: 499, name: 'Mars', color: 0xef4444, radius: 0.025 },
+  { spk: 599, name: 'Jupiter', color: 0xfbbf24, radius: 0.045 },
+  { spk: 699, name: 'Saturn', color: 0xfcd34d, radius: 0.04 },
+  { spk: 799, name: 'Uranus', color: 0x60a5fa, radius: 0.035 },
+  { spk: 899, name: 'Neptune', color: 0x818cf8, radius: 0.034 },
+  { spk: 999, name: 'Pluto', color: 0xe5e7eb, radius: 0.018 },
+];
+
+function clampUtc(date: Date): Date {
+  const ms = Math.min(Math.max(date.getTime(), MIN_TIME), MAX_TIME);
+  return new Date(ms);
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * DAY_MS);
+}
 
 function toNumber(value: string | number | null | undefined): number {
-  if (typeof value === 'number') {
-    return value;
-  }
-  if (typeof value === 'string') {
-    return Number(value);
-  }
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return Number(value);
   return Number.NaN;
 }
 
-function orbitFromNeo(neo: NeoItem): Body | null {
+function toKeplerian(neo: NeoItem): Keplerian | null {
   const orbital = neo.orbital_data;
-  if (!orbital) {
-    return null;
-  }
+  if (!orbital) return null;
   const a = toNumber(orbital.semi_major_axis);
   const e = toNumber(orbital.eccentricity);
   const i = toNumber(orbital.inclination);
@@ -29,7 +57,6 @@ function orbitFromNeo(neo: NeoItem): Body | null {
   const omega = toNumber(orbital.perihelion_argument);
   const M = toNumber(orbital.mean_anomaly);
   const epochJD = toNumber(orbital.epoch_osculation);
-
   if (
     !Number.isFinite(a) ||
     !Number.isFinite(e) ||
@@ -42,32 +69,155 @@ function orbitFromNeo(neo: NeoItem): Body | null {
     return null;
   }
   return {
-    name: neo.name,
-    color: neo.is_potentially_hazardous_asteroid ? 0xef4444 : 0x10b981,
-    els: {
-      a,
-      e,
-      i: i * DEG2RAD,
-      Omega: Omega * DEG2RAD,
-      omega: omega * DEG2RAD,
-      M: M * DEG2RAD,
-      epochJD,
-    },
+    a,
+    e,
+    i: i * DEG2RAD,
+    Omega: Omega * DEG2RAD,
+    omega: omega * DEG2RAD,
+    M: M * DEG2RAD,
+    epochJD,
   };
 }
 
-function buildBodies(neos: NeoItem[]): Body[] {
-  const bodies: Body[] = [];
+function buildBodies(neos: NeoItem[]): SmallBodySpec[] {
+  const bodies: SmallBodySpec[] = [];
   for (const neo of neos) {
-    const body = orbitFromNeo(neo);
-    if (body) {
-      bodies.push(body);
-    }
-    if (bodies.length >= 50) {
-      break;
-    }
+    const els = toKeplerian(neo);
+    if (!els) continue;
+    const color = neo.is_potentially_hazardous_asteroid ? 0xef4444 : 0x22d3ee;
+    const segments = els.e < 1 ? 720 : 1600;
+    const orbit: SmallBodySpec['orbit'] = {
+      color,
+      segments,
+      spanDays: els.e < 1 ? undefined : 2600,
+    };
+    bodies.push({ name: neo.name, color, els, orbit });
+    if (bodies.length >= 80) break;
   }
   return bodies;
+}
+
+class PlanetEphemeris {
+  private samples: VectorSample[] = [];
+  private pending = new Map<string, Promise<void>>();
+  private lastKnown: [number, number, number] | null = null;
+  private approximateRadius = 0;
+
+  constructor(private readonly spk: number) {}
+
+  async prime(date: Date): Promise<void> {
+    const day = startOfUtcDay(date);
+    await Promise.all([this.ensure(day), this.ensure(addDays(day, 1))]);
+  }
+
+  getPosition(date: Date): [number, number, number] | null {
+    const day = startOfUtcDay(date);
+    void this.ensure(day);
+    void this.ensure(addDays(day, 1));
+
+    if (!this.samples.length && this.lastKnown) {
+      return [...this.lastKnown];
+    }
+
+    const targetJd = jdFromDate(date);
+    if (!this.samples.length) {
+      return null;
+    }
+
+    let previous = this.samples[0];
+    let next = this.samples[this.samples.length - 1];
+    for (const sample of this.samples) {
+      if (sample.jd <= targetJd) {
+        previous = sample;
+      }
+      if (sample.jd >= targetJd) {
+        next = sample;
+        break;
+      }
+    }
+
+    const dt = next.jd - previous.jd;
+    let pos: [number, number, number];
+    if (dt <= 0) {
+      pos = [...previous.posAU];
+    } else {
+      const t = (targetJd - previous.jd) / dt;
+      pos = [
+        previous.posAU[0] + (next.posAU[0] - previous.posAU[0]) * t,
+        previous.posAU[1] + (next.posAU[1] - previous.posAU[1]) * t,
+        previous.posAU[2] + (next.posAU[2] - previous.posAU[2]) * t,
+      ];
+    }
+    this.lastKnown = [...pos];
+    this.approximateRadius = Math.hypot(pos[0], pos[1], pos[2]);
+    return pos;
+  }
+
+  radiusHint(): number | undefined {
+    if (this.approximateRadius) {
+      return this.approximateRadius;
+    }
+    if (this.lastKnown) {
+      const [x, y, z] = this.lastKnown;
+      return Math.hypot(x, y, z);
+    }
+    return undefined;
+  }
+
+  private ensure(date: Date): Promise<void> {
+    const key = date.toISOString().slice(0, 10);
+    const existing = this.pending.get(key);
+    if (existing) return existing;
+    const promise = horizonsDailyVectors(this.spk, date)
+      .then(samples => {
+        for (const sample of samples) {
+          const existingIndex = this.samples.findIndex(item => Math.abs(item.jd - sample.jd) < 1e-6);
+          if (existingIndex >= 0) {
+            this.samples[existingIndex] = sample;
+          } else {
+            this.samples.push(sample);
+          }
+          if (!this.lastKnown) {
+            this.lastKnown = [...sample.posAU];
+            this.approximateRadius = Math.hypot(sample.posAU[0], sample.posAU[1], sample.posAU[2]);
+          }
+        }
+        this.samples.sort((a, b) => a.jd - b.jd);
+        if (this.samples.length > 10) {
+          this.samples.splice(0, this.samples.length - 10);
+        }
+      })
+      .catch(error => {
+        console.error(`[neo3d] Horizons vector fetch failed for ${this.spk}`, error);
+      })
+      .finally(() => {
+        this.pending.delete(key);
+      });
+    this.pending.set(key, promise);
+    return promise;
+  }
+}
+
+class PlanetManager {
+  private readonly nodes: Array<{ config: PlanetConfig; ephemeris: PlanetEphemeris }>; 
+
+  constructor(configs: PlanetConfig[]) {
+    this.nodes = configs.map(config => ({ config, ephemeris: new PlanetEphemeris(config.spk) }));
+  }
+
+  async prime(date: Date): Promise<void> {
+    await Promise.all(this.nodes.map(node => node.ephemeris.prime(date)));
+  }
+
+  providers(): PlanetSampleProvider[] {
+    return this.nodes.map(({ config, ephemeris }) => ({
+      name: config.name,
+      color: config.color,
+      radius: config.radius,
+      orbitRadius: ephemeris.radiusHint(),
+      getPosition: (date: Date) => ephemeris.getPosition(date),
+    }));
+  }
 }
 
 export interface Neo3DController {
@@ -83,53 +233,86 @@ export async function initNeo3D(
     return null;
   }
 
+  const now = clampUtc(new Date());
   const dateEl = document.getElementById('neo3d-date');
-  const simulation = new Neo3D({ host: container, dateLabel: dateEl });
-  const iso = new Date().toISOString();
-  try {
-    const planets = await fetchAllPlanetEls(iso);
-    const bodies: Body[] = [];
-    for (const planet of planets) {
-      if (planet.name.toLowerCase() === 'earth') {
-        simulation.setEarthElements(planet.els);
-        continue;
-      }
-      bodies.push({
-        name: planet.name,
-        color: planet.color,
-        els: planet.els,
-        orbit: { color: planet.color, segments: 720 },
-      });
-    }
-    if (bodies.length) {
-      simulation.addBodies(bodies);
-    }
-    simulation.setPaused(false);
-  } catch (error) {
-    console.error('[horizons] planet preload failed', error); // eslint-disable-line no-console
-  }
-  let started = false;
+  const simulation = new Neo3D({
+    host: container,
+    dateLabel: dateEl,
+    initialDate: now,
+    minDate: new Date(MIN_TIME),
+    maxDate: new Date(MAX_TIME),
+  });
+
+  const planetManager = new PlanetManager(PLANET_CONFIG);
+  await planetManager.prime(now);
+  const planetProviders = planetManager.providers();
+  simulation.setPlanets(planetProviders);
+  simulation.setTimeScale(86_400);
+  simulation.setPaused(false);
+  simulation.start();
+
   const apply = (neos: NeoItem[]) => {
     const bodies = buildBodies(neos);
-    simulation.addBodies(bodies);
-    simulation.setPaused(false);
-    simulation.setTimeScale(86400);
-    if (!started) {
-      simulation.start();
-      started = true;
+    simulation.clearSmallBodies();
+    if (bodies.length) {
+      simulation.addSmallBodies(bodies);
     }
   };
 
   apply(getSelectedNeos());
 
-  // UI wiring
+  const validationTime = new Date('2025-11-19T04:00:02Z');
+  try {
+    const [mercury, venus] = await Promise.all([
+      horizonsVectors(199, [validationTime]),
+      horizonsVectors(299, [validationTime]),
+    ]);
+    console.assert(
+      mercury.length > 0 && mercury[0].posAU.every(Number.isFinite),
+      'Mercury Horizons VECTORS invalid',
+      mercury,
+    );
+    console.assert(
+      venus.length > 0 && venus[0].posAU.every(Number.isFinite),
+      'Venus Horizons VECTORS invalid',
+      venus,
+    );
+  } catch (error) {
+    console.assert(false, 'Horizons validation failed', error);
+  }
+
+  const earthProvider = planetProviders.find(p => p.name.toLowerCase() === 'earth');
+  const earthPos = earthProvider?.getPosition(now);
+  if (earthPos) {
+    const distance = Math.hypot(earthPos[0], earthPos[1], earthPos[2]);
+    console.assert(Math.abs(distance - 1) <= 0.02, 'Earth barycenter distance sanity', distance);
+  }
+
+  let atlasError: unknown;
+  const atlasPrefetch = atlas3I(now)
+    .then(result => {
+      atlasError = undefined;
+      const pos = propagate(result.els, jdFromDate(now));
+      console.assert(pos.every(value => Number.isFinite(value)), '3I/ATLAS propagation validation', result);
+      return result;
+    })
+    .catch(error => {
+      atlasError = error;
+      console.warn('[neo3d] 3I/ATLAS prefetch failed', error);
+      return null;
+    });
+
   const speedSel = document.getElementById('neo3d-speed') as HTMLSelectElement | null;
   if (speedSel) {
     speedSel.value = '86400';
     speedSel.addEventListener('change', () => {
-      const v = Number(speedSel.value);
-      if (v === 0) simulation.setPaused(true);
-      else { simulation.setPaused(false); simulation.setTimeScale(v); }
+      const value = Number(speedSel.value);
+      if (value === 0) {
+        simulation.setPaused(true);
+      } else {
+        simulation.setPaused(false);
+        simulation.setTimeScale(value);
+      }
     });
   }
 
@@ -138,44 +321,36 @@ export async function initNeo3D(
     const defaultLabel = add3iBtn.textContent ?? 'Add 3I/ATLAS';
     let loaded = false;
     add3iBtn.addEventListener('click', async () => {
-      if (loaded) {
-        return;
-      }
+      if (loaded) return;
       add3iBtn.disabled = true;
       add3iBtn.textContent = 'Loading…';
       try {
-        const response = await request<SbdbResponse>(
-          'https://lively-haze-4b2c.hicksrch.workers.dev/sbdb?sstr=3I',
-          {},
-          { timeoutMs: 30_000 },
-        );
-        const orbitRecord = parseSbdbOrbit(response);
-        const target = response.object;
-        const displayName = target?.object_name ?? target?.fullname ?? target?.des ?? '3I/ATLAS';
-        const els = fromSbdb(orbitRecord);
-        simulation.addBodies([
+        const existing = await atlasPrefetch;
+        const payload = existing ?? (await atlas3I(simulation.getCurrentDate()));
+        if (!payload) {
+          throw atlasError ?? new Error('3I/ATLAS unavailable');
+        }
+        atlasError = undefined;
+        simulation.addSmallBodies([
           {
-            name: displayName,
-            color: 0xdc2626,
-            els,
-            orbit: {
-              color: 0xef4444,
-              segments: 1200,
-              spanDays: 2600,
-            },
+            name: payload.name,
+            color: 0xf87171,
+            els: payload.els,
+            orbit: { color: 0xf87171, segments: 1600, spanDays: 3200 },
             label: '3I/ATLAS',
           },
         ]);
+        const pos = propagate(payload.els, jdFromDate(simulation.getCurrentDate()));
+        console.assert(pos.every(value => Number.isFinite(value)), '3I/ATLAS propagated position finite', payload);
+        add3iBtn.textContent = payload.source === 'sbdb' ? '3I/ATLAS (SBDB)' : '3I/ATLAS (Horizons)';
         loaded = true;
-        add3iBtn.textContent = '3I/ATLAS added';
       } catch (error) {
+        atlasError = error;
         console.error('3I/ATLAS load failed', error);
         add3iBtn.disabled = false;
         add3iBtn.textContent = '3I unavailable';
         setTimeout(() => {
-          if (!loaded) {
-            add3iBtn.textContent = defaultLabel;
-          }
+          if (!loaded) add3iBtn.textContent = defaultLabel;
         }, 3_000);
       }
     });
