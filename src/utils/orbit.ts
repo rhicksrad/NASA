@@ -1,4 +1,4 @@
-const DEG = Math.PI / 180;
+const DEG2RAD = Math.PI / 180;
 const TWO_PI = Math.PI * 2;
 const K = 0.01720209895; // sqrt(GM_sun) AU^(3/2)/day
 const DAY_MS = 86_400_000;
@@ -56,9 +56,9 @@ function solveHyperbolic(mean: number, e: number): number {
 
 export function propagate(els: Keplerian, jd: number): [number, number, number] {
   const e = els.e;
-  const incl = els.i * DEG;
-  const asc = els.Omega * DEG;
-  const arg = els.omega * DEG;
+  const incl = els.i;
+  const asc = els.Omega;
+  const arg = els.omega;
   const dt = jd - els.epochJD;
 
   let xp = 0;
@@ -67,7 +67,7 @@ export function propagate(els: Keplerian, jd: number): [number, number, number] 
   if (e < 1) {
     const a = els.a;
     const motion = K / Math.sqrt(a * a * a);
-    const mean = wrapPi(els.M * DEG + motion * dt);
+    const mean = wrapPi(els.M + motion * dt);
     const eccentric = solveElliptic(mean, e);
     const radius = a * (1 - e * Math.cos(eccentric));
     const s = Math.sqrt(1 - e * e);
@@ -78,7 +78,7 @@ export function propagate(els: Keplerian, jd: number): [number, number, number] 
   } else {
     const aAbs = Math.abs(els.a);
     const motion = K / Math.sqrt(aAbs * aAbs * aAbs);
-    const mean = els.M * DEG + motion * dt;
+    const mean = els.M + motion * dt;
     const hyper = solveHyperbolic(mean, e);
     const ch = Math.cosh(hyper);
     const sh = Math.sinh(hyper);
@@ -104,14 +104,18 @@ export function propagate(els: Keplerian, jd: number): [number, number, number] 
   return [x, y, z];
 }
 
+function degToRad(value: number): number {
+  return value * DEG2RAD;
+}
+
 export function earthElementsApprox(epochJD = 2451545.0): Keplerian {
   return {
     a: 1.00000261,
     e: 0.01671123,
-    i: 0.00005,
-    Omega: -11.26064,
-    omega: 102.94719,
-    M: 100.46435,
+    i: degToRad(0.00005),
+    Omega: degToRad(-11.26064),
+    omega: degToRad(102.94719),
+    M: degToRad(100.46435),
     epochJD,
   };
 }
@@ -130,9 +134,9 @@ export interface SbdbOrbitRecord {
 
 export function fromSbdb(orbit: SbdbOrbitRecord): Keplerian {
   const e = Number(orbit.e);
-  const i = Number(orbit.i);
-  const Omega = Number(orbit.om);
-  const omega = Number(orbit.w);
+  const i = degToRad(Number(orbit.i));
+  const Omega = degToRad(Number(orbit.om));
+  const omega = degToRad(Number(orbit.w));
   const epochJD = Number(orbit.epoch);
 
   const Mdeg = orbit.ma != null ? Number(orbit.ma) : orbit.M != null ? Number(orbit.M) : 0;
@@ -148,5 +152,9 @@ export function fromSbdb(orbit: SbdbOrbitRecord): Keplerian {
     throw new Error('Cannot derive semi-major axis from SBDB record');
   }
 
-  return { a, e, i, Omega, omega, M: Mdeg, epochJD };
+  return { a, e, i, Omega, omega, M: degToRad(Mdeg), epochJD };
 }
+
+export const _internal = {
+  degToRad,
+};

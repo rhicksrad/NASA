@@ -1,25 +1,57 @@
+import { fetchAllPlanetEls } from '../api/fetch_planets';
 import { parseSbdbOrbit, request } from '../api/nasaClient';
 import type { NeoItem } from '../types/nasa';
 import { fromSbdb } from '../utils/orbit';
 import { Neo3D, type Body } from '../visuals/neo3d';
 import type { SbdbResponse } from '../types/sbdb';
 
+const DEG2RAD = Math.PI / 180;
+
+function toNumber(value: string | number | null | undefined): number {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string') {
+    return Number(value);
+  }
+  return Number.NaN;
+}
+
 function orbitFromNeo(neo: NeoItem): Body | null {
   const orbital = neo.orbital_data;
   if (!orbital) {
+    return null;
+  }
+  const a = toNumber(orbital.semi_major_axis);
+  const e = toNumber(orbital.eccentricity);
+  const i = toNumber(orbital.inclination);
+  const Omega = toNumber(orbital.ascending_node_longitude);
+  const omega = toNumber(orbital.perihelion_argument);
+  const M = toNumber(orbital.mean_anomaly);
+  const epochJD = toNumber(orbital.epoch_osculation);
+
+  if (
+    !Number.isFinite(a) ||
+    !Number.isFinite(e) ||
+    !Number.isFinite(i) ||
+    !Number.isFinite(Omega) ||
+    !Number.isFinite(omega) ||
+    !Number.isFinite(M) ||
+    !Number.isFinite(epochJD)
+  ) {
     return null;
   }
   return {
     name: neo.name,
     color: neo.is_potentially_hazardous_asteroid ? 0xef4444 : 0x10b981,
     els: {
-      a: Number(orbital.semi_major_axis),
-      e: Number(orbital.eccentricity),
-      i: Number(orbital.inclination),
-      Omega: Number(orbital.ascending_node_longitude),
-      omega: Number(orbital.perihelion_argument),
-      M: Number(orbital.mean_anomaly),
-      epochJD: Number(orbital.epoch_osculation),
+      a,
+      e,
+      i: i * DEG2RAD,
+      Omega: Omega * DEG2RAD,
+      omega: omega * DEG2RAD,
+      M: M * DEG2RAD,
+      epochJD,
     },
   };
 }
@@ -53,6 +85,29 @@ export async function initNeo3D(
 
   const dateEl = document.getElementById('neo3d-date');
   const simulation = new Neo3D({ host: container, dateLabel: dateEl });
+  const iso = new Date().toISOString();
+  try {
+    const planets = await fetchAllPlanetEls(iso);
+    const bodies: Body[] = [];
+    for (const planet of planets) {
+      if (planet.name.toLowerCase() === 'earth') {
+        simulation.setEarthElements(planet.els);
+        continue;
+      }
+      bodies.push({
+        name: planet.name,
+        color: planet.color,
+        els: planet.els,
+        orbit: { color: planet.color, segments: 720 },
+      });
+    }
+    if (bodies.length) {
+      simulation.addBodies(bodies);
+    }
+    simulation.setPaused(false);
+  } catch (error) {
+    console.error('[horizons] planet preload failed', error); // eslint-disable-line no-console
+  }
   let started = false;
   const apply = (neos: NeoItem[]) => {
     const bodies = buildBodies(neos);
