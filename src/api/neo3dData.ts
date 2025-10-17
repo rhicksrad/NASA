@@ -21,7 +21,6 @@ async function getTextOrJSON(path: string): Promise<string | any> {
 }
 
 // Gate NEO suggestions behind an explicit opt-in to avoid noisy 401s by default.
-// Enable via URL: ?neos=1  or localStorage.setItem('neo3d:suggestNeos','1')
 function suggestionsEnabled(): boolean {
   try {
     const params = new URLSearchParams(globalThis.location?.search ?? '');
@@ -35,7 +34,7 @@ function suggestionsEnabled(): boolean {
 
 // Optional helper; callers can ignore null when disabled or when /neo/browse hits 401/429
 export async function tryNeoBrowse(size = 20) {
-  if (!suggestionsEnabled()) return null; // do not fetch → no 401 noise
+  if (!suggestionsEnabled()) return null;
   try { return await getTextOrJSON(`/neo/browse?size=${size}`); }
   catch (e) {
     if (e instanceof HttpError && (e.status === 401 || e.status === 429)) return null;
@@ -53,7 +52,6 @@ export function jdFromDateUTC(d: Date): number {
   return JD_UNIX_EPOCH + d.getTime() / 86400000;
 }
 function toHorizonsCalendar(iso: string): string {
-  // Horizons wants 'YYYY-MM-DD HH:MM:SS' (space, no trailing Z)
   return iso.replace('T', ' ').replace(/Z$/i, '');
 }
 function addDaysISO(iso: string, d: number): string {
@@ -81,7 +79,12 @@ export async function horizonsVectors(spk: number | string, iso: string) {
   return parseHorizonsVectors(text);
 }
 
-export async function horizonsDailyVectors(spk: number | string, startIso: string, days: number): Promise<VectorSample[]> {
+// IMPORTANT: default days = 1 so callers can omit it.
+export async function horizonsDailyVectors(
+  spk: number | string,
+  startIso: string,
+  days = 1
+): Promise<VectorSample[]> {
   const out: VectorSample[] = [];
   for (let i = 0; i < days; i++) {
     const iso = addDaysISO(toHorizonsCalendar(startIso), i);
@@ -113,15 +116,15 @@ export function parseHorizonsVectors(resultText: string) {
 // ---------- SBDB (small bodies, comets, interstellar) ----------
 
 export type Elements = {
-  a?: number;        // AU (can be <0 for hyperbola)
-  e: number;         // eccentricity
-  i: number;         // rad
-  Omega: number;     // rad
-  omega: number;     // rad
-  epochJD?: number;  // JD of osculating elements
-  M0?: number;       // rad (at epochJD)
-  tp_jd?: number;    // JD of perihelion
-  q?: number;        // AU perihelion distance
+  a?: number;
+  e: number;
+  i: number;
+  Omega: number;
+  omega: number;
+  epochJD?: number;
+  M0?: number;
+  tp_jd?: number;
+  q?: number;
 };
 
 export async function loadAtlasSBDB(): Promise<Elements> {
@@ -179,7 +182,7 @@ export function propagateConic(el: Elements, tJD: number) {
       H += dH;
       if (Math.abs(dH) < 1e-13) break;
     }
-    const r  = (ah) * (e * Math.cosh(H) - 1); // AU, positive
+    const r  = (ah) * (e * Math.cosh(H) - 1);
     const nu = 2 * Math.atan2(Math.sqrt(e + 1) * Math.sinh(H / 2), Math.sqrt(e - 1) * Math.cosh(H / 2));
     return perifocalToEcliptic(r, nu, e, ah, i, Omega, omega);
   }
@@ -212,7 +215,6 @@ export function propagateConic(el: Elements, tJD: number) {
 }
 
 function solveBarker(dtDays: number, q: number) {
-  // dt = sqrt(q^3/mu)*(D + D^3/3) -> solve for D via Newton
   const B = dtDays * Math.sqrt(MU / (q * q * q));
   let D = Math.cbrt(B);
   for (let k = 0; k < 60; k++) {
@@ -242,7 +244,7 @@ function perifocalToEcliptic(r: number, nu: number, e: number, a: number, inc: n
   const z = R31 * xP + R32 * yP + R33 * 0;
 
   // Velocity (AU/day)
-  const p = a * (1 - e * e); // sign-safe: positive for ellipse; for hyperbola a<0 → p>0
+  const p = a * (1 - e * e);
   const h = Math.sqrt(MU * Math.abs(p));
   const rx = -h / p * Math.sin(nu);
   const ry =  h / p * (e + Math.cos(nu));
@@ -262,4 +264,3 @@ function degToRad(d: number) { return (d * Math.PI) / 180; }
 export function isFiniteVec3(v: number[] | undefined | null): v is [number, number, number] {
   return !!v && v.length === 3 && v.every(Number.isFinite);
 }
-
