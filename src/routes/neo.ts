@@ -6,6 +6,8 @@ import { imageCache } from '../utils/imageCache';
 import { flattenFeed, type NeoFlat } from '../utils/neo';
 import { renderNeoTimeline } from '../visuals/neo_timeline';
 import { renderNeoHistogram } from '../visuals/neo_histogram';
+import { initNeo3D, type Neo3DController } from './neo3d';
+import type { NeoItem } from '../types/nasa';
 
 const PAGE_SIZE = 20;
 
@@ -22,9 +24,10 @@ function pump() {
   while (inflight < MAX_CONCURRENT && q.length) {
     const t = q.shift()!;
     inflight++;
-    t()
-      .catch(err => {
-        console.warn('scheduled task failed', err);
+      t()
+        .catch(err => {
+          // eslint-disable-next-line no-console
+          console.warn('scheduled task failed', err);
       })
       .finally(() => {
         inflight--;
@@ -145,6 +148,7 @@ function loadThumb(li: HTMLLIElement, id: string, name: string) {
         replaceThumb(li, pick.thumbUrl, pick.title, pick.assetPage);
       }
     } catch (e) {
+      // eslint-disable-next-line no-console
       console.warn('image load failed', name, e);
     }
   });
@@ -207,6 +211,24 @@ export async function initNeoPage() {
   let all: NeoFlat[] = [];
   let filtered: NeoFlat[] = [];
   let page = 0;
+  let neoMap = new Map<string, NeoItem>();
+  let selectedNeos: NeoItem[] = [];
+  let neo3dController: Neo3DController | null = null;
+
+  function updateSelectionFromFiltered() {
+    const next: NeoItem[] = [];
+    for (const item of filtered) {
+      const neo = neoMap.get(item.id);
+      if (neo && neo.orbital_data) {
+        next.push(neo);
+      }
+      if (next.length >= 50) break;
+    }
+    selectedNeos = next;
+    if (neo3dController) {
+      neo3dController.setNeos(selectedNeos);
+    }
+  }
 
   async function load() {
     loadBtn.disabled = true;
@@ -217,8 +239,20 @@ export async function initNeoPage() {
     const s = startInput.value;
     const e = endInput.value;
     const feed = await getNeoFeed({ start_date: s, end_date: e });
+    neoMap = new Map<string, NeoItem>();
+    for (const list of Object.values(feed.near_earth_objects ?? {})) {
+      for (const neo of list ?? []) {
+        neoMap.set(neo.id, neo);
+      }
+    }
     all = flattenFeed(feed);
     applyAndRender();
+    if (!neo3dController) {
+      neo3dController = initNeo3D(() => selectedNeos);
+    }
+    if (neo3dController) {
+      neo3dController.setNeos(selectedNeos);
+    }
     loadBtn.disabled = false;
   }
 
@@ -231,6 +265,7 @@ export async function initNeoPage() {
   }
 
   function render() {
+    updateSelectionFromFiltered();
     renderNeoTimeline(timelineEl, filtered);
     renderNeoHistogram(histEl, filtered);
 

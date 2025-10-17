@@ -39,15 +39,50 @@ export interface NeoEstimatedDiameter {
   feet: NeoDiameter;
 }
 
+export interface NeoOrbitClass {
+  orbit_class_type: string;
+  orbit_class_description: string;
+  orbit_class_range: string;
+}
+
+export interface NeoOrbitalData {
+  orbit_id?: string;
+  orbit_determination_date?: string;
+  first_observation_date?: string;
+  last_observation_date?: string;
+  data_arc_in_days?: string;
+  observations_used?: string;
+  orbit_uncertainty?: string;
+  minimum_orbit_intersection?: string;
+  jupiter_tisserand_invariant?: string;
+  epoch_osculation: string;
+  eccentricity: string;
+  semi_major_axis: string;
+  inclination: string;
+  ascending_node_longitude: string;
+  orbital_period?: string;
+  perihelion_distance?: string;
+  perihelion_argument: string;
+  aphelion_distance?: string;
+  perihelion_time?: string;
+  mean_anomaly: string;
+  mean_motion?: string;
+  equinox?: string;
+  orbit_class?: NeoOrbitClass;
+}
+
 export interface NeoItem {
   id: string;
   neo_reference_id?: string;
   name: string;
+  links?: Record<string, string>;
   absolute_magnitude_h: number;
   estimated_diameter: NeoEstimatedDiameter;
   is_potentially_hazardous_asteroid: boolean;
   close_approach_data: NeoCloseApproach[];
   nasa_jpl_url?: string;
+  orbital_data?: NeoOrbitalData;
+  is_sentry_object?: boolean;
 }
 
 export interface NeoFeed {
