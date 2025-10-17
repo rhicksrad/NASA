@@ -1,4 +1,4 @@
-import { ATLAS_SBDB_PATH, BASE } from './base';
+import { BASE } from './base';
 import type { NeoBrowse } from '../types/nasa';
 
 const JD_UNIX_EPOCH = 2440587.5;
@@ -21,16 +21,6 @@ async function getTextOrJSON(path: string): Promise<string | unknown> {
   } catch {
     return text;
   }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  return value as Record<string, unknown>;
-}
-
-function firstRecordFromArray(value: unknown): Record<string, unknown> | undefined {
-  if (!Array.isArray(value) || value.length === 0) return undefined;
-  return asRecord(value[0]);
 }
 
 export async function tryNeoBrowse(size = 50): Promise<NeoBrowse | null> {
@@ -137,49 +127,67 @@ export type Elements = {
 };
 
 export async function loadAtlasSBDB(): Promise<Elements> {
-  const data = await getTextOrJSON(ATLAS_SBDB_PATH);
+  // STRICT: use the exact URL, no extra params
+  const data = await getTextOrJSON(`/sbdb?sstr=3I`);
 
-  const root = asRecord(data);
-  const objectOrbit = asRecord(asRecord(root?.object)?.orbit);
-  const orbitRecord =
-    firstRecordFromArray(objectOrbit?.elements) ??
-    firstRecordFromArray(asRecord(root?.orbit)?.elements) ??
-    asRecord(root?.orbit) ??
-    firstRecordFromArray(root?.elements) ??
-    undefined;
+  // SBDB often returns: { orbit: { elements: [ {name:'e', value:'6.14'}, ... ] } }
+  // Build a name->number map from that array.
+  const elemsArr =
+    (data && data.orbit && Array.isArray(data.orbit.elements) && data.orbit.elements) || null;
 
-  if (!orbitRecord) throw new Error('ATLAS SBDB: no elements');
+  if (!elemsArr || elemsArr.length === 0) {
+    console.error('[sbdb] unexpected payload (no orbit.elements array):', data);
+    throw new Error('ATLAS SBDB: no elements');
+  }
 
-  const N = (value: unknown): number => (value == null ? Number.NaN : Number(value));
+  const num = (x: any) => (x == null || x === '' ? NaN : Number(x));
+  const toMap = (arr: any[]) => {
+    const m = new Map<string, number>();
+    for (const it of arr) {
+      if (!it || typeof it !== 'object') continue;
+      const k = String(it.name ?? it.label ?? '').trim().toLowerCase();
+      const v = num(it.value);
+      if (k) m.set(k, v);
+    }
+    return m;
+  };
 
-  const rawA = N(orbitRecord['a']);
-  const rawE = N(orbitRecord['e']);
-  const rawI = N(orbitRecord['i'] ?? orbitRecord['inc'] ?? orbitRecord['incl']);
-  const rawOmega = N(orbitRecord['om'] ?? orbitRecord['Omega'] ?? orbitRecord['node']);
-  const rawOmegaArg = N(orbitRecord['w'] ?? orbitRecord['argp'] ?? orbitRecord['peri']);
-  const rawEpochJD = N(orbitRecord['epoch_jd'] ?? orbitRecord['epoch']);
-  const rawM = N(orbitRecord['ma'] ?? orbitRecord['M']);
+  const M = toMap(elemsArr);
+  const deg = (d: number) => (d * Math.PI) / 180;
 
-  const rawTp = N(orbitRecord['tp_jd'] ?? orbitRecord['tp']);
-  const rawQ = N(orbitRecord['q']);
+  // Names we expect in SBDB list:
+  // e, a, q, i, om (Ω), w (ω), ma (M), tp (JD TDB), n (deg/d)
+  // a can be negative for hyperbola (keep it), e will be > 1
+  const a     = M.get('a');           // AU; may be negative for hyperbola
+  const e     = M.get('e');           // > 1 for hyperbola
+  const i     = deg(M.get('i') ?? NaN);
+  const Omega = deg(M.get('om') ?? NaN);
+  const omega = deg(M.get('w')  ?? NaN);
+  const M0deg = M.get('ma');
+  const M0    = isFinite(M0deg as number) ? deg(M0deg as number) : NaN;
+  const tp_jd = M.get('tp');
+  const q     = M.get('q');
 
-  const e = rawE;
-  if (!Number.isFinite(e) || e <= 0) throw new Error('ATLAS SBDB: invalid element values');
+  // Epoch: prefer orbit.epoch if present
+  const epochJD =
+    num(data?.orbit?.epoch) ||
+    NaN;
 
-  const i = degToRad(rawI);
-  const Omega = degToRad(rawOmega);
-  const omega = degToRad(rawOmegaArg);
+  if (!isFinite(e as number) || (e as number) <= 0) {
+    console.error('[sbdb] bad e in elements:', elemsArr);
+    throw new Error('ATLAS SBDB: invalid element values');
+  }
 
   return {
-    a: Number.isFinite(rawA) ? rawA : undefined,
-    e,
+    a: isFinite(a as number) ? (a as number) : undefined, // keep sign if negative
+    e: e as number,
     i,
     Omega,
     omega,
-    epochJD: Number.isFinite(rawEpochJD) ? rawEpochJD : undefined,
-    M0: Number.isFinite(rawM) ? degToRad(rawM) : undefined,
-    tp_jd: Number.isFinite(rawTp) ? rawTp : undefined,
-    q: Number.isFinite(rawQ) ? rawQ : undefined,
+    epochJD: isFinite(epochJD) ? epochJD : undefined,
+    M0: isFinite(M0) ? M0 : undefined,
+    tp_jd: isFinite(tp_jd as number) ? (tp_jd as number) : undefined,
+    q: isFinite(q as number) ? (q as number) : undefined,
   };
 }
 
@@ -194,34 +202,33 @@ export function propagateConic(el: Elements, tJD: number): ConicState {
   if (!(e > 0)) throw new Error('Conic propagation requires eccentricity > 0');
 
   if (e > 1 + 1e-12) {
-    const aAbs = Number.isFinite(a) && (a as number) !== 0
+    // Use |a| for mean motion and radius math; if a missing, derive from q
+    const aAbs = isFinite(a as number) && (a as number) !== 0
       ? Math.abs(a as number)
-      : Number.isFinite(q) ? (q as number) / (e - 1) : Number.NaN;
-    if (!Number.isFinite(aAbs)) throw new Error('hyperbolic: missing a/q');
+      : (isFinite(q as number) ? (q as number) / (e - 1) : NaN);
+    if (!isFinite(aAbs)) throw new Error('hyperbolic: missing a/q');
 
     const n = Math.sqrt(MU / (aAbs * aAbs * aAbs));
-    const M = Number.isFinite(tp_jd)
+    const M = isFinite(tp_jd as number)
       ? n * (tJD - (tp_jd as number))
-      : Number.isFinite(M0) && Number.isFinite(epochJD)
-        ? (M0 as number) + n * (tJD - (epochJD as number))
-        : Number.NaN;
-    if (!Number.isFinite(M)) throw new Error('hyperbolic: missing epoch');
+      : (isFinite(M0 as number) && isFinite(epochJD as number)
+          ? (M0 as number) + n * (tJD - (epochJD as number))
+          : NaN);
+    if (!isFinite(M)) throw new Error('hyperbolic: missing epoch');
 
-    let H = Math.asinh((M as number) / e);
-    for (let k = 0; k < 60; k += 1) {
-      const sH = Math.sinh(H);
-      const cH = Math.cosh(H);
-      const f = e * sH - H - (M as number);
+    let H = Math.asinh(M / e);
+    for (let k = 0; k < 60; k++) {
+      const sH = Math.sinh(H), cH = Math.cosh(H);
+      const f = e * sH - H - M;
       const fp = e * cH - 1;
       const dH = -f / fp;
       H += dH;
       if (Math.abs(dH) < 1e-13) break;
     }
-
-    const r = aAbs * (e * Math.cosh(H) - 1);
+    const r  = aAbs * (e * Math.cosh(H) - 1); // strictly positive
     const nu = 2 * Math.atan2(
       Math.sqrt(e + 1) * Math.sinh(H / 2),
-      Math.sqrt(e - 1) * Math.cosh(H / 2),
+      Math.sqrt(e - 1) * Math.cosh(H / 2)
     );
     return perifocalToEcliptic(r, nu, e, aAbs, i, Omega, omega);
   }
@@ -291,11 +298,7 @@ function perifocalToEcliptic(
   const y = R21 * xP + R22 * yP;
   const z = R31 * xP + R32 * yP;
 
-  const p = Math.abs(e - 1) <= 1e-12
-    ? 2 * a
-    : e >= 1
-      ? a * (e * e - 1)
-      : a * (1 - e * e);
+  const p = e >= 1 ? a * (e * e - 1) : a * (1 - e * e);
   if (!Number.isFinite(p) || p === 0) throw new Error('Invalid semi-latus rectum');
   const h = Math.sqrt(MU * Math.abs(p));
   const rx = (-h / p) * Math.sin(nu);
