@@ -414,6 +414,7 @@ export async function initNeo3D(
   const rangeStartInput = document.getElementById('neo3d-range-start') as HTMLInputElement | null;
   const rangeEndInput = document.getElementById('neo3d-range-end') as HTMLInputElement | null;
   const neosToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
+  const atlasToggleBtn = document.getElementById('neo3d-toggle-atlas') as HTMLButtonElement | null;
 
   let sliderBaseMs = rangeStart.getTime();
   let sliderSpanDays = Math.max(MIN_RANGE_SPAN_DAYS, differenceInDays(rangeStart, rangeEnd));
@@ -554,13 +555,58 @@ export async function initNeo3D(
     updateSpeed();
   }
 
+  const extras = new Map<string, { spec: SmallBodySpec; enabled: boolean }>();
+  let selectedNeos: SmallBodySpec[] = [];
+  let neosEnabled = neosToggle?.checked ?? true;
+
+  const updateSmallBodies = () => {
+    const bodies: SmallBodySpec[] = [];
+    if (neosEnabled) {
+      bodies.push(...selectedNeos);
+    }
+    for (const extra of extras.values()) {
+      if (extra.enabled) {
+        bodies.push(extra.spec);
+      }
+    }
+    simulation.setSmallBodies(bodies);
+  };
+
+  const updateAtlasToggleState = () => {
+    if (!atlasToggleBtn) return;
+    const atlasEntry = extras.get('atlas');
+    if (!atlasEntry) {
+      atlasToggleBtn.disabled = true;
+      atlasToggleBtn.textContent = 'Loading 3I/ATLAS…';
+      atlasToggleBtn.setAttribute('aria-pressed', 'false');
+      return;
+    }
+    atlasToggleBtn.disabled = false;
+    atlasToggleBtn.textContent = atlasEntry.enabled ? 'Hide 3I/ATLAS' : 'Show 3I/ATLAS';
+    atlasToggleBtn.setAttribute('aria-pressed', atlasEntry.enabled ? 'true' : 'false');
+  };
+
+  if (atlasToggleBtn) {
+    atlasToggleBtn.disabled = true;
+    atlasToggleBtn.textContent = 'Loading 3I/ATLAS…';
+    atlasToggleBtn.setAttribute('aria-pressed', 'false');
+    atlasToggleBtn.addEventListener('click', () => {
+      const atlasEntry = extras.get('atlas');
+      if (!atlasEntry) return;
+      atlasEntry.enabled = !atlasEntry.enabled;
+      updateAtlasToggleState();
+      updateSmallBodies();
+    });
+  }
+
   if (neosToggle) {
-    simulation.setSmallBodiesVisible(neosToggle.checked);
+    neosEnabled = neosToggle.checked;
     neosToggle.addEventListener('change', () => {
-      simulation.setSmallBodiesVisible(neosToggle.checked);
+      neosEnabled = neosToggle.checked;
+      updateSmallBodies();
     });
   } else {
-    simulation.setSmallBodiesVisible(true);
+    neosEnabled = true;
   }
 
   if (playBtn) {
@@ -602,10 +648,9 @@ export async function initNeo3D(
   updateTimeLabel(simulation.getCurrentDate());
   updatePlayControls();
 
-  const extras: SmallBodySpec[] = [];
   const applyNeos = (neos: NeoItem[]) => {
-    const bodies = buildSmallBodies(neos);
-    simulation.setSmallBodies([...bodies, ...extras]);
+    selectedNeos = buildSmallBodies(neos);
+    updateSmallBodies();
   };
 
   applyNeos(getSelectedNeos());
@@ -643,13 +688,24 @@ export async function initNeo3D(
         console.warn('[neo3d] 3I/ATLAS Keplerian conversion failed; using sample propagation only');
       }
 
-      extras.push(atlasSpec);
-      applyNeos(getSelectedNeos());
+      const existing = extras.get('atlas');
+      if (existing) {
+        existing.spec = atlasSpec;
+      } else {
+        extras.set('atlas', { spec: atlasSpec, enabled: true });
+      }
+      updateAtlasToggleState();
+      updateSmallBodies();
       console.info('[neo3d] ATLAS loaded from sbdb?sstr=3I');
       toast('3I/ATLAS loaded from SBDB 3I');
     } catch (error) {
       console.error('[neo3d] ATLAS load failed', error);
       toastError('3I/ATLAS failed to load');
+      if (atlasToggleBtn) {
+        atlasToggleBtn.disabled = true;
+        atlasToggleBtn.textContent = '3I/ATLAS unavailable';
+        atlasToggleBtn.setAttribute('aria-pressed', 'false');
+      }
     }
   };
 
