@@ -4,29 +4,19 @@ export class HttpError extends Error {
   }
 }
 
-type QueryValue = string | number | boolean;
+const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '');
 
-const DEFAULT_API_BASE = import.meta.env.DEV ? '/api' : 'https://lively-haze-4b2c.hicksrch.workers.dev';
-const API_BASE = ((import.meta.env.VITE_API_BASE as string | undefined) || DEFAULT_API_BASE).replace(/\/+$/, '');
-
-function normalizeParams(params: Record<string, QueryValue>): Record<string, string> {
-  const entries: Record<string, string> = {};
-  for (const [key, value] of Object.entries(params)) entries[key] = String(value);
-  return entries;
-}
-
-function buildUrl(path: string, params: Record<string, QueryValue> = {}): string {
+function buildUrl(path: string, params: Record<string, string | number> = {}): string {
   const clean = path.startsWith('/') ? path : `/${path}`;
-  const base = API_BASE ? `${API_BASE}${clean}` : clean;
-  const url = new URL(base, window.location.href);
-  const query = normalizeParams(params);
-  for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+  const full = API_BASE ? `${API_BASE}${clean}` : clean;
+  const url = new URL(full, window.location.href);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
   return url.toString();
 }
 
 export async function request<T>(
   path: string,
-  params: Record<string, QueryValue> = {},
+  params: Record<string, string | number> = {},
   init?: RequestInit
 ): Promise<T> {
   const url = buildUrl(path, params);
@@ -40,9 +30,11 @@ export async function request<T>(
       signal: ctrl.signal,
       ...init,
     });
+
     const ct = resp.headers.get('content-type') || '';
     const asJson = ct.includes('application/json');
     const data = asJson ? await resp.json() : await resp.text();
+
     if (!resp.ok) throw new HttpError(resp.status, url, data);
     return data as T;
   } catch (e) {
