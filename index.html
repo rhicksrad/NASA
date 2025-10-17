@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="/NASA/src/styles/main.css" />
+  </head>
+  <body>
+    <header>
+      <h1>NASA Open APIs Visualization Hub</h1>
+      <p class="tagline">Live data via Cloudflare Worker proxy</p>
+    </header>
+    <main>
+      <section id="apod" aria-live="polite">
+        <h2>Astronomy Picture of the Day</h2>
+        <div id="apod-image" class="media loading">Loading APOD…</div>
+        <h3 id="apod-title"></h3>
+        <p id="apod-date" class="meta"></p>
+        <p id="apod-expl"></p>
+      </section>
+
+      <section id="neo" aria-live="polite">
+        <h2>Near-Earth Objects (sample)</h2>
+        <p id="neo-summary" class="loading">Loading NEOs…</p>
+        <ul id="neo-list"></ul>
+      </section>
+    </main>
+    <footer>
+      <p><a href="https://api.nasa.gov/">api.nasa.gov</a></p>
+    </footer>
+    <script type="module" src="/NASA/src/main.ts"></script>
+  </body>
+</html>
