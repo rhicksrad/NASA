@@ -192,6 +192,13 @@ export class Neo3D {
   private planets = new Map<string, PlanetNode>();
   private minMs: number;
   private maxMs: number;
+  private raycaster = new THREE.Raycaster();
+  private pointer = new THREE.Vector2();
+  private pointerClient = { x: 0, y: 0 };
+  private hasPointer = false;
+  private tooltip: HTMLDivElement;
+  private interactiveMeshes: THREE.Mesh[] = [];
+  private hoveredMesh: THREE.Mesh | null = null;
 
   constructor(private readonly options: Neo3DOptions) {
     const { host } = options;
@@ -235,6 +242,35 @@ export class Neo3D {
     this.minMs = options.minDate?.getTime() ?? Number.NEGATIVE_INFINITY;
     this.maxMs = options.maxDate?.getTime() ?? Number.POSITIVE_INFINITY;
 
+    if (typeof window !== 'undefined') {
+      const computed = window.getComputedStyle(host);
+      if (computed.position === 'static') {
+        host.style.position = 'relative';
+      }
+    }
+
+    this.tooltip = document.createElement('div');
+    this.tooltip.className = 'neo3d-tooltip';
+    Object.assign(this.tooltip.style, {
+      position: 'absolute',
+      pointerEvents: 'none',
+      background: 'rgba(15, 23, 42, 0.85)',
+      color: '#e2e8f0',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      fontSize: '12px',
+      lineHeight: '16px',
+      whiteSpace: 'nowrap',
+      boxShadow: '0 6px 18px rgba(15, 23, 42, 0.35)',
+      opacity: '0',
+      transform: 'translate(-9999px, -9999px)',
+      transition: 'opacity 0.12s ease',
+    });
+    host.appendChild(this.tooltip);
+
+    this.renderer.domElement.addEventListener('pointermove', this.onPointerMove);
+    this.renderer.domElement.addEventListener('pointerleave', this.onPointerLeave);
+
     window.addEventListener('resize', () => this.onResize());
   }
 
@@ -269,6 +305,7 @@ export class Neo3D {
     for (const provider of providers) {
       const mesh = createPlanetMesh(provider.color, provider.radius ?? 0.03);
       mesh.visible = false;
+      mesh.userData.hoverLabel = provider.name;
       this.scene.add(mesh);
 
       let orbitLine: THREE.Line | undefined;
@@ -279,6 +316,8 @@ export class Neo3D {
 
       this.planets.set(provider.name, { provider, mesh, orbitLine });
     }
+
+    this.refreshInteractiveMeshes();
   }
 
   setSmallBodies(bodies: SmallBodySpec[]): void {
@@ -290,6 +329,7 @@ export class Neo3D {
     for (const spec of bodies) {
       const mesh = createBodyMesh(spec.color);
       mesh.visible = false;
+      mesh.userData.hoverLabel = spec.label ?? spec.name;
       this.scene.add(mesh);
 
       let orbitLine: THREE.Line | undefined;
@@ -310,6 +350,8 @@ export class Neo3D {
 
       this.bodies.push({ spec, mesh, orbitLine });
     }
+
+    this.refreshInteractiveMeshes();
   }
 
   clearSmallBodies(): void {
@@ -318,6 +360,7 @@ export class Neo3D {
       if (body.orbitLine) this.scene.remove(body.orbitLine);
     }
     this.bodies = [];
+    this.refreshInteractiveMeshes();
   }
 
   start(): void {
@@ -374,6 +417,7 @@ export class Neo3D {
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    this.updateHover();
   }
 
   private onResize(): void {
@@ -383,5 +427,95 @@ export class Neo3D {
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
+  }
+
+  private refreshInteractiveMeshes(): void {
+    const meshes: THREE.Mesh[] = [];
+    for (const planet of this.planets.values()) {
+      meshes.push(planet.mesh);
+    }
+    for (const body of this.bodies) {
+      meshes.push(body.mesh);
+    }
+    this.interactiveMeshes = meshes;
+    if (!meshes.includes(this.hoveredMesh as THREE.Mesh)) {
+      this.hoveredMesh = null;
+      this.hideTooltip();
+    }
+  }
+
+  private onPointerMove = (event: PointerEvent): void => {
+    const canvasRect = this.renderer.domElement.getBoundingClientRect();
+    if (canvasRect.width === 0 || canvasRect.height === 0) return;
+
+    this.pointer.x = ((event.clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
+    this.pointer.y = -((event.clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
+
+    const hostRect = this.options.host.getBoundingClientRect();
+    this.pointerClient.x = event.clientX - hostRect.left;
+    this.pointerClient.y = event.clientY - hostRect.top;
+
+    this.hasPointer = true;
+  };
+
+  private onPointerLeave = (): void => {
+    this.hasPointer = false;
+    this.hoveredMesh = null;
+    this.hideTooltip();
+  };
+
+  private updateHover(): void {
+    if (!this.hasPointer || this.interactiveMeshes.length === 0) {
+      this.hoveredMesh = null;
+      this.hideTooltip();
+      return;
+    }
+
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const intersections = this.raycaster.intersectObjects(this.interactiveMeshes, false);
+    const hit = intersections.find((entry) => entry.object.visible);
+    if (!hit || !(hit.object instanceof THREE.Mesh)) {
+      this.hoveredMesh = null;
+      this.hideTooltip();
+      return;
+    }
+
+    this.hoveredMesh = hit.object;
+    const label = typeof hit.object.userData.hoverLabel === 'string' ? hit.object.userData.hoverLabel : '';
+    if (!label) {
+      this.hideTooltip();
+      return;
+    }
+
+    this.showTooltip(label);
+  }
+
+  private showTooltip(label: string): void {
+    if (this.tooltip.textContent !== label) {
+      this.tooltip.textContent = label;
+    }
+    const hostRect = this.options.host.getBoundingClientRect();
+    const hostWidth = hostRect.width;
+    const hostHeight = hostRect.height;
+
+    this.tooltip.style.opacity = '1';
+    this.tooltip.style.visibility = 'visible';
+
+    const offsetWidth = this.tooltip.offsetWidth;
+    const offsetHeight = this.tooltip.offsetHeight;
+
+    const padding = 8;
+    let x = this.pointerClient.x + 12;
+    let y = this.pointerClient.y + 12;
+    x = Math.min(hostWidth - offsetWidth - padding, Math.max(padding, x));
+    y = Math.min(hostHeight - offsetHeight - padding, Math.max(padding, y));
+
+    this.tooltip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+  }
+
+  private hideTooltip(): void {
+    this.tooltip.style.opacity = '0';
+    this.tooltip.style.visibility = 'hidden';
+    this.tooltip.style.transform = 'translate(-9999px, -9999px)';
   }
 }
