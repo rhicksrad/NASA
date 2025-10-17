@@ -10,6 +10,14 @@ function qs<T extends Element>(sel: string): T {
   return el as T;
 }
 
+function friendlyError(e: unknown): string {
+  if (e && typeof e === 'object' && 'status' in e && 'url' in e) {
+    const he = e as { status: number; url: string };
+    return `HTTP ${he.status} fetching ${he.url}`;
+  }
+  return 'Request failed';
+}
+
 async function init() {
   const apodImg = qs<HTMLDivElement>('#apod-image');
   const apodTitle = qs<HTMLHeadingElement>('#apod-title');
@@ -29,7 +37,7 @@ async function init() {
     renderApod(apodImg, apod);
   } catch (err) {
     apodImg.classList.remove('loading');
-    apodImg.textContent = `APOD failed to load`;
+    apodImg.textContent = `APOD failed to load. ${friendlyError(err)}`;
     console.error(err);
   }
 
@@ -40,7 +48,7 @@ async function init() {
     renderNeoSummary(neoSummary, neoList, neo);
   } catch (err) {
     neoSummary.classList.remove('loading');
-    neoSummary.textContent = 'NEO sample failed to load';
+    neoSummary.textContent = `NEO sample failed to load. ${friendlyError(err)}`;
     console.error(err);
   }
 }
