@@ -8,7 +8,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: 'index.html',
-        neo: 'neo.html',
         neo3d: 'neo3d.html',
       },
     },
