@@ -7,8 +7,12 @@
     "node": "^20.0.0"
   },
   "scripts": {
+    "build:favicon": "node scripts/generate-favicon.js",
+    "predev": "pnpm run build:favicon",
     "dev": "vite",
+    "prebuild": "pnpm run build:favicon",
     "build": "vite build",
+    "prepreview": "pnpm run build:favicon",
     "preview": "vite preview --strictPort --port 4173",
     "lint": "eslint ."
   },
