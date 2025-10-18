@@ -35,8 +35,8 @@ function renderMarkdown(s) {
     .replace(/^### (.*)$/gm,'<h3>$1</h3>')
     .replace(/^## (.*)$/gm,'<h2>$1</h2>')
     .replace(/^# (.*)$/gm,'<h1>$1</h1>')
-    .replace(/^\> (.*)$/gm,'<blockquote>$1</blockquote>')
-    .replace(/^\- (.*)$/gm,'<li>$1</li>')
+    .replace(/^> (.*)$/gm,'<blockquote>$1</blockquote>')
+    .replace(/^- (.*)$/gm,'<li>$1</li>')
     .replace(/(?:\n<li>.*<\/li>)+/gs, m=> `<ul>${m}</ul>`)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(https?:\/\/[^\s)]+)(?![^<]*>)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
@@ -47,7 +47,11 @@ async function loadById(activityId) {
   if (!activityId) { md.innerHTML = '<p class="error">Enter an Activity ID.</p>'; return; }
   md.innerHTML = 'Loading…';
   try {
-    const base = `${WORKER_BASE}/storm/${encodeURIComponent(activityId)}`;
+    // Activity IDs contain colons which must remain unescaped for the worker
+    // route; encodeURI preserves them while still protecting spaces/other
+    // disallowed characters.
+    const safeId = encodeURI(activityId);
+    const base = `${WORKER_BASE}/storm/${safeId}`;
     const [text, jsonStr] = await Promise.all([
       fetchText(base + '.md', 'text/markdown'),
       fetchText(base + '.json', 'application/json')
