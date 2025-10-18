@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const SCALE = 120;
+const SIZE_MULTIPLIER = 2;
 const DAY_MS = 86_400_000;
 const TWO_PI = Math.PI * 2;
 
@@ -171,13 +172,13 @@ function makeOrbitLine(points: Float32Array, color: number, closed: boolean): TH
 }
 
 function createPlanetMesh(color: number, radius = 0.02): THREE.Mesh {
-  const geometry = new THREE.SphereGeometry(radius * SCALE, 24, 16);
+  const geometry = new THREE.SphereGeometry(radius * SIZE_MULTIPLIER * SCALE, 24, 16);
   const material = new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.6 });
   return new THREE.Mesh(geometry, material);
 }
 
 function createBodyMesh(color: number): THREE.Mesh {
-  const geometry = new THREE.SphereGeometry(0.008 * SCALE, 16, 12);
+  const geometry = new THREE.SphereGeometry(0.008 * SIZE_MULTIPLIER * SCALE, 16, 12);
   const material = new THREE.MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.4 });
   return new THREE.Mesh(geometry, material);
 }
@@ -262,7 +263,7 @@ export class Neo3D {
     this.controls.dampingFactor = 0.08;
     this.controls.zoomToCursor = true;
     this.controls.maxPolarAngle = 0.98 * (Math.PI / 2);
-    this.controls.minDistance = 0.3 * SCALE;
+    this.controls.minDistance = 0.05 * SCALE;
     this.controls.maxDistance = 40 * SCALE;
     this.controls.target.set(0, 0, 0);
     this.controls.update();
@@ -271,7 +272,7 @@ export class Neo3D {
     const sunLight = new THREE.PointLight(0xfff5c0, 2.4, 0, 2);
     sunLight.position.set(0, 0, 0);
     const sun = new THREE.Mesh(
-      new THREE.SphereGeometry(0.06 * SCALE, 32, 24),
+      new THREE.SphereGeometry(0.06 * SIZE_MULTIPLIER * SCALE, 32, 24),
       new THREE.MeshBasicMaterial({ color: 0xfff1a8 }),
     );
     this.scene.add(ambient, sunLight, sun, createGridRing());
