@@ -15,8 +15,9 @@ export interface EpicDay {
   items: EpicItem[];
 }
 
-const EPIC_META_LATEST = '/epic/natural';
-const EPIC_META_BY_DATE = (date: string) => `/epic/natural/date/${date}`;
+const EPIC_API_BASE = 'https://epic.gsfc.nasa.gov/api/natural';
+const EPIC_META_LATEST = EPIC_API_BASE;
+const EPIC_META_BY_DATE = (date: string) => `${EPIC_API_BASE}/date/${date}`;
 
 // Build direct EPIC image URL (images are NOT on api.nasa.gov)
 const EPIC_IMG_URL = (date: string, imageBase: string) => {
