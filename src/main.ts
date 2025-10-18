@@ -1,125 +1,113 @@
 import './styles/main.css';
-import { getApodRobust } from './api/fetch_apod';
-import { tryNeoBrowse } from './api/nasaClient';
-import { initNeoPage } from './routes/neo';
+import { getHourlyHighlight, type HourlyHighlight } from './lib/hourlyHighlight';
 import { initRouter } from './routes/index';
-import type { Apod, NeoBrowse } from './types/nasa';
+import { initNeoPage } from './routes/neo';
 
-async function loadApod(container: HTMLElement) {
-  try {
-    const apod = await getApodRobust();
-    renderApod(container, apod);
-  } catch (e) {
-    console.error(e);
-    container.textContent = 'APOD failed to load.';
-  } finally {
-    container.classList.remove('loading');
-  }
+const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
+
+function formatCaptureDate(value?: string): string | null {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return null;
+  return dateFormatter.format(parsed);
 }
 
-function renderApod(container: HTMLElement, apod: Apod): void {
-  container.replaceChildren();
-  const title = document.createElement('h3');
-  title.textContent = apod.title;
-  container.appendChild(title);
+function formatRefreshTime(timestamp: Date): string {
+  const next = new Date(Date.UTC(timestamp.getUTCFullYear(), timestamp.getUTCMonth(), timestamp.getUTCDate(), timestamp.getUTCHours() + 1));
+  return `Refreshes at ${next.toISOString().slice(11, 16)} UTC`;
+}
 
-  if (apod.media_type === 'image') {
-    const img = document.createElement('img');
-    img.src = apod.hdurl || apod.url;
-    img.alt = apod.title;
-    img.loading = 'lazy';
-    container.appendChild(img);
-  } else if (apod.media_type === 'video') {
-    if (apod.thumbnail_url) {
-      const a = document.createElement('a');
-      a.href = apod.url;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      const thumb = document.createElement('img');
-      thumb.src = apod.thumbnail_url;
-      thumb.alt = `${apod.title} (video thumbnail)`;
-      thumb.loading = 'lazy';
-      a.appendChild(thumb);
-      container.appendChild(a);
-    } else {
-      const frame = document.createElement('iframe');
-      frame.src = apod.url;
-      frame.allowFullscreen = true;
-      frame.title = apod.title;
-      frame.sandbox = 'allow-scripts allow-same-origin allow-popups';
-      frame.referrerPolicy = 'no-referrer';
-      container.appendChild(frame);
+function renderHighlight(
+  highlight: HourlyHighlight,
+  now: Date,
+  elements: {
+    frame: HTMLElement;
+    title?: HTMLElement | null;
+    meta?: HTMLElement | null;
+    credit?: HTMLElement | null;
+    explorerLink?: HTMLAnchorElement | null;
+  },
+): void {
+  const { item, assetUrl, query, page, timestamp } = highlight;
+  const { frame, title, meta, credit, explorerLink } = elements;
+
+  frame.replaceChildren();
+  const img = document.createElement('img');
+  img.src = assetUrl;
+  img.alt = item.title || 'NASA mission image';
+  img.loading = 'lazy';
+  frame.appendChild(img);
+
+  if (title) {
+    title.textContent = item.title || 'NASA mission image';
+  }
+
+  if (meta) {
+    const parts: string[] = [];
+    const formattedDate = formatCaptureDate(item.date_created);
+    if (formattedDate) {
+      parts.push(`Captured ${formattedDate}`);
     }
+    parts.push(`Curated from “${query}” search`);
+    const baseTime = timestamp ?? now;
+    parts.push(formatRefreshTime(baseTime));
+    meta.textContent = parts.join(' • ');
   }
 
-  const desc = document.createElement('p');
-  desc.textContent = apod.explanation;
-  container.appendChild(desc);
-}
-
-function renderNeoSummary(summaryEl: HTMLElement, listEl: HTMLElement, data: NeoBrowse): void {
-  const total = data.page?.total_elements ?? 0;
-  summaryEl.textContent = `Sample size: ${data.page?.size ?? 0} • Total known (reported): ${total}`;
-  listEl.replaceChildren();
-
-  for (const item of data.near_earth_objects.slice(0, 5)) {
-    const li = document.createElement('li');
-    li.textContent = item.name;
-    listEl.appendChild(li);
+  if (credit) {
+    const credits: string[] = [];
+    if (item.photographer) {
+      credits.push(`Credit: ${item.photographer}`);
+    }
+    credits.push('Courtesy of NASA');
+    credit.textContent = credits.join(' • ');
+    credit.hidden = credits.length === 0;
   }
 
-  if (!listEl.childElementCount) {
-    const li = document.createElement('li');
-    li.textContent = 'No objects returned in this sample.';
-    listEl.appendChild(li);
+  if (explorerLink) {
+    const params = new URLSearchParams();
+    params.set('preset', 'custom');
+    params.set('q', query);
+    params.set('page', String(page));
+    explorerLink.href = `#/images/explorer?${params.toString()}`;
   }
-}
-
-function friendlyError(e: unknown): string {
-  if (e && typeof e === 'object' && 'status' in e && 'url' in e) {
-    const he = e as { status: number; url: string };
-    return `HTTP ${he.status} fetching ${he.url}`;
-  }
-  return 'Request failed';
 }
 
 async function initIndexPage(): Promise<void> {
-  const apodContainer = document.querySelector<HTMLDivElement>('#apod-image');
-  if (!apodContainer) {
+  const frame = document.querySelector<HTMLElement>('#hourly-media');
+  if (!frame) {
     return;
   }
 
-  const neoSummary = document.querySelector<HTMLParagraphElement>('#neo-summary');
-  const neoList = document.querySelector<HTMLUListElement>('#neo-list');
-  const neoLink = document.querySelector<HTMLAnchorElement>('#neo-link');
+  frame.classList.add('loading');
 
-  if (!neoSummary || !neoList) {
-    throw new Error('Missing index layout elements');
-  }
-
-  if (neoLink) {
-    const base = import.meta.env.BASE_URL ?? '/';
-    neoLink.href = `${base.replace(/\/+$/, '')}/neo.html`.replace('//neo.html', '/neo.html');
-  }
-
-  await loadApod(apodContainer);
+  const title = document.querySelector<HTMLElement>('#hourly-title');
+  const meta = document.querySelector<HTMLElement>('#hourly-meta');
+  const credit = document.querySelector<HTMLElement>('#hourly-credit');
+  const explorerLink = document.querySelector<HTMLAnchorElement>('#hero-explorer-link');
+  const now = new Date();
 
   try {
-    const neo = await tryNeoBrowse(5);
-    neoSummary.classList.remove('loading');
-    if (!neo) {
-      neoSummary.textContent = 'NEO sample unavailable.';
-      neoList.replaceChildren();
-      neoList.hidden = true;
-      return;
-    }
-    neoList.hidden = false;
-    renderNeoSummary(neoSummary, neoList, neo);
+    const highlight = await getHourlyHighlight(now);
+    renderHighlight(highlight, now, { frame, title, meta, credit, explorerLink });
   } catch (err) {
-    neoSummary.classList.remove('loading');
-    neoList.hidden = true;
-    neoSummary.textContent = `NEO sample failed to load. ${friendlyError(err)}`;
-    console.error(err);
+    console.error('Hourly highlight failed to load', err);
+    frame.replaceChildren();
+    const fallback = document.createElement('p');
+    fallback.className = 'hero-hourly__status';
+    fallback.textContent = 'The hourly highlight is unavailable right now.';
+    frame.appendChild(fallback);
+    if (title) {
+      title.textContent = 'Unable to load mission highlight';
+    }
+    if (meta) {
+      meta.textContent = 'Please try again in a few minutes.';
+    }
+    if (credit) {
+      credit.hidden = true;
+    }
+  } finally {
+    frame.classList.remove('loading');
   }
 }
 
