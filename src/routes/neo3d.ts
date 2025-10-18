@@ -83,8 +83,8 @@ function differenceInDays(start: Date, end: Date): number {
   return (end.getTime() - start.getTime()) / DAY_MS;
 }
 
-function buildSmallBodies(neos: NeoItem[]): SmallBodySpec[] {
-  const bodies: SmallBodySpec[] = [];
+function buildSmallBodyEntries(neos: NeoItem[]): Array<{ neo: NeoItem; spec: SmallBodySpec }> {
+  const bodies: Array<{ neo: NeoItem; spec: SmallBodySpec }> = [];
   for (const neo of neos) {
     const orbital = neo.orbital_data;
     if (!orbital) continue;
@@ -127,9 +127,36 @@ function buildSmallBodies(neos: NeoItem[]): SmallBodySpec[] {
       spanDays: e < 1 ? undefined : 3200,
     };
 
-    bodies.push({ name: neo.name, color, els, orbit });
+    bodies.push({ neo, spec: { name: neo.name, color, els, orbit } });
   }
   return bodies;
+}
+
+function hexColor(color: number): string {
+  return `#${color.toString(16).padStart(6, '0')}`;
+}
+
+function formatNeoSize(neo: NeoItem): string | null {
+  const km = neo.estimated_diameter?.kilometers;
+  if (!km) return null;
+  const { estimated_diameter_min: min, estimated_diameter_max: max } = km;
+  if (!(Number.isFinite(min) && Number.isFinite(max))) return null;
+  const avgKm = (min + max) / 2;
+  if (!Number.isFinite(avgKm) || avgKm <= 0) return null;
+  if (avgKm >= 1) {
+    return `${avgKm.toFixed(2)} km`;
+  }
+  const avgMeters = avgKm * 1000;
+  if (avgMeters >= 1) {
+    return `${avgMeters.toFixed(0)} m`;
+  }
+  return `${(avgMeters * 100).toFixed(0)} cm`;
+}
+
+function formatNextApproach(neo: NeoItem): string | null {
+  const approach = neo.close_approach_data?.find((entry) => entry.close_approach_date_full || entry.close_approach_date);
+  if (!approach) return null;
+  return approach.close_approach_date_full ?? approach.close_approach_date ?? null;
 }
 
 function elementsToKeplerian(elements: Elements): Keplerian | null {
@@ -436,7 +463,9 @@ export async function initNeo3D(
   const timeSlider = document.getElementById('neo3d-time') as HTMLInputElement | null;
   const rangeStartInput = document.getElementById('neo3d-range-start') as HTMLInputElement | null;
   const rangeEndInput = document.getElementById('neo3d-range-end') as HTMLInputElement | null;
-  const neosToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
+  const neoAllToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
+  const neoList = document.getElementById('neo3d-neo-list') as HTMLElement | null;
+  const neoSummary = document.getElementById('neo3d-neo-summary') as HTMLElement | null;
   const atlasToggleBtn = document.getElementById('neo3d-toggle-atlas') as HTMLButtonElement | null;
 
   let sliderBaseMs = rangeStart.getTime();
@@ -579,13 +608,58 @@ export async function initNeo3D(
   }
 
   const extras = new Map<string, { spec: SmallBodySpec; enabled: boolean }>();
-  let selectedNeos: SmallBodySpec[] = [];
-  let neosEnabled = neosToggle?.checked ?? true;
+  const neoEntries = new Map<string, { spec: SmallBodySpec; enabled: boolean; checkbox: HTMLInputElement | null }>();
+
+  const updateAllToggleState = () => {
+    if (!neoAllToggle) return;
+    const total = neoEntries.size;
+    if (total === 0) {
+      neoAllToggle.checked = false;
+      neoAllToggle.indeterminate = false;
+      neoAllToggle.disabled = true;
+      return;
+    }
+    let enabledCount = 0;
+    for (const entry of neoEntries.values()) {
+      if (entry.enabled) enabledCount += 1;
+    }
+    neoAllToggle.disabled = false;
+    neoAllToggle.checked = enabledCount === total;
+    neoAllToggle.indeterminate = enabledCount > 0 && enabledCount < total;
+  };
+
+  const updateNeoSummary = () => {
+    if (!neoSummary) return;
+    const total = neoEntries.size;
+    if (total === 0) {
+      neoSummary.textContent = 'Awaiting NEO data…';
+      return;
+    }
+    let enabledCount = 0;
+    for (const entry of neoEntries.values()) {
+      if (entry.enabled) enabledCount += 1;
+    }
+    const noun = total === 1 ? 'NEO' : 'NEOs';
+    if (enabledCount === 0) {
+      neoSummary.textContent = `All ${noun} hidden.`;
+    } else if (enabledCount === total) {
+      neoSummary.textContent = `Showing all ${total} ${noun}.`;
+    } else {
+      neoSummary.textContent = `Showing ${enabledCount} of ${total} ${noun}.`;
+    }
+  };
+
+  const refreshNeoUi = () => {
+    updateAllToggleState();
+    updateNeoSummary();
+  };
 
   const updateSmallBodies = () => {
     const bodies: SmallBodySpec[] = [];
-    if (neosEnabled) {
-      bodies.push(...selectedNeos);
+    for (const entry of neoEntries.values()) {
+      if (entry.enabled) {
+        bodies.push(entry.spec);
+      }
     }
     for (const extra of extras.values()) {
       if (extra.enabled) {
@@ -622,14 +696,20 @@ export async function initNeo3D(
     });
   }
 
-  if (neosToggle) {
-    neosEnabled = neosToggle.checked;
-    neosToggle.addEventListener('change', () => {
-      neosEnabled = neosToggle.checked;
+  if (neoAllToggle) {
+    neoAllToggle.disabled = true;
+    neoAllToggle.indeterminate = false;
+    neoAllToggle.addEventListener('change', () => {
+      const enabled = neoAllToggle.checked;
+      for (const entry of neoEntries.values()) {
+        entry.enabled = enabled;
+        if (entry.checkbox) {
+          entry.checkbox.checked = enabled;
+        }
+      }
       updateSmallBodies();
+      refreshNeoUi();
     });
-  } else {
-    neosEnabled = true;
   }
 
   if (playBtn) {
@@ -672,8 +752,87 @@ export async function initNeo3D(
   updatePlayControls();
 
   const applyNeos = (neos: NeoItem[]) => {
-    selectedNeos = buildSmallBodies(neos);
+    neoEntries.clear();
+    if (neoList) {
+      neoList.innerHTML = '';
+    }
+
+    const entries = buildSmallBodyEntries(neos);
+    if (entries.length === 0) {
+      if (neoList) {
+        const empty = document.createElement('div');
+        empty.className = 'neo3d-empty';
+        empty.setAttribute('role', 'listitem');
+        empty.textContent = 'NEOs with orbital data will appear here when available.';
+        neoList.appendChild(empty);
+      }
+      updateSmallBodies();
+      refreshNeoUi();
+      return;
+    }
+
+    for (const { neo, spec } of entries) {
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = true;
+      checkbox.id = `neo3d-neo-${neo.id}`;
+      checkbox.className = 'neo3d-neo-checkbox';
+
+      const item = document.createElement('div');
+      item.className = 'neo3d-neo-item';
+      item.setAttribute('role', 'listitem');
+
+      const label = document.createElement('label');
+
+      const nameRow = document.createElement('span');
+      nameRow.className = 'neo3d-neo-name';
+
+      const colorDot = document.createElement('span');
+      colorDot.className = 'neo3d-neo-color';
+      colorDot.style.background = hexColor(spec.color ?? 0x22d3ee);
+
+      nameRow.appendChild(checkbox);
+      nameRow.appendChild(colorDot);
+      const nameText = document.createElement('span');
+      nameText.textContent = neo.name;
+      nameRow.appendChild(nameText);
+
+      const meta = document.createElement('span');
+      meta.className = 'neo3d-neo-meta';
+      const metaParts = [`H ${neo.absolute_magnitude_h.toFixed(1)}`];
+      const sizeLabel = formatNeoSize(neo);
+      if (sizeLabel) metaParts.push(`~${sizeLabel}`);
+      const nextApproach = formatNextApproach(neo);
+      if (nextApproach) metaParts.push(`Next: ${nextApproach}`);
+      meta.textContent = metaParts.join(' • ');
+
+      label.appendChild(nameRow);
+      label.appendChild(meta);
+
+      if (neo.is_potentially_hazardous_asteroid) {
+        const hazard = document.createElement('span');
+        hazard.className = 'neo3d-neo-hazard';
+        hazard.textContent = 'Potentially hazardous';
+        label.appendChild(hazard);
+      }
+
+      item.appendChild(label);
+      if (neoList) {
+        neoList.appendChild(item);
+      }
+
+      const entry = { spec, enabled: true, checkbox };
+      checkbox.addEventListener('change', () => {
+        entry.enabled = checkbox.checked;
+        updateSmallBodies();
+        refreshNeoUi();
+      });
+
+      neoEntries.set(neo.id, entry);
+    }
+
     updateSmallBodies();
+    refreshNeoUi();
   };
 
   applyNeos(getSelectedNeos());
