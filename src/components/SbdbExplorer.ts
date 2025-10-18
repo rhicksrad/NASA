@@ -50,7 +50,7 @@ export class SbdbExplorer {
         <div class="sbdb-notice" role="status" aria-live="polite"></div>
         <table class="sbdb-table">
           <thead><tr>
-            <th>Name</th><th>Type</th><th>H</th><th>Est. D (km)</th><th>e</th><th>i (deg)</th><th>q (au)</th><th></th>
+            <th>Name</th><th>Type</th><th>Brightness (H)</th><th>Estimated Size (km)</th><th>Orbit Shape (e)</th><th>Orbit Tilt (°)</th><th>Closest Sun Distance (au)</th><th></th>
           </tr></thead>
           <tbody></tbody>
         </table>
