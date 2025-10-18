@@ -3,6 +3,13 @@
   display: grid;
   gap: clamp(1rem, 2.5vw, 1.75rem);
   grid-template-rows: auto auto 1fr auto;
+  justify-items: center;
+  align-content: start;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  box-sizing: border-box;
+  min-height: 100vh;
+  width: min(100%, 1100px);
+  margin-inline: auto;
 }
 
 .epic-controls {
@@ -15,11 +22,34 @@
   border: 1px solid rgba(148, 163, 184, 0.25);
   background: rgba(15, 23, 42, 0.7);
   box-shadow: 0 16px 30px rgba(2, 6, 23, 0.45);
+  justify-content: center;
+  width: min(100%, 960px);
 }
 
 .epic-label {
   font-size: 0.95rem;
   color: rgba(226, 232, 240, 0.85);
+}
+
+.epic-label-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.epic-label-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+}
+
+.epic-range-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: clamp(0.75rem, 2vw, 1.35rem);
 }
 
 .epic-date,
@@ -47,11 +77,23 @@
   box-shadow: 0 16px 32px rgba(56, 189, 248, 0.35);
 }
 
+.epic-btn-secondary {
+  background: rgba(8, 13, 31, 0.92);
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.epic-btn-secondary:hover,
+.epic-btn-secondary:focus-visible {
+  box-shadow: 0 12px 28px rgba(56, 189, 248, 0.28);
+}
+
 .epic-timeline {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding-inline: 0.5rem;
+  width: min(100%, 720px);
 }
 
 .epic-slider {
@@ -63,11 +105,13 @@
   background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0.9));
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 22px;
-  min-height: 420px;
   display: grid;
   place-items: center;
   overflow: hidden;
   box-shadow: 0 28px 60px rgba(2, 6, 23, 0.55);
+  --epic-stage-available: max(200px, calc(100vh - 16rem));
+  width: min(100%, 720px, var(--epic-stage-available));
+  aspect-ratio: 1 / 1;
 }
 
 .epic-stage::after {
@@ -79,8 +123,8 @@
 }
 
 .epic-image {
-  max-width: 100%;
-  height: auto;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -109,4 +153,5 @@
   line-height: 1.5;
   border-radius: 12px;
   box-shadow: 0 12px 24px rgba(2, 6, 23, 0.38);
+  width: min(100%, 960px);
 }

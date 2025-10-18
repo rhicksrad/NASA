@@ -1,8 +1,27 @@
 /* src/components/EpicViewer.ts */
 import { fetchEpicLatest, fetchEpicByDate, buildEpicImageUrl, extractLatestDate, type EpicItem } from '../api/epic';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function enumerateDates(start: string, end: string): string[] {
+  const matchDate = /^\d{4}-\d{2}-\d{2}$/;
+  if (!matchDate.test(start) || !matchDate.test(end)) return [];
+  const startMs = Date.parse(`${start}T00:00:00Z`);
+  const endMs = Date.parse(`${end}T00:00:00Z`);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || startMs > endMs) {
+    return [];
+  }
+  const days: string[] = [];
+  for (let ts = startMs; ts <= endMs; ts += DAY_MS) {
+    const iso = new Date(ts).toISOString();
+    days.push(iso.slice(0, 10));
+  }
+  return days;
+}
+
 type State = {
-  date: string; // YYYY-MM-DD
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
   items: EpicItem[];
   idx: number; // current frame index
   playing: boolean;
@@ -35,14 +54,17 @@ export class EpicViewer {
   private imgEl!: HTMLImageElement;
   private slider!: HTMLInputElement;
   private playBtn!: HTMLButtonElement;
-  private dateInput!: HTMLInputElement;
+  private startInput!: HTMLInputElement;
+  private endInput!: HTMLInputElement;
+  private loadBtn!: HTMLButtonElement;
   private fpsSel!: HTMLSelectElement;
   private metaEl!: HTMLDivElement;
 
-  private state: State = { date: '', items: [], idx: 0, playing: false, fps: 4 };
+  private state: State = { startDate: '', endDate: '', items: [], idx: 0, playing: false, fps: 4 };
   private rafId: number | null = null;
   private lastTick = 0;
   private preloadMap = new Map<string, HTMLImageElement>(); // url → img
+  private loadToken = 0;
 
   constructor(host: HTMLElement) {
     this.host = host;
@@ -51,20 +73,33 @@ export class EpicViewer {
   }
 
   private renderShell() {
+    const rangeControls = h(
+      'div',
+      { class: 'epic-range-group' },
+      h(
+        'label',
+        { class: 'epic-label epic-label-stack' },
+        'Start (UTC)',
+        (this.startInput = h('input', { type: 'date', class: 'epic-date' }) as HTMLInputElement),
+      ),
+      h(
+        'label',
+        { class: 'epic-label epic-label-stack' },
+        'End (UTC)',
+        (this.endInput = h('input', { type: 'date', class: 'epic-date' }) as HTMLInputElement),
+      ),
+      (this.loadBtn = h('button', { class: 'epic-btn epic-btn-secondary', type: 'button' }, 'Load Range') as HTMLButtonElement),
+    );
+
     const controls = h(
       'div',
       { class: 'epic-controls' },
+      rangeControls,
+      (this.playBtn = h('button', { class: 'epic-btn', type: 'button' }, 'Play') as HTMLButtonElement),
       h(
         'label',
-        { class: 'epic-label' },
-        'Date (UTC): ',
-        (this.dateInput = h('input', { type: 'date', class: 'epic-date' }) as HTMLInputElement),
-      ),
-      (this.playBtn = h('button', { class: 'epic-btn' }, 'Play') as HTMLButtonElement),
-      h(
-        'label',
-        { class: 'epic-label' },
-        'Speed: ',
+        { class: 'epic-label epic-label-inline' },
+        'Speed:',
         (this.fpsSel = h(
           'select',
           { class: 'epic-fps' },
@@ -97,55 +132,115 @@ export class EpicViewer {
 
     // Wire events
     this.playBtn.onclick = () => this.togglePlay();
+    this.loadBtn.onclick = () => this.onRangeSubmit();
     this.slider.oninput = () => this.goTo(Number(this.slider.value));
     this.fpsSel.onchange = () => this.setFps(Number(this.fpsSel.value));
-    this.dateInput.onchange = () => this.loadDate(this.dateInput.value);
+    this.startInput.onchange = () => {
+      this.syncRangeInputs();
+    };
+    this.endInput.onchange = () => {
+      this.syncRangeInputs();
+    };
   }
 
   private async init() {
     try {
       const latest = await fetchEpicLatest();
       const latestDate = extractLatestDate(latest);
-      const date = latestDate ?? new Date().toISOString().slice(0, 10);
-      this.dateInput.value = date;
-      await this.loadDate(date);
+      const end = latestDate ?? new Date().toISOString().slice(0, 10);
+      this.startInput.value = end;
+      this.endInput.value = end;
+      this.startInput.max = end;
+      this.endInput.max = end;
+      this.syncRangeInputs();
+      await this.loadRange(end, end);
       this.setFps(4);
     } catch (err) {
       this.error(String(err));
     }
   }
 
-  private async loadDate(date: string) {
+  private async loadRange(start: string, end: string) {
+    const normalizedStart = start?.trim();
+    const normalizedEnd = end?.trim();
+    if (!normalizedStart || !normalizedEnd) {
+      this.error('Select both a start and end date.');
+      return;
+    }
+
+    const days = enumerateDates(normalizedStart, normalizedEnd);
+    if (!days.length) {
+      this.error('Start date must be on or before end date.');
+      return;
+    }
+
+    this.startInput.value = normalizedStart;
+    this.endInput.value = normalizedEnd;
+    this.syncRangeInputs();
+
+    const token = ++this.loadToken;
     this.stop();
-    this.state.date = date;
+    this.state.startDate = normalizedStart;
+    this.state.endDate = normalizedEnd;
     this.state.idx = 0;
+    this.state.items = [];
+    this.preloadMap.clear();
+    this.playBtn.disabled = true;
+    this.slider.disabled = true;
+    this.slider.max = '0';
+    this.slider.value = '0';
+    this.imgEl.src = '';
+    this.metaEl.textContent = 'Loading EPIC imagery…';
+    this.loadBtn.disabled = true;
+    this.loadBtn.textContent = 'Loading…';
+
     try {
-      const day = await fetchEpicByDate(date);
-      this.state.items = day.items;
-      this.slider.max = Math.max(0, this.state.items.length - 1).toString();
-      this.slider.value = '0';
-      if (this.state.items.length === 0) {
-        this.imgEl.src = '';
-        this.metaEl.textContent = `No EPIC images for ${date}`;
+      const collected: EpicItem[] = [];
+      for (const day of days) {
+        const payload = await fetchEpicByDate(day);
+        if (token !== this.loadToken) {
+          return;
+        }
+        collected.push(...payload.items);
+      }
+
+      if (token !== this.loadToken) {
         return;
       }
-      // Preload first few frames
-      this.preloadWindow(0, Math.min(6, this.state.items.length - 1));
+
+      collected.sort((a, b) => a.date.localeCompare(b.date));
+      this.state.items = collected;
+      this.updateControlsForItems();
+
+      if (collected.length === 0) {
+        this.metaEl.textContent = `No EPIC images between ${normalizedStart} and ${normalizedEnd}.`;
+        return;
+      }
+
       this.renderFrame(0);
     } catch (err) {
-      this.error(String(err));
+      if (token === this.loadToken) {
+        this.error(String(err));
+      }
+    } finally {
+      if (token === this.loadToken) {
+        this.loadBtn.disabled = false;
+        this.loadBtn.textContent = 'Load Range';
+      }
     }
   }
 
   private urlAt(idx: number) {
     const it = this.state.items[idx];
-    return buildEpicImageUrl(it);
+    return it ? buildEpicImageUrl(it) : '';
   }
 
   private renderFrame(idx: number) {
     this.state.idx = idx;
     const it = this.state.items[idx];
+    if (!it) return;
     const url = this.urlAt(idx);
+    if (!url) return;
     this.imgEl.referrerPolicy = 'no-referrer';
     this.imgEl.src = url; // <img> can load cross-origin fine
     const t = it.date.replace(' ', ' ');
@@ -161,18 +256,20 @@ export class EpicViewer {
   private preloadWindow(from: number, to: number) {
     for (let i = from; i <= to; i++) {
       const url = this.urlAt(i);
-      if (!this.preloadMap.has(url)) {
-        const img = new Image();
-        img.decoding = 'async';
-        img.loading = 'eager';
-        img.src = url;
-        this.preloadMap.set(url, img);
+      if (!url || this.preloadMap.has(url)) {
+        continue;
       }
+      const img = new Image();
+      img.decoding = 'async';
+      img.loading = 'eager';
+      img.src = url;
+      this.preloadMap.set(url, img);
     }
   }
 
   private setFps(fps: number) {
     this.state.fps = Math.max(1, fps | 0);
+    this.fpsSel.value = String(this.state.fps);
     // snap tick budget
     this.lastTick = 0;
   }
@@ -182,7 +279,7 @@ export class EpicViewer {
   }
 
   private play() {
-    if (this.state.items.length === 0) return;
+    if (this.state.items.length === 0 || this.playBtn.disabled) return;
     this.state.playing = true;
     this.playBtn.textContent = 'Pause';
     const stepMs = 1000 / this.state.fps;
@@ -212,7 +309,60 @@ export class EpicViewer {
     this.renderFrame(clamped);
   }
 
+  private syncRangeInputs() {
+    const start = this.startInput.value;
+    if (start) {
+      this.endInput.min = start;
+      if (this.endInput.value && this.endInput.value < start) {
+        this.endInput.value = start;
+      }
+    } else {
+      this.endInput.removeAttribute('min');
+    }
+    if (this.endInput.value) {
+      this.startInput.max = this.endInput.value;
+    } else if (this.endInput.max) {
+      this.startInput.max = this.endInput.max;
+    } else {
+      this.startInput.removeAttribute('max');
+    }
+  }
+
+  private onRangeSubmit() {
+    const start = this.startInput.value;
+    const end = this.endInput.value || start;
+    if (!this.endInput.value && start) {
+      this.endInput.value = start;
+    }
+    this.syncRangeInputs();
+    void this.loadRange(start, end);
+  }
+
+  private updateControlsForItems() {
+    const len = this.state.items.length;
+    if (len === 0) {
+      this.slider.max = '0';
+      this.slider.value = '0';
+    } else {
+      const clamped = Math.max(0, Math.min(this.state.idx, len - 1));
+      this.state.idx = clamped;
+      this.slider.max = String(len - 1);
+      this.slider.value = String(clamped);
+    }
+    const disableSlider = len <= 1;
+    this.slider.disabled = disableSlider;
+    this.playBtn.disabled = len <= 1;
+    if (len <= 1) {
+      this.stop();
+    }
+  }
+
   private error(msg: string) {
+    this.stop();
+    this.state.items = [];
+    this.state.idx = 0;
+    this.updateControlsForItems();
+    this.preloadMap.clear();
     this.imgEl.src = '';
     this.metaEl.textContent = msg;
   }
