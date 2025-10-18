@@ -20,11 +20,12 @@ const MIN_RANGE_SPAN_DAYS = 1 / 24;
 const SLIDER_STEP_DAYS = 1 / 24;
 
 const SPEED_PRESETS: Array<{ seconds: number; label: string }> = [
-  { seconds: 1, label: '1 sec/s' },
-  { seconds: 60, label: '1 min/s' },
-  { seconds: 600, label: '10 min/s' },
   { seconds: 3600, label: '1 hr/s' },
-  { seconds: 86400, label: '1 day/s' },
+  { seconds: 21_600, label: '6 hr/s' },
+  { seconds: 43_200, label: '12 hr/s' },
+  { seconds: 86_400, label: '1 day/s' },
+  { seconds: 604_800, label: '1 wk/s' },
+  { seconds: 2_592_000, label: '1 mo/s' },
 ];
 
 interface PlanetConfig {
