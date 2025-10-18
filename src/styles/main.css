@@ -67,13 +67,14 @@ body::before {
 
 .brand {
   margin: 0;
-  font-size: clamp(0.95rem, 0.9rem + 0.6vw, 1.4rem);
+  font-size: clamp(0.85rem, 0.82rem + 0.5vw, 1.2rem);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
   color: #f8fafc;
+  text-decoration: none;
 }
 
 .brand::before {
@@ -97,8 +98,8 @@ body::before {
   color: var(--text-primary);
   font-weight: 500;
   text-decoration: none;
-  font-size: clamp(0.85rem, 0.82rem + 0.25vw, 1rem);
-  padding: 0.4rem 1rem;
+  font-size: clamp(0.78rem, 0.74rem + 0.22vw, 0.92rem);
+  padding: 0.35rem 0.9rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background: rgba(148, 163, 184, 0.08);
