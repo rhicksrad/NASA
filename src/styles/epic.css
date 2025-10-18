@@ -2,9 +2,9 @@
 .epic-wrap {
   display: grid;
   gap: clamp(1rem, 2.5vw, 1.75rem);
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: 1fr auto auto auto;
   justify-items: center;
-  align-content: start;
+  align-content: stretch;
   padding: clamp(1rem, 3vw, 2.5rem);
   box-sizing: border-box;
   min-height: 100vh;
@@ -107,10 +107,11 @@
   border-radius: 22px;
   display: grid;
   place-items: center;
+  align-self: center;
   overflow: hidden;
   box-shadow: 0 28px 60px rgba(2, 6, 23, 0.55);
-  --epic-stage-available: max(200px, calc(100vh - 16rem));
-  width: min(100%, 720px, var(--epic-stage-available));
+  --epic-stage-available: clamp(260px, calc(100vh - 14rem), 1100px);
+  width: min(100%, var(--epic-stage-available));
   aspect-ratio: 1 / 1;
 }
 
