@@ -53,7 +53,8 @@ async function loadById(activityId) {
   if (!activityId) { md.innerHTML = '<p class="error">Enter an Activity ID.</p>'; return; }
   md.innerHTML = 'Loading…';
   try {
-    const base = `${WORKER_BASE}/storm/${encodeURIComponent(activityId)}`;
+    const safeId = encodeURI(activityId);
+    const base = `${WORKER_BASE}/storm/${safeId}`;
     const [text, data] = await Promise.all([
       fetchText(base + '.md', 'text/markdown'),
       fetchJSON(base + '.json')
