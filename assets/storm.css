@@ -24,3 +24,6 @@ button:hover { background:#223247; }
 .markdown blockquote { color:#d2dae6; border-left:3px solid #2a3a4e; margin:.5rem 0; padding:.3rem .8rem; background:#0f1520; }
 .markdown ul { margin:.25rem 0 .75rem 1.25rem; }
 .error { color:#ff6b6b; }
+
+
+.timeline { margin-top: .5rem; }
