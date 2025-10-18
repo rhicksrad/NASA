@@ -5,12 +5,16 @@
   <title>Exoplanet Explorer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
+  <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
+  <link rel="stylesheet" href="./assets/page-shell.css" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <style>
     :root { --bg:#0b0f14; --fg:#e6edf3; --muted:#9aa4ad; --card:#111821; --accent:#2ea043; --line:#1e2630; }
     html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:14px/1.45 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    body { display:block; }
     a { color:#58a6ff; text-decoration:none; }
-    header { padding:16px 20px; border-bottom:1px solid var(--line); position:sticky; top:0; backdrop-filter:saturate(140%) blur(6px); background:color-mix(in oklab, var(--bg) 85%, transparent); }
+    .page-header { padding:16px 20px; border-bottom:1px solid var(--line); backdrop-filter:saturate(140%) blur(6px); background:color-mix(in oklab, var(--bg) 85%, transparent); margin-top:16px; position:sticky; top:72px; }
     h1 { margin:0; font-size:18px; }
     .wrap { max-width:1100px; margin:0 auto; padding:20px; }
     .controls { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:10px; margin:16px 0 12px; }
@@ -37,11 +41,24 @@
   </style>
 </head>
 <body>
-  <header>
+  <header class="top-bar">
+    <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+    <nav aria-label="Primary" class="primary-nav">
+      <a href="/NASA/#/images/explorer" id="nav-images-explorer">Images Explorer</a>
+      <a href="/NASA/#/epic" id="nav-epic">EPIC Earth</a>
+      <a href="/NASA/neo3d.html" id="nav-neo3d">NEO3D</a>
+      <a href="/NASA/storm.html" id="nav-storm">CME Explorer</a>
+      <a href="/NASA/events.html" id="nav-events">EONET Explorer</a>
+      <a href="/NASA/exo.html" id="nav-exo" aria-current="page">Exoplanet Explorer</a>
+      <a href="/NASA/#/mars" id="nav-mars">Mars Images</a>
+    </nav>
+  </header>
+
+  <div class="page-header">
     <div class="wrap">
       <h1>Exoplanet Explorer</h1>
     </div>
-  </header>
+  </div>
 
   <main class="wrap">
     <section aria-label="filters">
