@@ -1,0 +1,12 @@
+/* src/styles/epic.css */
+.epic-wrap { display: grid; gap: 12px; grid-template-rows: auto auto 1fr; }
+.epic-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.epic-label { font-size: 0.9rem; color: #d9e3f0; }
+.epic-date { padding: 6px 8px; background: #0b3d91; color: #fff; border: 1px solid #1f4fa8; border-radius: 4px; }
+.epic-btn { padding: 6px 10px; background: #0b3d91; color: #fff; border: 1px solid #1f4fa8; border-radius: 4px; cursor: pointer; }
+.epic-fps { padding: 6px 8px; background: #0b3d91; color: #fff; border: 1px solid #1f4fa8; border-radius: 4px; }
+.epic-timeline { display: flex; align-items: center; }
+.epic-slider { width: 100%; }
+.epic-stage { position: relative; background: #000; border: 1px solid #1a1a1a; min-height: 420px; display: grid; place-items: center; }
+.epic-image { max-width: 100%; height: auto; object-fit: contain; }
+.epic-meta { position: absolute; left: 8px; bottom: 8px; font-size: 0.9rem; padding: 6px 8px; background: rgba(0,0,0,0.55); color: #fff; border-radius: 4px; }
