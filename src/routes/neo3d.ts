@@ -154,9 +154,13 @@ function formatNeoSize(neo: NeoItem): string | null {
 }
 
 function formatNextApproach(neo: NeoItem): string | null {
-  const approach = neo.close_approach_data?.find((entry) => entry.close_approach_date_full || entry.close_approach_date);
-  if (!approach) return null;
-  return approach.close_approach_date_full ?? approach.close_approach_date ?? null;
+  const next = neo.next;
+  if (!next) return null;
+  const extras: string[] = [];
+  if (next.distAu) extras.push(`dist ${next.distAu} AU`);
+  if (next.vRelKms) extras.push(`${next.vRelKms} km/s`);
+  const detail = extras.length ? ` (${extras.join(', ')})` : '';
+  return `${next.date}${detail}`;
 }
 
 type CachedSample = { jd: number; posAU: [number, number, number] };
@@ -566,6 +570,7 @@ export async function initNeo3D(
   }
 
   const neoEntries = new Map<string, { spec: SmallBodySpec; enabled: boolean; checkbox: HTMLInputElement | null }>();
+  let totalNeosListed = 0;
   const loadedSBDB = new Map<string, { spec: SmallBodySpec; chip: HTMLSpanElement | null }>();
 
   function normalizeKey(value: string): string {
@@ -621,7 +626,7 @@ export async function initNeo3D(
 
   const updateNeoSummary = () => {
     if (!neoSummary) return;
-    const total = neoEntries.size;
+    const total = totalNeosListed;
     if (total === 0) {
       neoSummary.textContent = 'Awaiting NEO data…';
       return;
@@ -822,6 +827,7 @@ export async function initNeo3D(
     }
 
     const entries = buildSmallBodyEntries(neos);
+    totalNeosListed = neos.length;
     if (entries.length === 0) {
       if (neoList) {
         const empty = document.createElement('div');
@@ -867,7 +873,11 @@ export async function initNeo3D(
       const sizeLabel = formatNeoSize(neo);
       if (sizeLabel) metaParts.push(`~${sizeLabel}`);
       const nextApproach = formatNextApproach(neo);
-      if (nextApproach) metaParts.push(`Next: ${nextApproach}`);
+      if (nextApproach) {
+        metaParts.push(`Next: ${nextApproach}`);
+      } else if (neo.next === null) {
+        metaParts.push('Next: No future approaches on record.');
+      }
       meta.textContent = metaParts.join(' • ');
 
       label.appendChild(nameRow);
