@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 const WORKER = "https://lively-haze-4b2c.hicksrch.workers.dev";
 
 export type NeoLite = {
@@ -29,6 +30,7 @@ export async function fetchNeosViaWorker(opts?: {
   limit?: number;         // max objects
   enrichNext?: boolean;   // default true
   throttleMs?: number;    // default 75
+  cadConcurrency?: number; // default 4
   signal?: AbortSignal;
 }): Promise<(NeoLite & { next?: NextApproach | null })[]> {
   const pageSize = clampInt(opts?.pageSize ?? 200, 1, 250);
@@ -36,6 +38,7 @@ export async function fetchNeosViaWorker(opts?: {
   const limit    = opts?.limit ?? Number.POSITIVE_INFINITY;
   const enrich   = opts?.enrichNext ?? true;
   const throttle = opts?.throttleMs ?? 75;
+  const cadConcurrency = Math.max(1, Math.floor(opts?.cadConcurrency ?? 4));
   const signal   = opts?.signal;
 
   const out: NeoLite[] = [];
@@ -53,14 +56,24 @@ export async function fetchNeosViaWorker(opts?: {
 
   if (!enrich) return out;
 
-  const enriched: (NeoLite & { next?: NextApproach | null })[] = [];
-  for (let i = 0; i < out.length; i++) {
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const n = out[i];
-    const next = await cadNext(n, signal).catch(() => null);
-    enriched.push({ ...n, next });
-    if (throttle > 0) await sleep(throttle);
-  }
+  const enriched: (NeoLite & { next?: NextApproach | null })[] = new Array(out.length);
+  let cursor = 0;
+
+  const runWorker = async () => {
+    for (;;) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      const index = cursor;
+      if (index >= out.length) break;
+      cursor += 1;
+      const n = out[index];
+      const next = await cadNext(n, signal).catch(() => null);
+      enriched[index] = { ...n, next };
+      if (throttle > 0) await sleep(throttle);
+    }
+  };
+
+  await Promise.all(Array.from({ length: cadConcurrency }, () => runWorker()));
+
   return enriched;
 }
 
@@ -103,7 +116,7 @@ export async function fetchSbdbNeosViaWorker(opts?: {
 
 // Worker-backed requests
 async function neowsPage(page: number, size: number, signal?: AbortSignal) {
-  const u = new URL(WORKER + "/neows/browse");
+  const u = new URL(WORKER + "/neo/browse");
   u.searchParams.set("page", String(page));
   u.searchParams.set("size", String(size));
   const r = await fetch(u, { signal });
