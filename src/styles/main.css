@@ -49,6 +49,7 @@ body::before {
   mix-blend-mode: screen;
 }
 
+
 .top-bar {
   position: sticky;
   top: 0;
@@ -56,22 +57,22 @@ body::before {
   backdrop-filter: blur(18px);
   background: linear-gradient(135deg, rgba(8, 18, 41, 0.92), rgba(9, 19, 43, 0.78));
   border-bottom: 1px solid var(--border);
-  padding: 1.5rem clamp(1.5rem, 6vw, 4rem);
+  padding: 0.85rem clamp(1rem, 4vw, 2.5rem);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1rem;
   box-shadow: 0 1px 0 rgba(148, 163, 184, 0.08);
 }
 
 .brand {
   margin: 0;
-  font-size: clamp(1.15rem, 0.95rem + 1vw, 1.85rem);
+  font-size: clamp(0.95rem, 0.9rem + 0.6vw, 1.4rem);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   display: inline-flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   color: #f8fafc;
 }
 
@@ -84,10 +85,11 @@ body::before {
   box-shadow: 0 0 22px rgba(56, 189, 248, 0.7);
 }
 
+
 .primary-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.6rem;
   align-items: center;
 }
 
@@ -95,8 +97,8 @@ body::before {
   color: var(--text-primary);
   font-weight: 500;
   text-decoration: none;
-  font-size: clamp(0.95rem, 0.9rem + 0.3vw, 1.1rem);
-  padding: 0.55rem 1.35rem;
+  font-size: clamp(0.85rem, 0.82rem + 0.25vw, 1rem);
+  padding: 0.4rem 1rem;
   border-radius: 999px;
   border: 1px solid transparent;
   background: rgba(148, 163, 184, 0.08);
@@ -315,6 +317,16 @@ html.neo3d-fullscreen body {
   overflow-y: auto;
 }
 
+body.neo3d-fullscreen main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 5vw, 3.5rem) clamp(2.5rem, 6vw, 3.75rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1.5rem, 3vw, 2rem);
+}
+
 body.neo3d-fullscreen #neo3d-host canvas {
   display: block;
   width: 100%;
@@ -325,30 +337,28 @@ body.neo3d-fullscreen #neo3d-host canvas {
 body.neo3d-fullscreen section#neo-3d {
   border: none;
   background: transparent;
-  padding: 2.5rem clamp(1.5rem, 3vw, 3rem) 3rem;
-  margin: 0 auto;
-  max-width: min(1120px, calc(100vw - 2rem));
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  max-width: none;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: clamp(1.25rem, 3vw, 1.75rem);
   box-shadow: none;
 }
 
 body.neo3d-fullscreen #neo-3d .subhead h2 {
   margin: 0;
-  font-size: 2.25rem;
-  font-weight: 700;
+  font-size: clamp(1.6rem, 1.3rem + 0.8vw, 1.9rem);
+  font-weight: 600;
   letter-spacing: 0.01em;
   color: #f8fafc;
-}
-
-body.neo3d-fullscreen #neo-3d .subhead .meta {
-  color: rgba(226, 232, 240, 0.82);
 }
 
 body.neo3d-fullscreen #neo-3d .subhead {
   border: none;
   padding: 0;
+  margin-bottom: 0;
 }
 
 body.neo3d-fullscreen #neo-3d .neo3d-control-panel .meta {
@@ -356,13 +366,20 @@ body.neo3d-fullscreen #neo-3d .neo3d-control-panel .meta {
 }
 
 .neo3d-stage {
-  height: 520px;
+  min-height: 520px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 26px 60px rgba(15, 23, 42, 0.6);
   background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1), rgba(2, 6, 23, 0.88));
   position: relative;
+}
+
+body.neo3d-fullscreen .neo3d-stage {
+  min-height: clamp(480px, 68vh, 820px);
+  border-radius: 26px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 40px 80px rgba(8, 18, 41, 0.55);
 }
 
 .neo3d-control-panel {
@@ -375,6 +392,11 @@ body.neo3d-fullscreen #neo-3d .neo3d-control-panel .meta {
   display: flex;
   flex-direction: column;
   gap: clamp(1.25rem, 3vw, 1.75rem);
+}
+
+body.neo3d-fullscreen .neo3d-control-panel {
+  margin-top: 0;
+  padding: clamp(1rem, 3vw, 1.5rem);
 }
 
 .neo3d-primary-controls {
