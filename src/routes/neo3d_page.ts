@@ -5,7 +5,7 @@ import type { NextApproach } from '../lib/neo-client';
 import type { NeoCloseApproach, NeoItem } from '../types/nasa';
 import { initNeo3D } from './neo3d';
 
-const NEO_FETCH = { pageSize: 100, maxPages: 5, limit: 250 } as const;
+const NEO_FETCH = { pageSize: 100, maxPages: 5, limit: 500 } as const;
 
 type CatalogOptions = {
   pageSize: number;
