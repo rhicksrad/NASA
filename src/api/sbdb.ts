@@ -426,7 +426,7 @@ function toNum(v: unknown): number {
   return Number.NaN;
 }
 
-export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp; label: string }> {
+export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp; label: string; row: SbdbRow | null }> {
   try {
     const data = await sbdbLookup(sstr, { fullPrec: true });
     const elems = data.orbit?.elements ?? [];
@@ -454,10 +454,17 @@ export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp
     }
 
     const label = data.object?.fullname || data.object?.des || data.object?.object_name || sstr;
+    let row: SbdbRow | null = null;
+    try {
+      row = normalizeRow(data, sstr);
+    } catch {
+      row = null;
+    }
 
     return {
       conic: { e, q, i, Omega: Om, omega: w, tp, a },
       label,
+      row,
     };
   } catch (error) {
     if (error instanceof HttpError) {
