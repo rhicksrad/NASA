@@ -26,36 +26,51 @@ main.page-shell {
   align-self: flex-end;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: clamp(1rem, 3vw, 1.5rem);
-}
 
-@media (max-width: 1100px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-}
-
+.map-panel.card,
 .panel.card {
   display: grid;
   gap: 0.85rem;
 }
 
+.map-panel.card h2,
 .panel.card h2 {
   margin: 0;
 }
 
 .map {
   width: 100%;
-  min-height: 420px;
+  height: clamp(380px, 55vh, 520px);
   background: rgba(15, 23, 42, 0.8);
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 18px;
   position: relative;
   overflow: hidden;
   box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+}
+
+.map .leaflet-container,
+.leaflet-container {
+  background: transparent;
+  border-radius: inherit;
+}
+
+.results-grid {
+  margin-top: clamp(1.25rem, 3vw, 2rem);
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: clamp(1rem, 3vw, 1.5rem);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.events .list {
+  max-height: 520px;
 }
 
 .legend {
@@ -73,8 +88,8 @@ main.page-shell {
 }
 
 .legend .swatch {
-  width: 0.65rem;
-  height: 0.65rem;
+  width: 0.75rem;
+  height: 0.75rem;
   border-radius: 999px;
 }
 
@@ -106,10 +121,17 @@ main.page-shell {
   background: rgba(20, 31, 52, 0.85);
 }
 
+.list li.active {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(30, 64, 175, 0.22);
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.18);
+}
+
 .list .meta {
   color: var(--text-muted);
   font-size: 0.85rem;
 }
+
 
 .detail.card {
   position: sticky;
@@ -136,40 +158,10 @@ main.page-shell {
   color: #dbeafe;
 }
 
-.canvas {
-  position: absolute;
-  inset: 0;
-}
-
-.pin {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  box-shadow: 0 0 12px rgba(148, 163, 184, 0.25);
-}
-
-.pin.wildfires {
-  background: #f97316;
-}
-
-.pin.severeStorms {
-  background: #38bdf8;
-}
-
-.pin.volcanoes {
-  background: #fbbf24;
-}
-
-.pin.floods {
-  background: #22c55e;
-}
-
-.pin.other {
-  background: #94a3b8;
-}
-
 .small {
   font-size: 0.9rem;
+}
+
+.leaflet-control-attribution {
+  font-size: 0.75rem;
 }

@@ -1,3 +1,5 @@
+/* global L */
+
 const WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
 
 const $ = (s, r=document) => r.querySelector(s);
@@ -54,69 +56,97 @@ async function loadCategories(){
   });
 }
 
-// Map rendering (plate carrée, pure SVG)
-const svgNS = 'http://www.w3.org/2000/svg';
-let svg;
-function lonLatToXY(lon, lat, w, h){
-  const x = (lon + 180) / 360 * w;
-  const y = (90 - lat) / 180 * h;
-  return [x,y];
+// Map rendering (Leaflet)
+let leafletMap;
+let markersLayer;
+const markerIndex = new Map();
+let activeEventId = null;
+
+function ensureLeafletMap(){
+  if (leafletMap) return;
+  if (typeof L === 'undefined'){
+    throw new Error('Leaflet failed to load');
+  }
+  leafletMap = L.map(mapEl, {
+    worldCopyJump: true,
+    zoomControl: true,
+    attributionControl: true
+  }).setView([20, 0], 2);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 8,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(leafletMap);
+
+  markersLayer = L.layerGroup().addTo(leafletMap);
 }
+
+function getEventLatLon(ev){
+  const g = ev.geometry?.[ev.geometry.length - 1];
+  if (!g) return null;
+  const coords = Array.isArray(g.coordinates) ? g.coordinates : null;
+  if (coords && typeof coords[0] === 'number'){
+    return { lon: +coords[0], lat: +coords[1] };
+  }
+  if (coords && Array.isArray(coords[0]) && Array.isArray(coords[0][0])){
+    const [lon, lat] = coords[0][0];
+    return { lon: +lon, lat: +lat };
+  }
+  return null;
+}
+
 function renderMapPins(events){
-  mapEl.innerHTML = '';
-  svg = document.createElementNS(svgNS,'svg');
-  svg.classList.add('canvas');
-  svg.setAttribute('viewBox', `0 0 ${mapEl.clientWidth} ${mapEl.clientHeight}`);
-  mapEl.appendChild(svg);
+  ensureLeafletMap();
+  markersLayer.clearLayers();
+  markerIndex.clear();
 
-  // Graticule
-  const w = mapEl.clientWidth, h = mapEl.clientHeight;
-  for (let lon=-180; lon<=180; lon+=30){
-    const x = (lon+180)/360*w;
-    const line=document.createElementNS(svgNS,'line');
-    line.setAttribute('x1',x); line.setAttribute('x2',x);
-    line.setAttribute('y1',0); line.setAttribute('y2',h);
-    line.setAttribute('stroke','#1e2a38'); svg.appendChild(line);
-  }
-  for (let lat=-60; lat<=60; lat+=30){
-    const y = (90-lat)/180*h;
-    const line=document.createElementNS(svgNS,'line');
-    line.setAttribute('x1',0); line.setAttribute('x2',w);
-    line.setAttribute('y1',y); line.setAttribute('y2',y);
-    line.setAttribute('stroke','#1e2a38'); svg.appendChild(line);
-  }
-
-  // Pins
-  events.forEach(ev=>{
-    const g = ev.geometry?.[ev.geometry.length-1];
-    if (!g) return;
-    const coords = Array.isArray(g.coordinates) ? g.coordinates : null;
-    let lon, lat;
-    if (coords && typeof coords[0]==='number'){ [lon,lat] = coords; }
-    else if (coords && Array.isArray(coords[0]) && Array.isArray(coords[0][0])) { [lon,lat] = coords[0][0]; }
-    else return;
-
-    const [x,y]=lonLatToXY(+lon, +lat, w, h);
-    const pin=document.createElementNS(svgNS,'circle');
-    pin.setAttribute('cx',x); pin.setAttribute('cy',y);
-    pin.setAttribute('r','4.5');
-    const catId = (ev.categories?.[0]?.id)||'other';
-    pin.setAttribute('fill', colorFor(catId));
-    pin.setAttribute('stroke','#0b0f14');
-    pin.setAttribute('stroke-width','1.5');
-    pin.style.cursor='pointer';
-    pin.addEventListener('click', ()=> selectEvent(ev));
-    svg.appendChild(pin);
-  });
-
-  // Legend
+  const bounds = [];
   const uniqCats = new Map();
-  events.forEach(ev=>{
-    const c = ev.categories?.[0];
-    if (c) uniqCats.set(c.id, c.title);
+
+  events.forEach(ev => {
+    const coords = getEventLatLon(ev);
+    if (!coords) return;
+    const { lat, lon } = coords;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+    const catId = ev.categories?.[0]?.id || 'other';
+    const baseStyle = {
+      radius: 6,
+      weight: 1.5,
+      color: '#0b0f14',
+      opacity: 1,
+      fillColor: colorFor(catId),
+      fillOpacity: 0.9
+    };
+
+    const marker = L.circleMarker([lat, lon], baseStyle);
+    const catName = ev.categories?.map(c => c.title).join(', ') || 'Uncategorized';
+    const last = ev.geometry?.[ev.geometry.length - 1]?.date || '';
+    marker.bindPopup(`<strong>${ev.title || ev.id}</strong><br />${catName}${last ? `<br />${last}` : ''}`);
+    marker.bindTooltip(ev.title || ev.id, { direction: 'top' });
+    marker.on('click', () => selectEvent(ev, { centerOnMap: false, openPopup: true }));
+    marker.addTo(markersLayer);
+
+    const eventId = String(ev.id);
+    markerIndex.set(eventId, { marker, baseStyle });
+    bounds.push([lat, lon]);
+
+    const firstCat = ev.categories?.[0];
+    if (firstCat) uniqCats.set(firstCat.id, firstCat.title);
   });
-  const bits = [...uniqCats.entries()].slice(0,8).map(([id,title])=>`<span class="badge" style="border-color:${colorFor(id)};background-color:#0f1520">${title}</span>`);
+
+  if (bounds.length){
+    const latLngBounds = L.latLngBounds(bounds);
+    leafletMap.fitBounds(latLngBounds, { padding: [36, 36], maxZoom: 6 });
+  } else {
+    leafletMap.setView([20, 0], 2);
+  }
+
+  const bits = [...uniqCats.entries()].slice(0, 8)
+    .map(([id, title]) => `<span class="badge"><span class="swatch" style="background:${colorFor(id)}"></span>${title}</span>`);
   legendEl.innerHTML = bits.join(' ') || '<span class="small">No categories</span>';
+
+  highlightMarkers();
 }
 
 // List rendering
@@ -133,13 +163,67 @@ function renderList(events){
     meta.className='meta';
     meta.textContent = `${catName} • ${last}`;
     li.appendChild(title); li.appendChild(meta);
-    li.addEventListener('click', ()=> selectEvent(ev));
+    li.dataset.eventId = String(ev.id);
+    li.tabIndex = 0;
+    if (activeEventId === String(ev.id)) li.classList.add('active');
+    const activate = () => selectEvent(ev, { centerOnMap: true, openPopup: true });
+    li.addEventListener('click', activate);
+    li.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        activate();
+      }
+    });
     listEl.appendChild(li);
+  });
+  highlightList();
+}
+
+function highlightList(){
+  const items = listEl.querySelectorAll('li[data-event-id]');
+  items.forEach(item => {
+    item.classList.toggle('active', item.dataset.eventId === activeEventId);
+  });
+}
+
+function highlightMarkers(){
+  markerIndex.forEach(({ marker, baseStyle }, id) => {
+    const isActive = id === activeEventId;
+    marker.setStyle({
+      ...baseStyle,
+      radius: isActive ? baseStyle.radius * 1.4 : baseStyle.radius,
+      weight: isActive ? 3 : baseStyle.weight,
+      fillOpacity: isActive ? 1 : baseStyle.fillOpacity
+    });
+    if (isActive){
+      marker.bringToFront();
+    } else {
+      marker.closePopup();
+    }
   });
 }
 
 // Detail rendering
-async function selectEvent(ev){
+async function selectEvent(ev, options = {}){
+  if (!ev) return;
+  const eventId = String(ev.id);
+  activeEventId = eventId;
+  highlightList();
+  highlightMarkers();
+
+  const { centerOnMap = true, openPopup = true } = options;
+  const coords = getEventLatLon(ev);
+  const entry = markerIndex.get(eventId);
+
+  if (centerOnMap && coords && leafletMap){
+    const targetZoom = Math.max(leafletMap.getZoom(), 4);
+    leafletMap.flyTo([coords.lat, coords.lon], targetZoom, { duration: 0.65 });
+  }
+
+  if (openPopup && entry){
+    entry.marker.openPopup();
+  }
+
   detailTitle.textContent = ev.title || ev.id;
   detailEl.textContent = 'Loading…';
   try{
@@ -187,16 +271,22 @@ async function load(){
     const tb = b.geometry?.[b.geometry.length-1]?.date || '';
     return String(tb).localeCompare(String(ta));
   });
+  const eventIds = new Set(events.map(ev => String(ev.id)));
+  if (activeEventId && !eventIds.has(activeEventId)){
+    activeEventId = null;
+    detailTitle.textContent = 'Event Detail';
+    detailEl.textContent = 'Pick an event.';
+  }
   renderMapPins(events);
   renderList(events);
 }
 
 // Init
 filtersForm.addEventListener('submit', (e)=>{ e.preventDefault(); load(); });
-window.addEventListener('resize', ()=>{ // re-render svg to fit new width
-  // re-trigger load to redraw pins at new sizes based on last data
-  // simple approach: submit form again
-  load().catch(()=>{});
+window.addEventListener('resize', ()=>{
+  if (leafletMap){
+    leafletMap.invalidateSize();
+  }
 });
 
 (async function bootstrap(){

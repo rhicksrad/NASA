@@ -6,6 +6,7 @@
     <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
     <title>EONET Explorer — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="./assets/events.css" />
   </head>
   <body>
@@ -50,15 +51,15 @@
         </form>
       </section>
 
-      <section class="grid">
-        <div class="panel card">
-          <h2>Live Event Map</h2>
-          <p class="meta">Pins appear as events are loaded. Select one to highlight the location.</p>
-          <div id="map" class="map"></div>
-          <div id="legend" class="legend"></div>
-        </div>
+      <section class="map-panel card">
+        <h2>Live Event Map</h2>
+        <p class="meta">Pins appear as events are loaded. Select one to highlight the location.</p>
+        <div id="map" class="map" aria-label="Map of EONET events"></div>
+        <div id="legend" class="legend"></div>
+      </section>
 
-        <div class="panel card">
+      <section class="results-grid">
+        <div class="panel card events">
           <h2>Events</h2>
           <p class="meta">Results adapt based on the filters above.</p>
           <ul id="list" class="list"></ul>
@@ -71,6 +72,7 @@
       </section>
     </main>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module" src="./assets/events.js"></script>
   </body>
 </html>
