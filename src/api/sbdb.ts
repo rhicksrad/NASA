@@ -198,6 +198,151 @@ async function cacheLookup(key: string, data: SbdbLookup): Promise<void> {
   await persistentCache.set(key, data);
 }
 
+const PERFECT_MATCH_SCORE = 10_000;
+const GOOD_MATCH_THRESHOLD = 750;
+
+const normalizeText = (value: string): string => value.replace(/[^a-z0-9]/gi, '').toLowerCase();
+
+const tokenizeText = (value: string): string[] =>
+  value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+
+const collectTokens = (value: string): Set<string> => new Set(tokenizeText(value));
+
+const hasDigits = (token: string): boolean => /\d/.test(token);
+
+const scoreNameCandidate = (
+  name: string,
+  queryNorm: string,
+  variantNorm: string,
+  queryTokens: Set<string>,
+): { score: number; perfect: boolean; tokens: Set<string> } => {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { score: 0, perfect: false, tokens: new Set() };
+  }
+
+  const normalized = normalizeText(trimmed);
+  const tokens = collectTokens(trimmed);
+
+  if (normalized && normalized === queryNorm) {
+    return { score: PERFECT_MATCH_SCORE, perfect: true, tokens };
+  }
+
+  let score = 0;
+  if (normalized && normalized === variantNorm) {
+    score += 700;
+  }
+  if (queryNorm && normalized.includes(queryNorm)) {
+    score += 250;
+  }
+  if (queryNorm && queryNorm.includes(normalized) && normalized.length > 0) {
+    score += 180;
+  }
+
+  let matched = 0;
+  for (const token of queryTokens) {
+    if (tokens.has(token)) {
+      matched += 1;
+      score += 200;
+    }
+  }
+
+  if (matched === queryTokens.size && queryTokens.size > 0) {
+    score += 400;
+  } else if (matched > 0) {
+    score += 120;
+  }
+
+  return { score, perfect: false, tokens };
+};
+
+const addAlias = (aliases: Set<string>, value: string | null | undefined) => {
+  if (typeof value !== 'string') return;
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  aliases.add(trimmed);
+};
+
+export function collectSbdbAliases(data: SbdbLookup): string[] {
+  const aliases = new Set<string>();
+  const object = data.object ?? {};
+  addAlias(aliases, typeof object.des === 'string' ? object.des : undefined);
+  if (typeof object.prefix === 'string' && typeof object.des === 'string') {
+    addAlias(aliases, `${object.prefix.trim()} ${object.des.trim()}`);
+  }
+  addAlias(aliases, typeof object.object_name === 'string' ? object.object_name : undefined);
+  addAlias(aliases, typeof object.fullname === 'string' ? object.fullname : undefined);
+  if (typeof object.prefix === 'string' && typeof object.fullname === 'string') {
+    addAlias(aliases, `${object.prefix.trim()} ${object.fullname.trim()}`);
+  }
+  addAlias(aliases, typeof object.prefix === 'string' ? object.prefix : undefined);
+  return Array.from(aliases);
+}
+
+const evaluateLookupMatch = (query: string, variant: string, data: SbdbLookup): { score: number; perfect: boolean } => {
+  const queryNorm = normalizeText(query);
+  const variantNorm = normalizeText(variant);
+  const queryTokens = collectTokens(query);
+  const designators = Array.from(queryTokens).filter(hasDigits);
+
+  const aliasSet = new Set(collectSbdbAliases(data));
+  aliasSet.add(variant);
+
+  const candidateTokens = new Set<string>();
+  let bestScore = 0;
+  let perfect = false;
+
+  for (const name of aliasSet) {
+    const { score, perfect: isPerfect, tokens } = scoreNameCandidate(name, queryNorm, variantNorm, queryTokens);
+    for (const token of tokens) {
+      candidateTokens.add(token);
+    }
+    if (isPerfect) {
+      bestScore = PERFECT_MATCH_SCORE;
+      perfect = true;
+      break;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+    }
+  }
+
+  if (!perfect) {
+    if (designators.length > 0) {
+      const hasAllDesignators = designators.every((token) => candidateTokens.has(token));
+      if (hasAllDesignators) {
+        bestScore += 200;
+      } else {
+        bestScore = Math.min(bestScore, 80);
+      }
+    }
+
+    if (queryTokens.has('comet')) {
+      const kind = (data.object?.kind || '').toLowerCase();
+      if (kind.startsWith('c')) {
+        bestScore += 180;
+      } else if (kind.startsWith('a')) {
+        bestScore -= 180;
+      }
+    }
+
+    if (queryTokens.has('asteroid')) {
+      const kind = (data.object?.kind || '').toLowerCase();
+      if (kind.startsWith('a')) {
+        bestScore += 160;
+      } else if (kind.startsWith('c')) {
+        bestScore -= 160;
+      }
+    }
+  }
+
+  return { score: bestScore, perfect };
+};
+
 const stripParenthetical = (value: string): string => value.replace(/\s*\([^)]*\)/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
 const extractMultiMatchCandidates = (body: string): string[] => {
@@ -245,8 +390,31 @@ export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}
   const fullPrec = opts.fullPrec === true;
   const originalKey = buildSbdbKey(sstr, fullPrec);
   const directCached = await getCachedLookup(originalKey);
+  type Candidate = { key: string; variant: string; data: SbdbLookup; score: number };
+  let bestMatch: Candidate | null = null;
+
+  const considerCandidate = async (variant: string, key: string, data: SbdbLookup): Promise<boolean> => {
+    const evaluation = evaluateLookupMatch(sstr, variant, data);
+    if (evaluation.perfect || evaluation.score >= GOOD_MATCH_THRESHOLD) {
+      if (key !== originalKey) {
+        await cacheLookup(originalKey, data);
+      } else {
+        lookupCache.set(originalKey, data);
+        await persistentCache.set(originalKey, data);
+      }
+      bestMatch = { key, variant, data, score: evaluation.score };
+      return true;
+    }
+    if (!bestMatch || evaluation.score > bestMatch.score) {
+      bestMatch = { key, variant, data, score: evaluation.score };
+    }
+    return false;
+  };
+
   if (directCached) {
-    return directCached;
+    if (await considerCandidate(sstr, originalKey, directCached)) {
+      return directCached;
+    }
   }
 
   const queue: string[] = [];
@@ -279,19 +447,22 @@ export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}
 
     const cached = await getCachedLookup(key);
     if (cached) {
-      if (key !== originalKey) {
-        await cacheLookup(originalKey, cached);
+      if (await considerCandidate(variant, key, cached)) {
+        return cached;
       }
-      return cached;
+      continue;
     }
 
     try {
       const data = await fetchJSON<SbdbLookup>(key);
-      await cacheLookup(key, data);
-      if (key !== originalKey) {
-        await cacheLookup(originalKey, data);
+      if (key === originalKey) {
+        lookupCache.set(key, data);
+      } else {
+        await cacheLookup(key, data);
       }
-      return data;
+      if (await considerCandidate(variant, key, data)) {
+        return data;
+      }
     } catch (error) {
       if (error instanceof HttpError) {
         if (error.status === 300) {
@@ -309,6 +480,18 @@ export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}
         }
       }
       throw error;
+    }
+  }
+
+  if (bestMatch) {
+    if (bestMatch.key !== originalKey) {
+      await cacheLookup(originalKey, bestMatch.data);
+    } else {
+      lookupCache.set(originalKey, bestMatch.data);
+      await persistentCache.set(originalKey, bestMatch.data);
+    }
+    if (bestMatch.score > 0) {
+      return bestMatch.data;
     }
   }
 
@@ -352,7 +535,17 @@ export function diameterFromH(H: number, pV = 0.14) {
 }
 
 export function normalizeRow(s: SbdbLookup, fallbackId: string): SbdbRow {
-  const name = s?.object?.fullname || s?.object?.des || fallbackId;
+  const aliasCandidates = collectSbdbAliases(s);
+  if (!aliasCandidates.includes(fallbackId)) {
+    aliasCandidates.push(fallbackId);
+  }
+  const canonicalId =
+    aliasCandidates.find((alias) => /\d/.test(alias)) ?? aliasCandidates[0] ?? fallbackId;
+  const preferredName =
+    (s?.object?.fullname && s.object.fullname.trim()) ||
+    aliasCandidates.find((alias) => alias !== canonicalId) ||
+    canonicalId;
+  const name = preferredName;
   const kind = s?.object?.kind || '';
   const type = kind.startsWith('c') ? 'Comet' : kind.startsWith('a') ? 'Asteroid' : 'Other';
 
@@ -380,7 +573,7 @@ export function normalizeRow(s: SbdbLookup, fallbackId: string): SbdbRow {
   }
 
   return {
-    id: fallbackId,
+    id: canonicalId,
     name,
     type,
     H: Number.isFinite(H) ? H : undefined,
@@ -428,7 +621,9 @@ function toNum(v: unknown): number {
   return Number.NaN;
 }
 
-export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp; label: string; row: SbdbRow | null }> {
+export async function loadSBDBConic(
+  sstr: string,
+): Promise<{ conic: ConicForProp; label: string; row: SbdbRow | null; aliases: string[] }> {
   try {
     const data = await sbdbLookup(sstr, { fullPrec: true });
     const elems = data.orbit?.elements ?? [];
@@ -461,13 +656,27 @@ export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp
       throw new Error('SBDB elements incomplete/invalid');
     }
 
-    const label = data.object?.fullname || data.object?.des || data.object?.object_name || sstr;
     let row: SbdbRow | null = null;
     try {
       row = normalizeRow(data, sstr);
     } catch {
       row = null;
     }
+
+    const aliasSet = new Set<string>(collectSbdbAliases(data));
+    const pushAlias = (value: string | null | undefined) => {
+      if (typeof value !== 'string') return;
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      aliasSet.add(trimmed);
+    };
+    pushAlias(sstr);
+    pushAlias(row?.id);
+    pushAlias(row?.name);
+
+    const label =
+      row?.name || data.object?.fullname || data.object?.des || data.object?.object_name || sstr;
+    pushAlias(label);
 
     return {
       conic: {
@@ -483,6 +692,7 @@ export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp
       },
       label,
       row,
+      aliases: Array.from(aliasSet),
     };
   } catch (error) {
     if (error instanceof HttpError) {
