@@ -16,7 +16,7 @@ The frontend renders a **Three.js** heliocentric ecliptic J2000 scene with:
 
 ```ts
 // src/api/base.ts (conceptual)
-export const BASE = 'https://<YOUR-WORKER>.workers.dev';
+export const BASE = [https://lively-haze-4b2c.hicksrch.workers.dev/];
 ```
 
 ---
