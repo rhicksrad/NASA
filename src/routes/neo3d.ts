@@ -5,16 +5,14 @@ import {
   horizonsDailyVectors,
   horizonsVectors,
   jdFromDateUTC,
-  loadAtlasSBDB,
-  propagateConic,
   isFiniteVec3,
-  type Elements,
 } from '../api/neo3dData';
+import { loadSBDBConic } from '../api/sbdb';
+import { propagateConic, type ConicElements } from '../orbits';
 import { type Keplerian } from '../utils/orbit';
 
 const DEG2RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;
-const GAUSSIAN_K = 0.01720209895;
 const DEFAULT_RANGE_DAYS = 120;
 const MIN_RANGE_SPAN_DAYS = 1 / 24;
 const SLIDER_STEP_DAYS = 1 / 24;
@@ -157,55 +155,6 @@ function formatNextApproach(neo: NeoItem): string | null {
   const approach = neo.close_approach_data?.find((entry) => entry.close_approach_date_full || entry.close_approach_date);
   if (!approach) return null;
   return approach.close_approach_date_full ?? approach.close_approach_date ?? null;
-}
-
-function elementsToKeplerian(elements: Elements): Keplerian | null {
-  const { a, e, i, Omega, omega, epochJD, M0, tp_jd, q } = elements;
-
-  if (!(Number.isFinite(e) && e > 0)) return null;
-  if (![i, Omega, omega].every(Number.isFinite)) return null;
-
-  let semiMajor = typeof a === 'number' && Number.isFinite(a) ? a : undefined;
-  if (semiMajor == null && typeof q === 'number' && Number.isFinite(q)) {
-    if (e < 1) {
-      semiMajor = q / (1 - e);
-    } else if (e > 1) {
-      semiMajor = -q / (e - 1);
-    }
-  }
-  if (!(typeof semiMajor === 'number' && Number.isFinite(semiMajor) && semiMajor !== 0)) {
-    return null;
-  }
-
-  const epoch = typeof epochJD === 'number' && Number.isFinite(epochJD)
-    ? epochJD
-    : typeof tp_jd === 'number' && Number.isFinite(tp_jd)
-      ? tp_jd
-      : null;
-  if (epoch == null) return null;
-
-  let mean = typeof M0 === 'number' && Number.isFinite(M0) ? M0 : null;
-  if (mean == null && typeof tp_jd === 'number' && Number.isFinite(tp_jd)) {
-    const aAbs = Math.abs(semiMajor);
-    if (aAbs <= 0) return null;
-    const n = Math.sqrt((GAUSSIAN_K * GAUSSIAN_K) / (aAbs * aAbs * aAbs));
-    mean = n * (epoch - tp_jd);
-    if (e < 1) {
-      const twoPi = Math.PI * 2;
-      mean = ((mean % twoPi) + twoPi) % twoPi;
-    }
-  }
-  if (mean == null || !Number.isFinite(mean)) return null;
-
-  return {
-    a: semiMajor,
-    e,
-    i,
-    Omega,
-    omega,
-    M: mean,
-    epochJD: epoch,
-  };
 }
 
 type CachedSample = { jd: number; posAU: [number, number, number] };
@@ -466,7 +415,10 @@ export async function initNeo3D(
   const neoAllToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
   const neoList = document.getElementById('neo3d-neo-list') as HTMLElement | null;
   const neoSummary = document.getElementById('neo3d-neo-summary') as HTMLElement | null;
-  const atlasToggleBtn = document.getElementById('neo3d-toggle-atlas') as HTMLButtonElement | null;
+  const sbdbInput = document.getElementById('sbdb-input') as HTMLInputElement | null;
+  const sbdbAdd = document.getElementById('sbdb-add') as HTMLButtonElement | null;
+  const sbdbLoaded = document.getElementById('sbdb-loaded') as HTMLDivElement | null;
+  const exampleBtns = Array.from(document.querySelectorAll('button.sbdb-example')) as HTMLButtonElement[];
 
   let sliderBaseMs = rangeStart.getTime();
   let sliderSpanDays = Math.max(MIN_RANGE_SPAN_DAYS, differenceInDays(rangeStart, rangeEnd));
@@ -607,8 +559,30 @@ export async function initNeo3D(
     updateSpeed();
   }
 
-  const extras = new Map<string, { spec: SmallBodySpec; enabled: boolean }>();
   const neoEntries = new Map<string, { spec: SmallBodySpec; enabled: boolean; checkbox: HTMLInputElement | null }>();
+  const loadedSBDB = new Map<string, { spec: SmallBodySpec; chip: HTMLSpanElement | null }>();
+
+  function normalizeKey(value: string): string {
+    return value.trim().toLowerCase();
+  }
+
+  function makeColorFor(label: string): number {
+    if (/atlas/i.test(label)) return 0xf87171;
+    let hash = 0;
+    for (let i = 0; i < label.length; i += 1) {
+      hash = ((hash << 5) - hash + label.charCodeAt(i)) | 0;
+    }
+    const hues = [0x22d3ee, 0x34d399, 0xf59e0b, 0x818cf8, 0x60a5fa, 0x10b981, 0xeab308];
+    return hues[Math.abs(hash) % hues.length];
+  }
+
+  const syncSbdbBodies = () => {
+    if (loadedSBDB.size === 0) return;
+    const specs = Array.from(loadedSBDB.values(), (entry) => entry.spec);
+    if (specs.length > 0) {
+      simulation.addSmallBodies(specs);
+    }
+  };
 
   const updateAllToggleState = () => {
     if (!neoAllToggle) return;
@@ -661,38 +635,124 @@ export async function initNeo3D(
         bodies.push(entry.spec);
       }
     }
-    for (const extra of extras.values()) {
-      if (extra.enabled) {
-        bodies.push(extra.spec);
-      }
-    }
     simulation.setSmallBodies(bodies);
+    syncSbdbBodies();
   };
 
-  const updateAtlasToggleState = () => {
-    if (!atlasToggleBtn) return;
-    const atlasEntry = extras.get('atlas');
-    if (!atlasEntry) {
-      atlasToggleBtn.disabled = true;
-      atlasToggleBtn.textContent = 'Loading 3I/ATLAS…';
-      atlasToggleBtn.setAttribute('aria-pressed', 'false');
+  async function addSBDBObject(raw: string): Promise<void> {
+    const query = raw.trim();
+    if (!query) return;
+    const key = normalizeKey(query);
+    if (loadedSBDB.has(key)) {
+      toast(`Already added: ${query}`);
       return;
     }
-    atlasToggleBtn.disabled = false;
-    atlasToggleBtn.textContent = atlasEntry.enabled ? 'Hide 3I/ATLAS' : 'Show 3I/ATLAS';
-    atlasToggleBtn.setAttribute('aria-pressed', atlasEntry.enabled ? 'true' : 'false');
-  };
 
-  if (atlasToggleBtn) {
-    atlasToggleBtn.disabled = true;
-    atlasToggleBtn.textContent = 'Loading 3I/ATLAS…';
-    atlasToggleBtn.setAttribute('aria-pressed', 'false');
-    atlasToggleBtn.addEventListener('click', () => {
-      const atlasEntry = extras.get('atlas');
-      if (!atlasEntry) return;
-      atlasEntry.enabled = !atlasEntry.enabled;
-      updateAtlasToggleState();
-      updateSmallBodies();
+    try {
+      if (sbdbAdd) sbdbAdd.disabled = true;
+      const { conic, label } = await loadSBDBConic(query);
+
+      for (const entry of loadedSBDB.values()) {
+        if (normalizeKey(entry.spec.name) === normalizeKey(label)) {
+          toast(`Already added: ${label}`);
+          if (sbdbInput) sbdbInput.value = '';
+          return;
+        }
+      }
+
+      const color = makeColorFor(label);
+      const conicForProp: ConicElements = {
+        a: conic.a,
+        e: conic.e,
+        inc: conic.i,
+        Omega: conic.Omega,
+        omega: conic.omega,
+        epochJD: conic.tp,
+        M0: 0,
+        tp_jd: conic.tp,
+        q: conic.q,
+      };
+      const spanDays = conic.e > 1 ? 3200 : undefined;
+      const segments = conic.e > 1 ? 1600 : 720;
+
+      const probe = propagateConic(conicForProp, jdFromDateUTC(simulation.getCurrentDate()));
+      if (!isFiniteVec3(probe.posAU)) {
+        throw new Error('SBDB propagation returned non-finite state');
+      }
+
+      const sample: NonNullable<SmallBodySpec['sample']> = (date) => {
+        try {
+          const state = propagateConic(conicForProp, jdFromDateUTC(date));
+          return isFiniteVec3(state.posAU) ? state : null;
+        } catch (error) {
+          console.warn('[sbdb] propagate failed', error);
+          return null;
+        }
+      };
+
+      const keplerEls: Keplerian = {
+        a: conic.a,
+        e: conic.e,
+        i: conic.i,
+        Omega: conic.Omega,
+        omega: conic.omega,
+        M: 0,
+        epochJD: conic.tp,
+      };
+
+      const spec: SmallBodySpec = {
+        name: label,
+        label,
+        color,
+        els: keplerEls,
+        sample,
+        orbit: { color, segments, spanDays },
+      };
+
+      simulation.addSmallBodies([spec]);
+
+      let chip: HTMLSpanElement | null = null;
+      if (sbdbLoaded) {
+        chip = document.createElement('span');
+        chip.className = 'sbdb-chip';
+        chip.dataset.key = key;
+        const swatch = `#${color.toString(16).padStart(6, '0')}`;
+        chip.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${swatch}"></span><span>${label}</span><button aria-label="Remove">×</button>`;
+        const removeBtn = chip.querySelector('button');
+        removeBtn?.addEventListener('click', () => {
+          simulation.removeSmallBody(spec.name);
+          loadedSBDB.delete(key);
+          chip?.remove();
+        });
+        sbdbLoaded.appendChild(chip);
+      }
+
+      loadedSBDB.set(key, { spec, chip });
+      toast(`Added SBDB: ${label}`);
+      if (sbdbInput) sbdbInput.value = '';
+    } catch (error) {
+      console.error('[sbdb] add failed', error);
+      const message = error instanceof Error && error.message ? error.message : 'SBDB add failed';
+      toastError(message);
+    } finally {
+      if (sbdbAdd) sbdbAdd.disabled = false;
+    }
+  }
+
+  if (sbdbAdd && sbdbInput) {
+    sbdbAdd.addEventListener('click', () => {
+      void addSBDBObject(sbdbInput.value);
+    });
+    sbdbInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        void addSBDBObject(sbdbInput.value);
+      }
+    });
+  }
+  for (const button of exampleBtns) {
+    button.addEventListener('click', () => {
+      void addSBDBObject(button.textContent ?? '');
     });
   }
 
@@ -836,62 +896,6 @@ export async function initNeo3D(
   };
 
   applyNeos(getSelectedNeos());
-
-  const loadAtlas = async () => {
-    try {
-      const elements = await loadAtlasSBDB();
-      const keplerEls = elementsToKeplerian(elements);
-      const initial = propagateConic(elements, jdFromDateUTC(simulation.getCurrentDate()));
-      if (!isFiniteVec3(initial.posAU)) {
-        throw new Error('3I/ATLAS propagation invalid');
-      }
-
-      const sample: NonNullable<SmallBodySpec['sample']> = (date) => {
-        try {
-          const state = propagateConic(elements, jdFromDateUTC(date));
-          return isFiniteVec3(state.posAU) ? state : null;
-        } catch (error) {
-          console.warn('[neo3d] 3I/ATLAS propagation failed', error);
-          return null;
-        }
-      };
-
-      const atlasSpec: SmallBodySpec = {
-        name: '3I/ATLAS',
-        label: 'C/2025 N1 (ATLAS)',
-        color: 0xf87171,
-        sample,
-        orbit: { color: 0xf87171, segments: 1600, spanDays: 3200 },
-      };
-
-      if (keplerEls) {
-        atlasSpec.els = keplerEls;
-      } else {
-        console.warn('[neo3d] 3I/ATLAS Keplerian conversion failed; using sample propagation only');
-      }
-
-      const existing = extras.get('atlas');
-      if (existing) {
-        existing.spec = atlasSpec;
-      } else {
-        extras.set('atlas', { spec: atlasSpec, enabled: true });
-      }
-      updateAtlasToggleState();
-      updateSmallBodies();
-      console.info('[neo3d] ATLAS loaded from sbdb?sstr=3I');
-      toast('3I/ATLAS loaded from SBDB 3I');
-    } catch (error) {
-      console.error('[neo3d] ATLAS load failed', error);
-      toastError('3I/ATLAS failed to load');
-      if (atlasToggleBtn) {
-        atlasToggleBtn.disabled = true;
-        atlasToggleBtn.textContent = '3I/ATLAS unavailable';
-        atlasToggleBtn.setAttribute('aria-pressed', 'false');
-      }
-    }
-  };
-
-  void loadAtlas();
 
   const iso = '2025-11-19T04:00:02Z';
   void Promise.all([
