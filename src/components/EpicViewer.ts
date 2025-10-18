@@ -127,7 +127,7 @@ export class EpicViewer {
       'On 16 July 2025, DSCOVR suffered a software bus anomaly, which put it offline without an estimated date for recovery.',
     );
 
-    const wrap = h('div', { class: 'epic-wrap' }, controls, timeline, stage, note);
+    const wrap = h('div', { class: 'epic-wrap' }, stage, timeline, controls, note);
     this.host.replaceChildren(wrap);
 
     // Wire events
