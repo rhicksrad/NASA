@@ -26,15 +26,32 @@
     button.example { background:transparent; border-style:dashed; border-color:var(--muted); color:var(--fg); font-weight:500; }
     .cards { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
     .card { padding:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+    .card h3 { margin:0 0 8px; font-size:16px; }
     .stat { font-variant-numeric: tabular-nums; }
     .table { overflow:auto; border:1px solid var(--line); border-radius:12px; background:var(--card); }
     table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
     th, td { padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
     th { text-align:left; color:var(--muted); position:sticky; top:0; background:var(--card); }
     tr:hover td { background:#0f1620; }
+    tr.selected td { background:#12202f; }
+    .planet-name-btn { color:inherit; background:none; border:none; padding:0; font:inherit; cursor:pointer; text-align:left; }
+    .planet-name-btn:hover, .planet-name-btn:focus-visible { color:#58a6ff; text-decoration:underline; }
     .toolbar { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin:8px 0; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    canvas { width:100% !important; height:400px !important; }
+    .mr-panel { min-height:220px; display:flex; flex-direction:column; gap:12px; align-items:flex-start; justify-content:center; }
+    .mr-placeholder { color:var(--muted); }
+    .mr-visual { display:flex; gap:18px; align-items:center; }
+    .mr-visual svg { width:140px; height:140px; flex:0 0 auto; border-radius:50%; box-shadow:0 0 24px rgba(21,121,255,0.25); }
+    .mr-visual svg.unknown { box-shadow:none; opacity:0.6; }
+    .mr-metrics { display:grid; gap:4px; font-variant-numeric:tabular-nums; }
+    .mr-metrics .label { color:var(--muted); font-size:12px; }
+    .summary-stats { display:grid; gap:4px; }
+    .summary-selected { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+    .summary-selected h4 { margin:0 0 6px; font-size:14px; color:var(--muted); }
+    .summary-selected dl { display:grid; grid-template-columns:auto auto; gap:6px 16px; margin:0; }
+    .summary-selected dt { color:var(--muted); }
+    .summary-selected dd { margin:0; font-variant-numeric:tabular-nums; }
+    .mr-footnote { font-size:12px; color:var(--muted); }
     .examples { margin:12px 0 28px; padding:16px; border:1px solid var(--line); border-radius:12px; background:color-mix(in srgb, var(--card) 92%, transparent); display:flex; flex-direction:column; gap:10px; }
     .examples h2 { margin:0; font-size:16px; }
     .examples p { margin:0; color:var(--muted); max-width:720px; }
@@ -116,19 +133,25 @@
 
     <section class="cards">
       <div class="card">
-        <h3 style="margin:0 0 8px">Mass–Radius</h3>
-        <canvas id="mrChart" aria-label="Mass Radius Scatter"></canvas>
-        <div style="font-size:12px;color:var(--muted);margin-top:6px">
-          Size in Earth radii, mass in Earth masses. Log scales where appropriate. Hover for details.
+        <h3>Mass–Radius</h3>
+        <div id="mrViz" class="mr-panel" aria-live="polite">
+          <p class="mr-placeholder">Select a planet below to view its mass–radius profile.</p>
         </div>
+        <div class="mr-footnote">Size in Earth radii, mass in Earth masses. Log scales where appropriate. Hover for details.</div>
       </div>
       <div class="card">
-        <h3 style="margin:0 0 8px">Summary</h3>
+        <h3>Summary</h3>
         <div id="summary">
-          <div>Total planets: <span class="stat" id="sumCount">0</span></div>
-          <div>Median radius (Re): <span class="stat" id="sumR">–</span></div>
-          <div>Median Teq (K): <span class="stat" id="sumT">–</span></div>
-          <div>With masses: <span class="stat" id="sumMass">0</span></div>
+          <div class="summary-stats">
+            <div>Total planets: <span class="stat" id="sumCount">0</span></div>
+            <div>Median radius (Re): <span class="stat" id="sumR">–</span></div>
+            <div>Median Teq (K): <span class="stat" id="sumT">–</span></div>
+            <div>With masses: <span class="stat" id="sumMass">0</span></div>
+          </div>
+          <div class="summary-selected" id="selectedSummary">
+            <h4>Planet details</h4>
+            <p style="margin:0; color:var(--muted);">Choose a planet from the table to see its host, orbit, and climate.</p>
+          </div>
         </div>
         <details style="margin-top:10px">
           <summary class="mono">ADQL</summary>
@@ -162,7 +185,6 @@
     </section>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-zk0Ug0pH4eYb2hXyZQGq4Qsxz5oS+E+1aVC3QmH6tPjE4JrR8S0yT4bVV8X9KxgZ" crossorigin="anonymous"></script>
   <script type="module" src="./exo.js"></script>
 </body>
 </html>
