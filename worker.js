@@ -106,8 +106,22 @@ async function fwd(target, request, origin, debug, cf, extraHeaders = {}) {
   });
 }
 
+function mapWorkerPath(pathname) {
+  if (pathname === '/epic') {
+    return '/EPIC/api';
+  }
+  if (pathname.startsWith('/epic/')) {
+    const remainder = pathname.slice('/epic/'.length);
+    if (remainder.startsWith('archive/')) {
+      return `/EPIC/${remainder}`;
+    }
+    return `/EPIC/api/${remainder}`;
+  }
+  return pathname;
+}
+
 function buildTargetUrl(url) {
-  const target = new URL(url.pathname, NASA_BASE);
+  const target = new URL(mapWorkerPath(url.pathname), NASA_BASE);
   for (const [key, value] of url.searchParams.entries()) {
     if (key === 'debug' || key === 'api_key') continue;
     target.searchParams.set(key, value);
