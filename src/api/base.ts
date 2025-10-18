@@ -1,27 +1,18 @@
-const DEFAULT_WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
+// src/api/base.ts
+// Single source of truth for the worker origin (NEVER hardcode elsewhere).
+export const WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
 
-function normalizeBase(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === '/') return '';
-
-  const withoutTrailing = trimmed.replace(/\/+$/, '');
-  if (/^https?:\/\//i.test(withoutTrailing)) {
-    return withoutTrailing;
+// Small helper for GET text/JSON with friendly error surface.
+export class HttpError extends Error {
+  constructor(public url: string, public status: number, public bodyText: string) {
+    super(`HTTP ${status} for ${url}`);
   }
-
-  const withLeading = withoutTrailing.startsWith('/') ? withoutTrailing : `/${withoutTrailing}`;
-  return withLeading;
 }
 
-const envBase = normalizeBase(import.meta.env.VITE_API_BASE);
-const base = envBase || DEFAULT_WORKER_BASE;
-
-if (!envBase && typeof console !== 'undefined') {
-  // eslint-disable-next-line no-console
-  console.info(`[api/base] Falling back to default worker ${DEFAULT_WORKER_BASE}`);
+export async function getTextOrJSON(path: string): Promise<string | unknown> {
+  const url = `${WORKER_BASE}${path}`;
+  const r = await fetch(url, { credentials: 'omit' });
+  const t = await r.text();
+  if (!r.ok) throw new HttpError(url, r.status, t);
+  try { return JSON.parse(t); } catch { return t; }
 }
-
-export const BASE = base;
-export const ATLAS_SBDB_PATH = '/sbdb?sstr=3I';
-export const DEFAULT_ATLAS_WORKER_URL = `${DEFAULT_WORKER_BASE}${ATLAS_SBDB_PATH}`;

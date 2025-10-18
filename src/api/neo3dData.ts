@@ -1,27 +1,13 @@
-import { BASE } from './base';
+import { WORKER_BASE, HttpError, getTextOrJSON as _getTextOrJSON } from './base';
 import type { NeoBrowse } from '../types/nasa';
+
+export { WORKER_BASE };
 
 const JD_UNIX_EPOCH = 2440587.5;
 const K = 0.01720209895;
 const MU = K * K;
 
-export class HttpError extends Error {
-  constructor(public url: string, public status: number, public bodyText: string) {
-    super(`HTTP ${status} for ${url}`);
-  }
-}
-
-async function getTextOrJSON(path: string): Promise<string | unknown> {
-  const url = `${BASE}${path}`;
-  const response = await fetch(url, { credentials: 'omit' });
-  const text = await response.text();
-  if (!response.ok) throw new HttpError(url, response.status, text);
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
+const getTextOrJSON = (path: string) => _getTextOrJSON(path);
 
 export async function tryNeoBrowse(size = 50): Promise<NeoBrowse | null> {
   try {

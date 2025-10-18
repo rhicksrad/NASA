@@ -1,15 +1,9 @@
-import { BASE } from './base';
+import { WORKER_BASE, HttpError, getTextOrJSON } from './base';
 import type { NeoBrowse } from '../types/nasa';
 import type { SbdbOrbit, SbdbResponse } from '../types/sbdb';
 import type { SbdbOrbitRecord } from '../utils/orbit';
 
-export { BASE } from './base';
-
-export class HttpError extends Error {
-  constructor(public url: string, public status: number, public bodyText: string) {
-    super(`HTTP ${status} for ${url}`);
-  }
-}
+export { WORKER_BASE } from './base';
 
 type RequestParams = Record<string, string | number>;
 
@@ -28,7 +22,7 @@ function buildUrl(path: string, params: RequestParams = {}): string {
   }
 
   const clean = path.startsWith('/') ? path : `/${path}`;
-  const url = new URL(`${BASE}${clean}`);
+  const url = new URL(`${WORKER_BASE}${clean}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
   return url.toString();
 }
@@ -265,26 +259,30 @@ export async function request<T>(
 export async function getJSON<T = unknown>(path: string): Promise<T> {
   const isAbsolute = /^https?:\/\//i.test(path);
   const clean = path.startsWith('/') || isAbsolute ? path : `/${path}`;
-  const url = isAbsolute ? path : `${BASE}${clean}`;
-  const response = await fetch(url, { credentials: 'omit' });
-  const text = await response.text();
-  if (!response.ok) {
-    throw new HttpError(url, response.status, text);
+
+  if (isAbsolute) {
+    const response = await fetch(clean, { credentials: 'omit' });
+    const text = await response.text();
+    if (!response.ok) {
+      throw new HttpError(clean, response.status, text);
+    }
+    if (!text) {
+      return undefined as T;
+    }
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      return text as unknown as T;
+    }
   }
-  if (!text) {
-    return undefined as T;
-  }
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return text as unknown as T;
-  }
+
+  return (await getTextOrJSON(clean)) as T;
 }
 
 export async function tryNeoBrowse(size = 20): Promise<NeoBrowse | null> {
   try {
     // Use worker-relative path to benefit from buildUrl in dev if desired
-    return await getJSON<NeoBrowse>(`${BASE}/neo/browse?size=${size}`);
+    return await getJSON<NeoBrowse>(`/neo/browse?size=${size}`);
   } catch (e) {
     if (e instanceof HttpError && (e.status === 401 || e.status === 429)) {
       return null;
