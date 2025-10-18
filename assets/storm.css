@@ -24,6 +24,71 @@ main.page-shell {
   min-width: min(360px, 100%);
 }
 
+.examples {
+  margin-top: 0.25rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 20px;
+  padding: 0.85rem 1rem 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.examples h2 {
+  margin: 0;
+  font-size: 1.12rem;
+  color: #f8fafc;
+}
+
+.examples .meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.examples-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.examples-list button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.7);
+  color: #e2e8f0;
+  text-align: left;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 140ms ease, border 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+
+.examples-list button:hover,
+.examples-list button:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(20, 31, 52, 0.82);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.45);
+}
+
+.examples-list .title {
+  font-weight: 600;
+}
+
+.examples-list .description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .finder {
   margin-top: 0.25rem;
   background: rgba(15, 23, 42, 0.6);
