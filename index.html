@@ -61,45 +61,139 @@
         opacity: 0.75;
       }
 
-      .intro {
-        max-width: 760px;
-        width: min(100%, 760px);
+      .hero-hourly {
+        max-width: min(1080px, 100%);
+        width: min(100%, 1080px);
         display: grid;
-        gap: clamp(1.5rem, 3vw, 2rem);
-        padding: clamp(2rem, 4vw, 3rem);
+        gap: clamp(1.75rem, 4vw, 2.75rem);
+        padding: clamp(2.2rem, 5vw, 3.4rem);
         border-radius: 32px;
-        background: linear-gradient(160deg, rgba(15, 23, 42, 0.85), rgba(8, 13, 31, 0.8));
+        background: linear-gradient(165deg, rgba(15, 23, 42, 0.88), rgba(8, 13, 31, 0.82));
         border: 1px solid rgba(148, 163, 184, 0.35);
-        box-shadow: 0 38px 80px rgba(2, 6, 23, 0.55);
+        box-shadow: 0 42px 92px rgba(2, 6, 23, 0.55);
         position: relative;
         overflow: hidden;
       }
 
-      .intro::after {
+      .hero-hourly::after {
         content: "";
         position: absolute;
-        inset: -30% -20% auto;
-        height: 120%;
-        background: radial-gradient(circle at 60% 0%, rgba(59, 130, 246, 0.4), transparent 55%);
+        inset: -35% -25% auto;
+        height: 130%;
+        background: radial-gradient(circle at 65% 0%, rgba(59, 130, 246, 0.35), transparent 55%),
+          radial-gradient(circle at 15% 85%, rgba(14, 165, 233, 0.28), transparent 60%);
         opacity: 0.6;
         pointer-events: none;
       }
 
-      .intro h1 {
-        font-size: clamp(2.6rem, 1.8rem + 2vw, 3.6rem);
-        margin: 0;
-        line-height: 1.08;
+      .hero-hourly > * {
+        position: relative;
+        z-index: 1;
       }
 
-      .intro p {
+      .hero-hourly__figure {
         margin: 0;
-        font-size: clamp(1.1rem, 0.9rem + 0.8vw, 1.4rem);
+        display: grid;
+        gap: clamp(1rem, 2vw, 1.5rem);
+      }
+
+      .hero-hourly__frame {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        border-radius: 26px;
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        box-shadow: 0 32px 80px rgba(2, 6, 23, 0.6);
+        background: radial-gradient(circle at 50% 38%, rgba(59, 130, 246, 0.35), rgba(8, 13, 31, 0.92));
+        display: grid;
+        place-items: center;
+      }
+
+      .hero-hourly__frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .hero-hourly__status {
+        margin: 0;
+        font-size: 1rem;
+        color: rgba(226, 232, 240, 0.82);
+        text-align: center;
+      }
+
+      .hero-hourly__caption {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .hero-hourly__title {
+        margin: 0;
+        font-size: clamp(2rem, 1.6rem + 1.4vw, 2.85rem);
+        line-height: 1.08;
+        letter-spacing: 0.01em;
+      }
+
+      .hero-hourly__meta,
+      .hero-hourly__credit {
+        margin: 0;
+        font-size: clamp(0.95rem, 0.9rem + 0.4vw, 1.15rem);
+        color: rgba(226, 232, 240, 0.78);
+        line-height: 1.5;
+      }
+
+      .hero-hourly__credit[hidden] {
+        display: none;
+      }
+
+      .hero-hourly__copy {
+        display: grid;
+        gap: clamp(1rem, 2vw, 1.5rem);
+        text-align: left;
+      }
+
+      .hero-hourly__copy h1 {
+        margin: 0;
+        font-size: clamp(2.2rem, 1.9rem + 1vw, 3rem);
+        line-height: 1.1;
+      }
+
+      .hero-hourly__copy p {
+        margin: 0;
+        font-size: clamp(1.05rem, 0.95rem + 0.6vw, 1.3rem);
         color: rgba(226, 232, 240, 0.82);
         line-height: 1.6;
       }
 
-      .intro strong {
-        color: #38bdf8;
+      .hero-hourly__link {
+        align-self: start;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.6rem;
+        border-radius: 999px;
+        border: 1px solid rgba(56, 189, 248, 0.45);
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(56, 189, 248, 0.95));
+        color: #031123;
+        font-weight: 600;
+        text-decoration: none;
+        box-shadow: 0 20px 40px rgba(59, 130, 246, 0.35);
+        transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+      }
+
+      .hero-hourly__link:hover,
+      .hero-hourly__link:focus-visible {
+        transform: translateY(-1px);
+        box-shadow: 0 26px 60px rgba(56, 189, 248, 0.45);
+        filter: brightness(1.05);
+        color: #020b18;
+      }
+
+      @media (min-width: 960px) {
+        .hero-hourly {
+          grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+        }
       }
 
       footer {
@@ -134,14 +228,26 @@
     </header>
     <main>
       <div id="page-host">
-        <div class="intro">
-          <h1>Exploring near-Earth space, one orbit at a time.</h1>
-          <p>
-            This redesign focuses our mission around an immersive three-dimensional Neo 3D experience. Use the navigation above
-            to launch the visualization and monitor orbital dynamics in real time, or dive into <strong>mission photography</strong>
-            pulled live from NASA archives.
-          </p>
-        </div>
+        <section class="hero-hourly" id="hourly-hero">
+          <figure class="hero-hourly__figure">
+            <div class="hero-hourly__frame" id="hourly-media">
+              <p class="hero-hourly__status">Loading hourly highlight…</p>
+            </div>
+            <figcaption class="hero-hourly__caption">
+              <p class="hero-hourly__title" id="hourly-title">Surfacing mission archives…</p>
+              <p class="hero-hourly__meta" id="hourly-meta">A new image arrives every hour. Stay tuned.</p>
+              <p class="hero-hourly__credit" id="hourly-credit" hidden></p>
+            </figcaption>
+          </figure>
+          <div class="hero-hourly__copy">
+            <h1>Hourly Mission Highlight</h1>
+            <p>
+              The APOD feed is offline, so our hero spotlight now pulls directly from the Mission Image Explorer. Check back each
+              hour for a fresh capture from NASA archives, or jump straight into the explorer to browse the full collection.
+            </p>
+            <a class="hero-hourly__link" id="hero-explorer-link" href="#/images/explorer">Launch Mission Image Explorer</a>
+          </div>
+        </section>
       </div>
     </main>
     <footer>
