@@ -415,6 +415,8 @@ export type ConicForProp = {
   omega: number;
   tp: number;
   a: number;
+  epoch?: number;
+  ma?: number;
 };
 
 function toNum(v: unknown): number {
@@ -443,6 +445,12 @@ export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp
     const Om = toNum(map.get('om')) * DEG2RAD;
     const w = toNum(map.get('w')) * DEG2RAD;
     const tp = toNum(map.get('tp'));
+    const epoch = toNum(map.get('epoch'));
+    let ma = toNum(map.get('ma'));
+    if (!Number.isFinite(ma)) {
+      ma = toNum(map.get('M'));
+    }
+    const maRad = Number.isFinite(ma) ? (ma * DEG2RAD) : Number.NaN;
     let a = toNum(map.get('a'));
 
     if (!Number.isFinite(a) && Number.isFinite(q) && Number.isFinite(e)) {
@@ -462,7 +470,17 @@ export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp
     }
 
     return {
-      conic: { e, q, i, Omega: Om, omega: w, tp, a },
+      conic: {
+        e,
+        q,
+        i,
+        Omega: Om,
+        omega: w,
+        tp,
+        a,
+        epoch: Number.isFinite(epoch) ? epoch : undefined,
+        ma: Number.isFinite(maRad) ? maRad : undefined,
+      },
       label,
       row,
     };
