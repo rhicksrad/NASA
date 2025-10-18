@@ -4,6 +4,7 @@ import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const SCALE = 120;
 const DAY_MS = 86_400_000;
+const TWO_PI = Math.PI * 2;
 
 interface OrbitConfig {
   color: number;
@@ -76,6 +77,40 @@ function toScene(pos: [number, number, number]): THREE.Vector3 {
   return new THREE.Vector3(x * SCALE, z * SCALE, y * SCALE);
 }
 
+function rotatePerifocal(
+  els: Keplerian,
+  xp: number,
+  yp: number,
+): [number, number, number] {
+  const cO = Math.cos(els.Omega);
+  const sO = Math.sin(els.Omega);
+  const ci = Math.cos(els.i);
+  const si = Math.sin(els.i);
+  const cw = Math.cos(els.omega);
+  const sw = Math.sin(els.omega);
+
+  const x = (cO * cw - sO * sw * ci) * xp + (-cO * sw - sO * cw * ci) * yp;
+  const y = (sO * cw + cO * sw * ci) * xp + (-sO * sw + cO * cw * ci) * yp;
+  const z = si * (-sw * xp + cw * yp);
+
+  return [x, y, z];
+}
+
+function ellipsePoint(els: Keplerian, nu: number): [number, number, number] | null {
+  const { a, e } = els;
+  if (!(Number.isFinite(a) && a > 0)) return null;
+  const oneMinusESq = 1 - e * e;
+  if (!(oneMinusESq > 0)) return null;
+
+  const denom = 1 + e * Math.cos(nu);
+  if (Math.abs(denom) < 1e-12) return null;
+
+  const r = (a * oneMinusESq) / denom;
+  const xp = r * Math.cos(nu);
+  const yp = r * Math.sin(nu);
+  return rotatePerifocal(els, xp, yp);
+}
+
 function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): Float32Array {
   const key = orbitKey(els, segments, spanDays);
   const cached = orbitCache.get(key);
@@ -83,12 +118,10 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
 
   const points: number[] = [];
   if (els.e < 1) {
-    const aAbs = Math.abs(els.a);
-    const period = (2 * Math.PI * Math.sqrt(aAbs * aAbs * aAbs)) / 0.01720209895;
     for (let i = 0; i <= segments; i += 1) {
-      const jd = els.epochJD + (period * i) / segments;
-      const pos = propagate(els, jd);
-      if (!isFiniteVec3(pos)) continue;
+      const nu = (i / segments) * TWO_PI;
+      const pos = ellipsePoint(els, nu);
+      if (!pos || !isFiniteVec3(pos)) continue;
       const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
     }
