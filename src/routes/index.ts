@@ -1,5 +1,6 @@
 import { initMarsPage } from './mars_page';
 import { initImagesPage } from './images';
+import { initImagesExplorerPage } from './imagesExplorer';
 
 type RouteHandler = (host: HTMLElement) => void | (() => void);
 
@@ -11,6 +12,7 @@ export function initRouter() {
 
   const marsLink = document.querySelector<HTMLAnchorElement>('#nav-mars');
   const imagesLink = document.querySelector<HTMLAnchorElement>('#nav-images');
+  const imagesExplorerLink = document.querySelector<HTMLAnchorElement>('#nav-images-explorer');
   const homeHtml = host.innerHTML;
 
   const routes: Record<string, RouteHandler> = {
@@ -18,6 +20,7 @@ export function initRouter() {
       initMarsPage(container);
     },
     '/images': container => initImagesPage(container),
+    '/images/explorer': container => initImagesExplorerPage(container),
   };
 
   const normalizePathname = (value: string): string => {
@@ -50,6 +53,13 @@ export function initRouter() {
         imagesLink.setAttribute('aria-current', 'page');
       } else {
         imagesLink.removeAttribute('aria-current');
+      }
+    }
+    if (imagesExplorerLink) {
+      if (pathname === '/images/explorer') {
+        imagesExplorerLink.setAttribute('aria-current', 'page');
+      } else {
+        imagesExplorerLink.removeAttribute('aria-current');
       }
     }
   };
