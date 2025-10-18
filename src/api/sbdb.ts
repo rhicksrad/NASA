@@ -34,7 +34,6 @@ export async function loadSBDBConic(
   }
   const url = new URL('/sbdb', origin);
   url.searchParams.set('sstr', sstr);
-  url.searchParams.set('fullname', 'true');
 
   const r = await fetch(url.toString());
   if (!r.ok) {
@@ -63,6 +62,6 @@ export async function loadSBDBConic(
 
   return {
     conic: { e, q, i, Omega: Om, omega: w, tp, a },
-    label: data.object?.fullname || sstr,
+    label: data.object?.fullname || data.object?.object_name || sstr,
   };
 }
