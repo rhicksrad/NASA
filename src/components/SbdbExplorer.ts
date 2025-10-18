@@ -193,7 +193,8 @@ export class SbdbExplorer {
       button.className = 'add';
       button.textContent = 'Add';
       button.addEventListener('click', () => {
-        window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail: row.name }));
+        const detail = row.id?.trim() ? row.id : row.name;
+        window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail }));
       });
       actionCell.appendChild(button);
       tr.appendChild(actionCell);
