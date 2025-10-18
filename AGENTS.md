@@ -23,6 +23,12 @@ export const BASE = 'https://<YOUR-WORKER>.workers.dev';
 
 ## Agent Mandates
 
+### SCREENSHOT_AGENT
+
+* Every pull request **must** include a preview screenshot covering the rendered UI alongside the diff summary.
+* If generating the screenshot fails because of build or runtime errors, resolve the errors and capture the screenshot before committing or opening the PR.
+* No pushes, commits, or PRs are considered complete without the screenshot.
+
 ### PLAN_AGENT
 
 * Defines module map across `src/api/`, `src/orbits/`, `src/visuals/neo3d.ts`, `src/utils/`.
