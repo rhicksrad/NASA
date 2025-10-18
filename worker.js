@@ -2,6 +2,7 @@ const NASA_HOST = 'api.nasa.gov';
 const NASA_BASE = `https://${NASA_HOST}`;
 const API_ORIGIN = NASA_BASE;
 const JPL_SSD_BASE = 'https://ssd-api.jpl.nasa.gov';
+const EONET_BASE = 'https://eonet.gsfc.nasa.gov/api/v3';
 const DEMO_KEY = 'DEMO_KEY';
 
 let NASA_API = '';
@@ -107,6 +108,130 @@ async function fwd(target, request, origin, debug, cf, extraHeaders = {}) {
   });
 }
 
+function formatCardinalCoordinate(value, pos, neg) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const direction = n >= 0 ? pos : neg;
+  return `${Math.abs(n).toFixed(2)}°${direction}`;
+}
+
+function describeCoordinates(raw) {
+  if (!Array.isArray(raw)) return null;
+  if (raw.length >= 2 && typeof raw[0] === 'number' && typeof raw[1] === 'number') {
+    const lon = formatCardinalCoordinate(raw[0], 'E', 'W');
+    const lat = formatCardinalCoordinate(raw[1], 'N', 'S');
+    if (lon && lat) return `${lat}, ${lon}`;
+  }
+  if (
+    Array.isArray(raw[0]) &&
+    Array.isArray(raw[0][0]) &&
+    typeof raw[0][0][0] === 'number' &&
+    typeof raw[0][0][1] === 'number'
+  ) {
+    return describeCoordinates(raw[0][0]);
+  }
+  return null;
+}
+
+function buildEventMarkdown(event) {
+  const lines = [];
+  const id = event?.id || 'EONET Event';
+  const title = event?.title || id;
+  lines.push(`# ${title}`);
+
+  const description = typeof event?.description === 'string' ? event.description.trim() : '';
+  if (description) {
+    lines.push('', description);
+  }
+
+  const closed = event?.closed;
+  const status = closed ? `Closed ${closed}` : 'Open';
+  lines.push('', `**Status:** ${status}`);
+
+  const categories = Array.isArray(event?.categories)
+    ? event.categories.map((c) => c?.title || c?.id).filter(Boolean)
+    : [];
+  if (categories.length) {
+    lines.push('', `**Categories:** ${categories.join(', ')}`);
+  }
+
+  const latest = Array.isArray(event?.geometry) && event.geometry.length
+    ? event.geometry[event.geometry.length - 1]
+    : null;
+  if (latest) {
+    if (latest.date) {
+      lines.push('', `**Latest Update:** ${latest.date}`);
+    }
+    const coords = describeCoordinates(latest.coordinates);
+    if (coords) {
+      lines.push('', `**Coordinates:** ${coords}`);
+    }
+    if (latest.magnitudeValue !== undefined) {
+      const magUnits = latest.magnitudeUnit ? ` ${latest.magnitudeUnit}` : '';
+      lines.push('', `**Magnitude:** ${latest.magnitudeValue}${magUnits}`);
+    }
+  }
+
+  if (event?.link) {
+    lines.push('', `[View on EONET](${event.link})`);
+  }
+
+  const sources = Array.isArray(event?.sources) ? event.sources : [];
+  if (sources.length) {
+    lines.push('', '## Sources');
+    for (const source of sources.slice(0, 10)) {
+      const label = source?.id || source?.source || 'Source';
+      if (source?.url) {
+        lines.push(`- [${label}](${source.url})`);
+      } else {
+        lines.push(`- ${label}`);
+      }
+    }
+  }
+
+  if (Array.isArray(event?.geometry) && event.geometry.length) {
+    lines.push('', '## Geometry Timeline');
+    const maxEntries = 10;
+    const recent = event.geometry.slice(-maxEntries).reverse();
+    for (const entry of recent) {
+      const when = entry.date || 'Unknown date';
+      const coords = describeCoordinates(entry.coordinates);
+      const location = coords ? coords : entry.type || 'Location unavailable';
+      lines.push(`- ${when} — ${location}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+async function proxyEonet(path, url, origin) {
+  const target = new URL(path, EONET_BASE);
+  for (const [key, value] of url.searchParams.entries()) {
+    if (key === 'debug') continue;
+    target.searchParams.append(key, value);
+  }
+
+  try {
+    const resp = await fetch(target.toString(), { cf: { cacheEverything: true, cacheTtl: 600 } });
+    const text = await resp.text();
+    const headers = {
+      ...secHeaders(),
+      ...corsHeaders(origin),
+      'Content-Type': resp.headers.get('content-type') || 'application/json; charset=utf-8',
+    };
+    if (resp.ok) {
+      headers['Cache-Control'] = 'public, max-age=300, s-maxage=600';
+    }
+    return new Response(text, { status: resp.status, headers });
+  } catch (error) {
+    const headers = { ...secHeaders(), ...corsHeaders(origin), 'Content-Type': 'application/json; charset=utf-8' };
+    return new Response(JSON.stringify({ error: 'EONET fetch failed', url: target.toString() }), {
+      status: 502,
+      headers,
+    });
+  }
+}
+
 function mapWorkerPath(pathname) {
   if (pathname === '/epic') {
     return '/EPIC/api';
@@ -187,6 +312,39 @@ async function handleRequest(request) {
       'Cache-Control': 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400',
     };
     return fwd(target, request, origin, debug, cf, headers);
+  }
+
+  if (url.pathname === '/eonet/events') {
+    return proxyEonet('/events', url, origin);
+  }
+
+  if (url.pathname === '/eonet/categories') {
+    return proxyEonet('/categories', url, origin);
+  }
+
+  if (url.pathname.startsWith('/event/') && url.pathname.endsWith('.md')) {
+    const slug = url.pathname.slice('/event/'.length, -'.md'.length);
+    const eventId = decodeURIComponent(slug);
+    const target = new URL(`/events/${encodeURIComponent(eventId)}`, EONET_BASE);
+    try {
+      const resp = await fetch(target.toString(), { cf: { cacheEverything: true, cacheTtl: 600 } });
+      if (!resp.ok) {
+        const headers = { ...secHeaders(), ...corsHeaders(origin), 'Content-Type': 'text/plain; charset=utf-8' };
+        return new Response(`Unable to load event ${eventId}`, { status: resp.status, headers });
+      }
+      const data = await resp.json();
+      const markdown = buildEventMarkdown(data);
+      const headers = {
+        ...secHeaders(),
+        ...corsHeaders(origin),
+        'Content-Type': 'text/markdown; charset=utf-8',
+        'Cache-Control': 'public, max-age=300, s-maxage=600',
+      };
+      return new Response(markdown, { status: 200, headers });
+    } catch (error) {
+      const headers = { ...secHeaders(), ...corsHeaders(origin), 'Content-Type': 'text/plain; charset=utf-8' };
+      return new Response('Failed to contact EONET service', { status: 502, headers });
+    }
   }
 
   if (url.pathname === '/horizons') {
