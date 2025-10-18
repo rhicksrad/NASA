@@ -11,6 +11,7 @@ const idForm = $('#idForm');
 const findForm = $('#findForm');
 const results = $('#results');
 const md = $('#md');
+const featuredLinks = document.querySelectorAll('[data-activity-id]');
 
 function getQS() {
   const p = new URLSearchParams(location.search);
@@ -146,6 +147,16 @@ findForm.addEventListener('submit', async (e) => {
   } catch (e2) {
     results.innerHTML = `<li class="error">Search failed (${e2.message})</li>`;
   }
+});
+
+featuredLinks.forEach((link) => {
+  link.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    const activityId = link.getAttribute('data-activity-id');
+    if (!activityId) return;
+    idInput.value = activityId;
+    loadById(activityId);
+  });
 });
 
 // ---------- Helpers ----------
