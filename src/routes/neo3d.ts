@@ -756,6 +756,13 @@ export async function initNeo3D(
     });
   }
 
+  window.addEventListener('neo3d:add-sbdb', (event) => {
+    const detail = (event as CustomEvent<string | null | undefined>).detail;
+    if (typeof detail === 'string' && detail.trim().length > 0) {
+      void addSBDBObject(detail);
+    }
+  });
+
   if (neoAllToggle) {
     neoAllToggle.disabled = true;
     neoAllToggle.indeterminate = false;
