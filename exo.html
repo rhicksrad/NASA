@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Exoplanet Explorer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <style>
+    :root { --bg:#0b0f14; --fg:#e6edf3; --muted:#9aa4ad; --card:#111821; --accent:#2ea043; --line:#1e2630; }
+    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:14px/1.45 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    a { color:#58a6ff; text-decoration:none; }
+    header { padding:16px 20px; border-bottom:1px solid var(--line); position:sticky; top:0; backdrop-filter:saturate(140%) blur(6px); background:color-mix(in oklab, var(--bg) 85%, transparent); }
+    h1 { margin:0; font-size:18px; }
+    .wrap { max-width:1100px; margin:0 auto; padding:20px; }
+    .controls { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:10px; margin:16px 0 12px; }
+    .controls label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); }
+    .controls input, .controls select { padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--fg); }
+    .controls .row { grid-column:1 / -1; display:flex; gap:10px; align-items:end; }
+    button { padding:9px 12px; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:8px; cursor:pointer; }
+    button.primary { background:var(--accent); border-color:var(--accent); color:#041208; }
+    .cards { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+    .card { padding:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+    .stat { font-variant-numeric: tabular-nums; }
+    .table { overflow:auto; border:1px solid var(--line); border-radius:12px; background:var(--card); }
+    table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    th, td { padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
+    th { text-align:left; color:var(--muted); position:sticky; top:0; background:var(--card); }
+    tr:hover td { background:#0f1620; }
+    .toolbar { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin:8px 0; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    canvas { width:100% !important; height:400px !important; }
+    @media (max-width: 920px) {
+      .controls { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Exoplanet Explorer</h1>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section aria-label="filters">
+      <div class="controls" id="controls">
+        <label>Discovery facility
+          <select id="facility">
+            <option value="">Any</option>
+            <option value="TESS">TESS</option>
+            <option value="Kepler">Kepler</option>
+            <option value="K2">K2</option>
+            <option value="Ground">Ground</option>
+          </select>
+        </label>
+        <label>Discovery year ≥
+          <input id="yearMin" type="number" min="1988" max="2100" placeholder="2015" />
+        </label>
+        <label>Radius min (Re)
+          <input id="rMin" type="number" step="0.01" min="0" placeholder="0.5" />
+        </label>
+        <label>Radius max (Re)
+          <input id="rMax" type="number" step="0.01" min="0" placeholder="2.5" />
+        </label>
+        <label>Teq min (K)
+          <input id="tMin" type="number" step="1" min="0" placeholder="180" />
+        </label>
+        <label>Teq max (K)
+          <input id="tMax" type="number" step="1" min="0" placeholder="303" />
+        </label>
+        <div class="row">
+          <div class="toolbar" style="margin-left:auto">
+            <button id="btnFetch" class="primary">Run query</button>
+            <button id="btnShare">Copy link</button>
+            <button id="btnCSV">Export CSV</button>
+            <span id="status" class="mono" style="color:var(--muted)"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="card">
+        <h3 style="margin:0 0 8px">Mass–Radius</h3>
+        <canvas id="mrChart" aria-label="Mass Radius Scatter"></canvas>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">
+          Size in Earth radii, mass in Earth masses. Log scales where appropriate. Hover for details.
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px">Summary</h3>
+        <div id="summary">
+          <div>Total planets: <span class="stat" id="sumCount">0</span></div>
+          <div>Median radius (Re): <span class="stat" id="sumR">–</span></div>
+          <div>Median Teq (K): <span class="stat" id="sumT">–</span></div>
+          <div>With masses: <span class="stat" id="sumMass">0</span></div>
+        </div>
+        <details style="margin-top:10px">
+          <summary class="mono">ADQL</summary>
+          <pre id="adql" class="mono" style="white-space:pre-wrap; overflow:auto; background:#0f1620; padding:8px; border-radius:8px;"></pre>
+        </details>
+      </div>
+    </section>
+
+    <section style="margin-top:16px">
+      <div class="toolbar">
+        <span class="mono" id="hint"></span>
+      </div>
+      <div class="table" id="tblWrap">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th>Planet</th>
+              <th>Host</th>
+              <th>Re</th>
+              <th>Me</th>
+              <th>Teq</th>
+              <th>Period (d)</th>
+              <th>RA</th>
+              <th>Dec</th>
+              <th>Disc.</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" integrity="sha384-zk0Ug0pH4eYb2hXyZQGq4Qsxz5oS+E+1aVC3QmH6tPjE4JrR8S0yT4bVV8X9KxgZ" crossorigin="anonymous"></script>
+  <script type="module" src="./exo.js"></script>
+</body>
+</html>
