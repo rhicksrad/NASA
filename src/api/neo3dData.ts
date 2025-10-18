@@ -126,33 +126,92 @@ export type Elements = {
   q?: number;
 };
 
+type SbdbElementsEntry = {
+  name?: string;
+  label?: string;
+  value?: string | number | null;
+};
+
+type SbdbResponse = {
+  orbit?: {
+    elements?: SbdbElementsEntry[];
+    epoch?: string | number | null;
+  };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isSbdbElementsEntry(value: unknown): value is SbdbElementsEntry {
+  if (!isRecord(value)) return false;
+  const { name, label, value: entryValue } = value;
+  const nameOk = name === undefined || typeof name === 'string';
+  const labelOk = label === undefined || typeof label === 'string';
+  const valueOk =
+    entryValue === undefined ||
+    entryValue === null ||
+    typeof entryValue === 'string' ||
+    typeof entryValue === 'number';
+  return nameOk && labelOk && valueOk;
+}
+
+function isSbdbResponse(value: unknown): value is SbdbResponse {
+  if (!isRecord(value)) return false;
+  const orbit = value.orbit;
+  if (orbit === undefined) return true;
+  if (!isRecord(orbit)) return false;
+  if (orbit.elements !== undefined) {
+    if (!Array.isArray(orbit.elements) || !orbit.elements.every(isSbdbElementsEntry)) {
+      return false;
+    }
+  }
+  const { epoch } = orbit;
+  return (
+    epoch === undefined ||
+    epoch === null ||
+    typeof epoch === 'string' ||
+    typeof epoch === 'number'
+  );
+}
+
+function toNumber(value: string | number | null | undefined): number {
+  if (value === null || value === undefined || value === '') return Number.NaN;
+  if (typeof value === 'number') return value;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function toElementsMap(arr: SbdbElementsEntry[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const entry of arr) {
+    const keySource = entry.name ?? entry.label ?? '';
+    if (typeof keySource !== 'string') continue;
+    const key = keySource.trim().toLowerCase();
+    if (!key) continue;
+    const value = toNumber(entry.value ?? null);
+    map.set(key, value);
+  }
+  return map;
+}
+
 export async function loadAtlasSBDB(): Promise<Elements> {
   // STRICT: use the exact URL, no extra params
   const data = await getTextOrJSON(`/sbdb?sstr=3I`);
 
-  // SBDB often returns: { orbit: { elements: [ {name:'e', value:'6.14'}, ... ] } }
-  // Build a name->number map from that array.
-  const elemsArr =
-    (data && data.orbit && Array.isArray(data.orbit.elements) && data.orbit.elements) || null;
+  if (!isSbdbResponse(data)) {
+    console.error('[sbdb] unexpected payload (invalid structure):', data);
+    throw new Error('ATLAS SBDB: invalid response');
+  }
+
+  const elemsArr = data.orbit?.elements ?? null;
 
   if (!elemsArr || elemsArr.length === 0) {
     console.error('[sbdb] unexpected payload (no orbit.elements array):', data);
     throw new Error('ATLAS SBDB: no elements');
   }
 
-  const num = (x: any) => (x == null || x === '' ? NaN : Number(x));
-  const toMap = (arr: any[]) => {
-    const m = new Map<string, number>();
-    for (const it of arr) {
-      if (!it || typeof it !== 'object') continue;
-      const k = String(it.name ?? it.label ?? '').trim().toLowerCase();
-      const v = num(it.value);
-      if (k) m.set(k, v);
-    }
-    return m;
-  };
-
-  const M = toMap(elemsArr);
+  const M = toElementsMap(elemsArr);
   const deg = (d: number) => (d * Math.PI) / 180;
 
   // Names we expect in SBDB list:
@@ -169,9 +228,7 @@ export async function loadAtlasSBDB(): Promise<Elements> {
   const q     = M.get('q');
 
   // Epoch: prefer orbit.epoch if present
-  const epochJD =
-    num(data?.orbit?.epoch) ||
-    NaN;
+  const epochJD = toNumber(data.orbit?.epoch ?? null);
 
   if (!isFinite(e as number) || (e as number) <= 0) {
     console.error('[sbdb] bad e in elements:', elemsArr);
@@ -322,10 +379,6 @@ function solveBarker(dtDays: number, q: number): number {
     if (Math.abs(dD) < 1e-12) break;
   }
   return D;
-}
-
-function degToRad(value: number): number {
-  return (value * Math.PI) / 180;
 }
 
 export function isFiniteVec3(v: number[] | null | undefined): v is [number, number, number] {
