@@ -2,6 +2,7 @@ import './styles/main.css';
 import { getApodRobust } from './api/fetch_apod';
 import { tryNeoBrowse } from './api/nasaClient';
 import { initNeoPage } from './routes/neo';
+import { initRouter } from './routes/index';
 import type { Apod, NeoBrowse } from './types/nasa';
 
 async function loadApod(container: HTMLElement) {
@@ -123,6 +124,7 @@ async function initIndexPage(): Promise<void> {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initRouter();
   initIndexPage().catch(err => console.error('Index init failed', err));
 
   if (document.querySelector('#neo-page')) {

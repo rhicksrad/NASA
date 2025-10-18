@@ -133,21 +133,25 @@
   <body>
     <header class="top-bar">
       <span class="brand">NASA Open APIs Visualization Hub</span>
-      <nav aria-label="Primary">
+      <nav aria-label="Primary" style="display:flex; gap:0.75rem; flex-wrap:wrap;">
         <a href="/NASA/neo3d.html">Neo 3D</a>
+        <a href="#/mars" id="nav-mars">Mars</a>
       </nav>
     </header>
     <main>
-      <div class="intro">
-        <h1>Exploring near-Earth space, one orbit at a time.</h1>
-        <p>
-          This redesign focuses our mission around an immersive three-dimensional Neo 3D experience. Use the navigation above to
-          launch the visualization and monitor orbital dynamics in real time.
-        </p>
+      <div id="page-host">
+        <div class="intro">
+          <h1>Exploring near-Earth space, one orbit at a time.</h1>
+          <p>
+            This redesign focuses our mission around an immersive three-dimensional Neo 3D experience. Use the navigation above
+            to launch the visualization and monitor orbital dynamics in real time.
+          </p>
+        </div>
       </div>
     </main>
     <footer>
       <p>Powered by public NASA datasets and a Cloudflare Worker proxy.</p>
     </footer>
+    <script type="module" src="/NASA/src/main.ts"></script>
   </body>
 </html>
