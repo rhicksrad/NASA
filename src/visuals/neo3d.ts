@@ -227,6 +227,7 @@ export class Neo3D {
     this.controls.enableZoom = true;
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
+    this.controls.zoomToCursor = true;
     this.controls.maxPolarAngle = 0.98 * (Math.PI / 2);
     this.controls.minDistance = 0.3 * SCALE;
     this.controls.maxDistance = 40 * SCALE;
