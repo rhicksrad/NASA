@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CME Explorer</title>
+<link rel="stylesheet" href="./assets/storm.css">
+<body>
+<header class="bar">
+  <a class="home" href="./">← Home</a>
+  <h1>CME Explorer</h1>
+</header>
+
+<main class="container">
+  <section class="controls">
+    <form id="idForm" class="row">
+      <label for="id">Activity ID</label>
+      <input id="id" name="id" placeholder="YYYY-MM-DDTHH:MM:SS-CME-001" size="40" autocomplete="off">
+      <button id="loadBtn" type="submit">Load</button>
+    </form>
+
+    <details class="finder">
+      <summary>Find CMEs by date</summary>
+      <form id="findForm" class="row">
+        <label for="start">Start</label>
+        <input id="start" name="start" type="date" required>
+        <label for="end">End</label>
+        <input id="end" name="end" type="date" required>
+        <button type="submit">Search</button>
+      </form>
+      <ul id="results" class="list"></ul>
+    </details>
+  </section>
+
+  <article id="md" class="markdown"></article>
+</main>
+
+<script type="module" src="./assets/storm.js"></script>
+</body>
+</html>
