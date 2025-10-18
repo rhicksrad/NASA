@@ -1,58 +1,75 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EONET Explorer</title>
-<link rel="stylesheet" href="./assets/events.css">
-<body>
-<header class="bar">
-  <a class="home" href="./">← Home</a>
-  <h1>EONET Explorer</h1>
-</header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
+    <title>EONET Explorer — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="./assets/events.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+      <nav aria-label="Primary" class="primary-nav">
+        <a href="/NASA/#/images/explorer" id="nav-images-explorer">Images Explorer</a>
+        <a href="/NASA/#/epic" id="nav-epic">EPIC Earth</a>
+        <a href="/NASA/neo3d.html" id="nav-neo3d">NEO3D</a>
+        <a href="/NASA/storm.html" id="nav-storm">CME Explorer</a>
+        <a href="/NASA/events.html" aria-current="page">EONET Explorer</a>
+        <a href="/NASA/#/mars" id="nav-mars">Mars Images</a>
+      </nav>
+    </header>
 
-<main class="wrap">
-  <section class="controls card">
-    <form id="filters" class="row">
-      <label>Status
-        <select id="status" name="status">
-          <option value="open" selected>open</option>
-          <option value="closed">closed</option>
-        </select>
-      </label>
-      <label>Category
-        <select id="category" name="category">
-          <option value="">All</option>
-        </select>
-      </label>
-      <label>Start
-        <input id="start" name="start" type="date" required>
-      </label>
-      <label>End
-        <input id="end" name="end" type="date" required>
-      </label>
-      <button type="submit">Load</button>
-    </form>
-  </section>
+    <main class="page-shell">
+      <section class="controls card">
+        <div>
+          <h1>EONET Explorer</h1>
+          <p class="meta">Discover active and historical natural events sourced from NASA's EONET catalog.</p>
+        </div>
+        <form id="filters" class="row">
+          <label> Status
+            <select id="status" name="status">
+              <option value="open" selected>Open</option>
+              <option value="closed">Closed</option>
+            </select>
+          </label>
+          <label> Category
+            <select id="category" name="category">
+              <option value="">All</option>
+            </select>
+          </label>
+          <label> Start
+            <input id="start" name="start" type="date" required />
+          </label>
+          <label> End
+            <input id="end" name="end" type="date" required />
+          </label>
+          <button type="submit">Load</button>
+        </form>
+      </section>
 
-  <section class="grid">
-    <div class="panel card">
-      <h2>Live Event Map</h2>
-      <div id="map" class="map"></div>
-      <div id="legend" class="legend"></div>
-    </div>
+      <section class="grid">
+        <div class="panel card">
+          <h2>Live Event Map</h2>
+          <p class="meta">Pins appear as events are loaded. Select one to highlight the location.</p>
+          <div id="map" class="map"></div>
+          <div id="legend" class="legend"></div>
+        </div>
 
-    <div class="panel card">
-      <h2>Events</h2>
-      <ul id="list" class="list"></ul>
-    </div>
+        <div class="panel card">
+          <h2>Events</h2>
+          <p class="meta">Results adapt based on the filters above.</p>
+          <ul id="list" class="list"></ul>
+        </div>
 
-    <div class="panel card detail">
-      <h2 id="detailTitle">Event Detail</h2>
-      <article id="detail" class="markdown">Pick an event.</article>
-    </div>
-  </section>
-</main>
+        <div class="panel card detail">
+          <h2 id="detailTitle">Event Detail</h2>
+          <article id="detail" class="markdown">Pick an event.</article>
+        </div>
+      </section>
+    </main>
 
-<script type="module" src="./assets/events.js"></script>
-</body>
+    <script type="module" src="./assets/events.js"></script>
+  </body>
 </html>

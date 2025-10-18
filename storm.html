@@ -1,39 +1,54 @@
 <!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CME Explorer</title>
-<link rel="stylesheet" href="./assets/storm.css">
-<body>
-<header class="bar">
-  <a class="home" href="./">← Home</a>
-  <h1>CME Explorer</h1>
-</header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
+    <title>CME Explorer — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="./assets/storm.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+      <nav aria-label="Primary" class="primary-nav">
+        <a href="/NASA/#/images/explorer" id="nav-images-explorer">Images Explorer</a>
+        <a href="/NASA/#/epic" id="nav-epic">EPIC Earth</a>
+        <a href="/NASA/neo3d.html" id="nav-neo3d">NEO3D</a>
+        <a href="/NASA/storm.html" aria-current="page">CME Explorer</a>
+        <a href="/NASA/events.html" id="nav-events">EONET Explorer</a>
+        <a href="/NASA/#/mars" id="nav-mars">Mars Images</a>
+      </nav>
+    </header>
 
-<main class="container">
-  <section class="controls">
-    <form id="idForm" class="row">
-      <label for="id">Activity ID</label>
-      <input id="id" name="id" placeholder="YYYY-MM-DDTHH:MM:SS-CME-001" size="40" autocomplete="off">
-      <button id="loadBtn" type="submit">Load</button>
-    </form>
+    <main class="page-shell">
+      <section class="controls card">
+        <div>
+          <h1>CME Explorer</h1>
+          <p class="meta">Investigate coronal mass ejections and inspect NASA's detailed event summaries.</p>
+        </div>
+        <form id="idForm" class="row">
+          <label for="id">Activity ID</label>
+          <input id="id" name="id" placeholder="YYYY-MM-DDTHH:MM:SS-CME-001" size="40" autocomplete="off" />
+          <button id="loadBtn" type="submit">Load</button>
+        </form>
 
-    <details class="finder">
-      <summary>Find CMEs by date</summary>
-      <form id="findForm" class="row">
-        <label for="start">Start</label>
-        <input id="start" name="start" type="date" required>
-        <label for="end">End</label>
-        <input id="end" name="end" type="date" required>
-        <button type="submit">Search</button>
-      </form>
-      <ul id="results" class="list"></ul>
-    </details>
-  </section>
+        <details class="finder">
+          <summary>Find CMEs by date</summary>
+          <form id="findForm" class="row">
+            <label for="start">Start</label>
+            <input id="start" name="start" type="date" required />
+            <label for="end">End</label>
+            <input id="end" name="end" type="date" required />
+            <button type="submit">Search</button>
+          </form>
+          <ul id="results" class="list"></ul>
+        </details>
+      </section>
 
-  <article id="md" class="markdown"></article>
-</main>
+      <article id="md" class="markdown card"></article>
+    </main>
 
-<script type="module" src="./assets/storm.js"></script>
-</body>
+    <script type="module" src="./assets/storm.js"></script>
+  </body>
 </html>
