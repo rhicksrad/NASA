@@ -65,6 +65,7 @@ export class SbdbExplorer {
       const q = this.input.value.trim();
       if (q) {
         void this.lookupAndShow(q);
+        window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail: q }));
       }
     });
 
