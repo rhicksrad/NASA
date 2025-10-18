@@ -13,48 +13,51 @@
         <h2>NEO 3D</h2>
         <p class="meta">Heliocentric ecliptic J2000 • positions from orbital elements</p>
       </header>
-      <div id="neo3d-host" style="height:660px;"></div>
-
-      <div id="neo3d-ui" class="ui">
-        <div class="row">
-          <button id="neo3d-play" type="button">Play</button>
-          <button id="neo3d-pause" type="button" disabled>Pause</button>
-        </div>
-        <label class="stack">Speed
-          <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
-        </label>
-        <span id="neo3d-speed-label" class="meta">1 day/s</span>
-        <label class="toggle"><input type="checkbox" id="neo3d-toggle-neos" checked /> Show NEOs</label>
-        <button id="neo3d-toggle-atlas" type="button" disabled aria-pressed="false">Hide 3I/ATLAS</button>
-        <label class="stack">Date range
-          <div class="range">
-            <input type="datetime-local" id="neo3d-range-start" step="3600" />
-            <input type="datetime-local" id="neo3d-range-end" step="3600" />
+      <div id="neo3d-host" class="neo3d-stage"></div>
+      <div class="neo3d-control-panel">
+        <div class="neo3d-primary-controls">
+          <div class="neo3d-playback">
+            <button id="neo3d-play" type="button">Play</button>
+            <button id="neo3d-pause" type="button" disabled>Pause</button>
           </div>
-        </label>
-        <label class="stack">Offset (days)
-          <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
-        </label>
-        <span id="neo3d-date" class="meta">—</span>
+          <label class="neo3d-field">
+            <span class="neo3d-field-label">Speed</span>
+            <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
+            <span id="neo3d-speed-label" class="meta">1 day/s</span>
+          </label>
+          <label class="neo3d-field">
+            <span class="neo3d-field-label">Date range</span>
+            <div class="neo3d-date-range">
+              <input type="datetime-local" id="neo3d-range-start" step="3600" />
+              <input type="datetime-local" id="neo3d-range-end" step="3600" />
+            </div>
+          </label>
+          <label class="neo3d-field">
+            <span class="neo3d-field-label">Time scrubber</span>
+            <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
+            <span id="neo3d-time-label" class="meta">—</span>
+          </label>
+          <button id="neo3d-toggle-atlas" class="neo3d-atlas" type="button" disabled aria-pressed="false">
+            Hide 3I/ATLAS
+          </button>
+        </div>
+        <div class="neo3d-neo-panel">
+          <div class="neo3d-neo-panel-header">
+            <div>
+              <h3>Near-Earth Objects</h3>
+              <p class="meta">Toggle individual NEOs to focus on their orbits.</p>
+            </div>
+            <label class="neo3d-select-all">
+              <input type="checkbox" id="neo3d-toggle-neos" checked />
+              Show all NEOs
+            </label>
+          </div>
+          <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
+          <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
+        </div>
       </div>
     </section>
-    
-    <style>
-      html, body { margin:0; padding:0; overflow:hidden; background:#0b3d91; }
-      #neo3d-host canvas { display:block; width:100%; height:100%; outline:none; }
-      #neo3d-ui.ui {
-        position:absolute; left:16px; bottom:16px; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end;
-        background:rgba(0,0,0,.25); color:#fff; padding:12px 16px; border-radius:10px; backdrop-filter:blur(4px);
-      }
-      #neo3d-ui button,
-      #neo3d-ui input,
-      #neo3d-ui label { font: inherit; }
-      #neo3d-ui .row { display:flex; gap:8px; }
-      #neo3d-ui .stack { display:flex; flex-direction:column; gap:4px; min-width:160px; }
-      #neo3d-ui .range { display:flex; gap:8px; flex-wrap:wrap; }
-      #neo3d-ui .toggle { display:flex; align-items:center; gap:6px; }
-      #neo3d-ui .meta { font-size:14px; font-weight:600; }
-    </style>
+
     <!-- Vite will rewrite this module import during build -->
     <script type="module" src="/NASA/src/pages/neo3d_page.ts"></script>
   </body>

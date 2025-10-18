@@ -12,8 +12,14 @@ section{border:1px solid var(--light);border-radius:8px;padding:1rem;background:
 footer{padding:1rem;border-top:1px solid var(--light);text-align:center}
 @media (min-width:900px){main{grid-template-columns:1fr 1fr}}
 
-html.neo3d-fullscreen,html.neo3d-fullscreen body{margin:0;padding:0;overflow:hidden;background:#0b3d91}
+html.neo3d-fullscreen,html.neo3d-fullscreen body{margin:0;padding:0;min-height:100%;background:radial-gradient(circle at 20% 20%,rgba(37,99,235,0.35),rgba(2,6,23,0.95));color:#e2e8f0}
+html.neo3d-fullscreen body{overflow-y:auto}
 body.neo3d-fullscreen #neo3d-host canvas{display:block;width:100%;height:100%;outline:none}
+body.neo3d-fullscreen section#neo-3d{border:none;background:transparent;padding:2.5rem clamp(1.5rem,3vw,3rem) 3rem;margin:0 auto;max-width:min(1120px,calc(100vw - 2rem));display:flex;flex-direction:column;gap:1.5rem}
+body.neo3d-fullscreen #neo-3d .subhead h2{margin:0;font-size:2.25rem;font-weight:700;letter-spacing:.01em;color:#f8fafc}
+body.neo3d-fullscreen #neo-3d .subhead .meta{color:rgba(226,232,240,0.82)}
+body.neo3d-fullscreen #neo-3d .subhead{border:none;padding:0}
+body.neo3d-fullscreen #neo-3d .neo3d-control-panel .meta{color:#334155}
 
 .neo3d-stage{height:520px;border:1px solid var(--light);border-radius:12px;overflow:hidden;box-shadow:0 16px 40px rgba(15,23,42,0.18);background:radial-gradient(circle at 20% 20%,rgba(255,255,255,0.08),rgba(2,6,23,0.85));position:relative}
 .neo3d-control-panel{margin-top:1.25rem;padding:1.25rem;border:1px solid var(--light);border-radius:12px;background:linear-gradient(135deg,rgba(15,23,42,0.05),rgba(15,23,42,0.14));box-shadow:0 12px 28px rgba(15,23,42,0.12);display:flex;flex-direction:column;gap:1.5rem}
