@@ -643,7 +643,7 @@ export async function initNeo3D(
     const nextCount = Math.min(NEO_BATCH_SIZE, remaining);
     neoLoadMore.hidden = false;
     neoLoadMore.disabled = false;
-    neoLoadMore.textContent = `Load ${nextCount} more`;
+    neoLoadMore.textContent = `Add ${nextCount} more`;
   };
 
   const registerEntryKeys = (id: string, keys: string[]) => {
@@ -987,14 +987,18 @@ export async function initNeo3D(
       }
 
       const color = makeColorFor(label);
+      const epochJD = typeof conic.epoch === 'number' && Number.isFinite(conic.epoch)
+        ? conic.epoch
+        : conic.tp;
+      const meanAnomaly = typeof conic.ma === 'number' && Number.isFinite(conic.ma) ? conic.ma : 0;
       const conicForProp: ConicElements = {
         a: conic.a,
         e: conic.e,
         inc: conic.i,
         Omega: conic.Omega,
         omega: conic.omega,
-        epochJD: conic.tp,
-        M0: 0,
+        epochJD,
+        M0: meanAnomaly,
         tp_jd: conic.tp,
         q: conic.q,
       };
@@ -1022,8 +1026,8 @@ export async function initNeo3D(
         i: conic.i,
         Omega: conic.Omega,
         omega: conic.omega,
-        M: 0,
-        epochJD: conic.tp,
+        M: meanAnomaly,
+        epochJD,
       };
 
       const spec: SmallBodySpec = {
