@@ -140,6 +140,7 @@ export class EpicViewer {
     this.state.idx = idx;
     const it = this.state.items[idx];
     const url = this.urlAt(idx);
+    this.imgEl.referrerPolicy = 'no-referrer';
     this.imgEl.src = url; // <img> can load cross-origin fine
     const t = it.date.replace(' ', ' ');
     const loc = it.centroid_coordinates
