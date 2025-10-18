@@ -1,6 +1,7 @@
 const NASA_HOST = 'api.nasa.gov';
 const NASA_BASE = `https://${NASA_HOST}`;
 const API_ORIGIN = NASA_BASE;
+const JPL_SSD_BASE = 'https://ssd-api.jpl.nasa.gov';
 const DEMO_KEY = 'DEMO_KEY';
 
 let NASA_API = '';
@@ -120,8 +121,16 @@ function mapWorkerPath(pathname) {
   return pathname;
 }
 
+function mapCustomTarget(url) {
+  if (url.pathname === '/cad.api' || url.pathname === '/sbdb_query.api') {
+    return { base: JPL_SSD_BASE, pathname: url.pathname };
+  }
+  return { base: NASA_BASE, pathname: mapWorkerPath(url.pathname) };
+}
+
 function buildTargetUrl(url) {
-  const target = new URL(mapWorkerPath(url.pathname), NASA_BASE);
+  const { base, pathname } = mapCustomTarget(url);
+  const target = new URL(pathname, base);
   for (const [key, value] of url.searchParams.entries()) {
     if (key === 'debug' || key === 'api_key') continue;
     target.searchParams.set(key, value);
@@ -330,6 +339,29 @@ async function handleRequest(request) {
       JSON.stringify({ error: 'SBDB object not found', attempts: attempts.map(u => u.searchParams.get('sstr')) }),
       { status: 404, headers },
     );
+  }
+
+  if (url.pathname === '/cad.api' || url.pathname === '/sbdb_query.api') {
+    const upstream = new URL(url.pathname, JPL_SSD_BASE);
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key === 'debug') continue;
+      upstream.searchParams.append(key, value);
+    }
+    const headers = { 'Content-Type': 'application/json; charset=utf-8', ...secHeaders(), ...corsHeaders(origin) };
+    try {
+      const resp = await fetch(upstream.toString());
+      const text = await resp.text();
+      const mergedHeaders = {
+        ...headers,
+        'Content-Type': resp.headers.get('content-type') || headers['Content-Type'],
+      };
+      return new Response(text, { status: resp.status, headers: mergedHeaders });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: 'upstream fetch failed' }), {
+        status: 502,
+        headers,
+      });
+    }
   }
 
   const target = buildTargetUrl(url);

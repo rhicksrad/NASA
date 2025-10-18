@@ -201,22 +201,44 @@ async function cacheLookup(key: string, data: SbdbLookup): Promise<void> {
 const stripParenthetical = (value: string): string => value.replace(/\s*\([^)]*\)/g, ' ').replace(/\s{2,}/g, ' ').trim();
 
 const extractMultiMatchCandidates = (body: string): string[] => {
-  try {
-    const parsed = JSON.parse(body) as { list?: Array<{ name?: string; pdes?: string }> };
-    if (!Array.isArray(parsed.list)) return [];
-    const out: string[] = [];
-    for (const entry of parsed.list) {
-      if (entry && typeof entry.pdes === 'string') {
-        out.push(entry.pdes);
+  const queue: string[] = [body];
+  const visited = new Set<string>();
+  const out: string[] = [];
+
+  while (queue.length > 0) {
+    const next = queue.shift()!;
+    if (visited.has(next)) continue;
+    visited.add(next);
+
+    try {
+      const parsed = JSON.parse(next) as {
+        list?: Array<{ name?: string; pdes?: string }>;
+        body?: unknown;
+      };
+
+      if (Array.isArray(parsed.list)) {
+        for (const entry of parsed.list) {
+          if (entry && typeof entry.pdes === 'string') {
+            out.push(entry.pdes);
+          }
+          if (entry && typeof entry.name === 'string') {
+            out.push(entry.name);
+          }
+        }
       }
-      if (entry && typeof entry.name === 'string') {
-        out.push(entry.name);
+
+      const nested = parsed.body;
+      if (typeof nested === 'string') {
+        queue.push(nested);
+      } else if (nested && typeof nested === 'object') {
+        queue.push(JSON.stringify(nested));
       }
+    } catch {
+      // ignore parse errors and continue exploring other candidates
     }
-    return out;
-  } catch {
-    return [];
   }
+
+  return Array.from(new Set(out));
 };
 
 export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}): Promise<SbdbLookup> {
