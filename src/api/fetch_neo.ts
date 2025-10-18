@@ -1,12 +1,14 @@
 import type { NeoBrowse, NeoFeed, NeoItem } from '../types/nasa';
 import { request } from './nasaClient';
 
-export function getNeoBrowse(params: { page?: number; size?: number } = {}) {
+type RequestOptions = Parameters<typeof request>[2];
+
+export function getNeoBrowse(params: { page?: number; size?: number } = {}, init?: RequestOptions) {
   const query = {
     size: params.size ?? 20,
     ...(params.page != null ? { page: params.page } : {}),
   };
-  return request<NeoBrowse>('/neo/browse', query);
+  return request<NeoBrowse>('/neo/browse', query, init);
 }
 
 export function getNeoById(id: string) {

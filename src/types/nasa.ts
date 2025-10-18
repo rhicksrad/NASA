@@ -1,3 +1,5 @@
+import type { NextApproach } from '../lib/neo-client';
+
 export interface Apod {
   date: string;
   title: string;
@@ -83,6 +85,7 @@ export interface NeoItem {
   nasa_jpl_url?: string;
   orbital_data?: NeoOrbitalData;
   is_sentry_object?: boolean;
+  next?: NextApproach | null;
 }
 
 export interface NeoFeed {
