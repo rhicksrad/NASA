@@ -172,8 +172,15 @@ async function fetchJSON<T = unknown>(path: string): Promise<T> {
   }
 }
 
-export async function sbdbLookup(sstr: string, opts: { fullname?: boolean } = {}): Promise<SbdbLookup> {
-  const key = `/sbdb?sstr=${encodeURIComponent(sstr)}${opts.fullname ? '&fullname=true' : ''}`;
+const buildSbdbKey = (query: string, fullPrec: boolean): string => {
+  const params = new URLSearchParams({ sstr: query });
+  if (fullPrec) {
+    params.set('full-prec', '1');
+  }
+  return `/sbdb?${params.toString()}`;
+};
+
+async function getCachedLookup(key: string): Promise<SbdbLookup | null> {
   if (lookupCache.has(key)) {
     return lookupCache.get(key)!;
   }
@@ -183,14 +190,114 @@ export async function sbdbLookup(sstr: string, opts: { fullname?: boolean } = {}
     lookupCache.set(key, value);
     return value;
   }
-  const data = await fetchJSON<SbdbLookup>(key);
+  return null;
+}
+
+async function cacheLookup(key: string, data: SbdbLookup): Promise<void> {
   lookupCache.set(key, data);
   await persistentCache.set(key, data);
-  return data;
+}
+
+const stripParenthetical = (value: string): string => value.replace(/\s*\([^)]*\)/g, ' ').replace(/\s{2,}/g, ' ').trim();
+
+const extractMultiMatchCandidates = (body: string): string[] => {
+  try {
+    const parsed = JSON.parse(body) as { list?: Array<{ name?: string; pdes?: string }> };
+    if (!Array.isArray(parsed.list)) return [];
+    const out: string[] = [];
+    for (const entry of parsed.list) {
+      if (entry && typeof entry.pdes === 'string') {
+        out.push(entry.pdes);
+      }
+      if (entry && typeof entry.name === 'string') {
+        out.push(entry.name);
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+};
+
+export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}): Promise<SbdbLookup> {
+  const fullPrec = opts.fullPrec === true;
+  const originalKey = buildSbdbKey(sstr, fullPrec);
+  const directCached = await getCachedLookup(originalKey);
+  if (directCached) {
+    return directCached;
+  }
+
+  const queue: string[] = [];
+  const seen = new Set<string>();
+  const pushVariant = (value: string | null | undefined) => {
+    const normalized = value?.trim();
+    if (!normalized) return;
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    queue.push(normalized);
+  };
+
+  pushVariant(sstr);
+  const baseWithoutParens = stripParenthetical(sstr);
+  pushVariant(baseWithoutParens);
+  const tokens = baseWithoutParens.split(/\s+/).filter(Boolean);
+  if (tokens.length > 0) {
+    pushVariant(tokens[0]);
+  }
+  if (tokens.length > 1) {
+    pushVariant(tokens.slice(0, 2).join(' '));
+    pushVariant(tokens[tokens.length - 1]);
+  }
+
+  let lastError: unknown = null;
+
+  while (queue.length > 0) {
+    const variant = queue.shift()!;
+    const key = buildSbdbKey(variant, fullPrec);
+
+    const cached = await getCachedLookup(key);
+    if (cached) {
+      if (key !== originalKey) {
+        await cacheLookup(originalKey, cached);
+      }
+      return cached;
+    }
+
+    try {
+      const data = await fetchJSON<SbdbLookup>(key);
+      await cacheLookup(key, data);
+      if (key !== originalKey) {
+        await cacheLookup(originalKey, data);
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof HttpError) {
+        if (error.status === 300) {
+          const candidates = extractMultiMatchCandidates(error.bodyText);
+          for (const candidate of candidates) {
+            pushVariant(candidate);
+            pushVariant(stripParenthetical(candidate));
+          }
+          lastError = error;
+          continue;
+        }
+        if (error.status >= 400 && error.status < 500) {
+          lastError = error;
+          continue;
+        }
+      }
+      throw error;
+    }
+  }
+
+  if (lastError instanceof HttpError) {
+    throw lastError;
+  }
+  throw new HttpError(originalKey, 404, `No SBDB match for ${sstr}`);
 }
 
 export async function sbdbSuggest(q: string): Promise<SbdbSuggestResult> {
-  const url = `/sbdb?sstr=${encodeURIComponent(q)}&search=1&fullname=true`;
+  const url = `/sbdb?sstr=${encodeURIComponent(q)}&search=1`;
   try {
     type SbdbSuggestItem = { fullname?: string; name?: string; sstr?: string };
     type SbdbSuggestPayload = { list?: SbdbSuggestItem[] };
@@ -210,7 +317,7 @@ export async function sbdbSuggest(q: string): Promise<SbdbSuggestResult> {
     // ignore and fallback below
   }
   try {
-    const one = await sbdbLookup(q, { fullname: true });
+    const one = await sbdbLookup(q, { fullPrec: true });
     const name = one?.object?.fullname || one?.object?.des;
     return name ? { items: [name], fallback: true } : { items: [], fallback: true };
   } catch {
@@ -268,7 +375,7 @@ export async function resolveMany(ids: string[]): Promise<SbdbRow[]> {
   const out: SbdbRow[] = [];
   for (const id of ids) {
     try {
-      const data = await sbdbLookup(id, { fullname: true });
+      const data = await sbdbLookup(id, { fullPrec: true });
       out.push(normalizeRow(data, id));
       await new Promise((resolve) => setTimeout(resolve, 120));
     } catch {
@@ -299,7 +406,7 @@ function toNum(v: unknown): number {
 
 export async function loadSBDBConic(sstr: string): Promise<{ conic: ConicForProp; label: string }> {
   try {
-    const data = await sbdbLookup(sstr, { fullname: true });
+    const data = await sbdbLookup(sstr, { fullPrec: true });
     const elems = data.orbit?.elements ?? [];
     const map = new Map<string, unknown>();
     for (const entry of elems) {

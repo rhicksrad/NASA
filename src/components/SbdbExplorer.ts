@@ -124,7 +124,7 @@ export class SbdbExplorer {
     if (!query) return;
     this.setNotice('Loading…');
     try {
-      const data = await sbdbLookup(query, { fullname: true });
+      const data = await sbdbLookup(query, { fullPrec: true });
       const row = normalizeRow(data, query);
       this.rows = [row];
       this.renderRows();
