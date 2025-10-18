@@ -1,4 +1,3 @@
-/* global Chart */
 // Exoplanet Explorer frontend
 // Fetches from your Worker: /exo/ps, /exo/pscomp, /exo/tap
 const WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
@@ -29,8 +28,11 @@ const sumCount = el('sumCount');
 const sumR = el('sumR');
 const sumT = el('sumT');
 const sumMass = el('sumMass');
+const mrViz = el('mrViz');
+const selectedSummary = el('selectedSummary');
 
-let mrChart;
+let currentRows = [];
+let selectedPlanetName = '';
 let activeExampleDesc = '';
 
 const EXAMPLE_FILTERS = {
@@ -93,7 +95,12 @@ ORDER BY eqt`;
 
   renderTable(rows);
   renderSummary(rows);
-  await renderChart(rows);
+  if (!rows.length) {
+    selectPlanet(null);
+  } else {
+    const existing = currentRows.find(r => r.name === selectedPlanetName);
+    selectPlanet(existing ?? rows[0]);
+  }
 }
 
 function normalizeRows(out) {
@@ -114,9 +121,10 @@ function normalizeRows(out) {
 }
 
 function renderTable(rows) {
-  rowsEl.innerHTML = rows.map(r => `
-    <tr>
-      <td><a href="https://exoplanetarchive.ipac.caltech.edu/overview/${encodeURIComponent(r.name)}" target="_blank" rel="noreferrer">${esc(r.name)}</a></td>
+  currentRows = rows;
+  rowsEl.innerHTML = rows.map((r, i) => `
+    <tr data-index="${i}" tabindex="0">
+      <td><button type="button" class="planet-name-btn" data-index="${i}">${esc(r.name)}</button></td>
       <td>${esc(r.host)}</td>
       <td>${fmt(r.rade)}</td>
       <td>${fmt(r.masse)}</td>
@@ -137,44 +145,6 @@ function renderSummary(rows) {
   sumR.textContent = median(R)?.toFixed(2) ?? '–';
   sumT.textContent = median(T)?.toFixed(0) ?? '–';
   sumMass.textContent = M.length;
-}
-
-async function renderChart(rows) {
-  const pts = rows.filter(r => Number.isFinite(r.rade) && Number.isFinite(r.masse));
-  const data = {
-    datasets: [{
-      label: 'Planets',
-      data: pts.map(p => ({ x: p.rade, y: p.masse, r: 3, name: p.name, host: p.host })),
-      parsing: false,
-      pointRadius: 3
-    }]
-  };
-  const cfg = {
-    type: 'scatter',
-    data,
-    options: {
-      responsive: true,
-      animation: false,
-      scales: {
-        x: { type: 'logarithmic', title: { text: 'Radius (Re)', display: true }, min: 0.5, max: 4 },
-        y: { type: 'logarithmic', title: { text: 'Mass (Me)', display: true }, min: 0.2, max: 100 }
-      },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label(ctx) {
-              const d = ctx.raw;
-              return `${d.name} around ${d.host} — Re ${ctx.parsed.x.toFixed(2)}, Me ${ctx.parsed.y.toFixed(2)}`;
-            }
-          }
-        },
-        legend: { display: false }
-      }
-    }
-  };
-  const ctx = document.getElementById('mrChart').getContext('2d');
-  if (mrChart) { mrChart.destroy(); }
-  mrChart = new Chart(ctx, cfg);
 }
 
 function whereClause(q) {
@@ -275,6 +245,139 @@ function wire() {
   run();
 }
 
+rowsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-index]');
+  if (!btn) return;
+  const idx = Number(btn.dataset.index);
+  const planet = currentRows[idx];
+  if (planet) {
+    selectPlanet(planet);
+  }
+});
+
+rowsEl.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const tr = e.target.closest('tr[data-index]');
+  if (!tr) return;
+  const idx = Number(tr.dataset.index);
+  const planet = currentRows[idx];
+  if (planet) {
+    selectPlanet(planet);
+  }
+});
+
+function selectPlanet(planet) {
+  selectedPlanetName = planet?.name ?? '';
+  applySelection();
+  renderMassRadiusPanel(planet);
+  renderPlanetSummary(planet);
+}
+
+function applySelection() {
+  const trs = Array.from(rowsEl.querySelectorAll('tr[data-index]'));
+  trs.forEach((tr) => {
+    const idx = Number(tr.dataset.index);
+    const row = currentRows[idx];
+    tr.classList.toggle('selected', row?.name === selectedPlanetName);
+  });
+}
+
+function renderMassRadiusPanel(planet) {
+  if (!planet) {
+    mrViz.innerHTML = '<p class="mr-placeholder">Select a planet below to view its mass–radius profile.</p>';
+    return;
+  }
+  const { label, description, svgClass, svg } = describePlanetType(planet);
+  const metrics = [
+    { label: 'Radius (Earth radii)', value: fmtOrDash(planet.rade) },
+    { label: 'Mass (Earth masses)', value: fmtOrDash(planet.masse) }
+  ];
+  const tooltip = `Radius: ${fmtOrDash(planet.rade)} Re\nMass: ${fmtOrDash(planet.masse)} Me`;
+  mrViz.innerHTML = `
+    <div class="mr-visual" title="${esc(tooltip)}">
+      ${svgClass ? svg.replace('<svg', `<svg class="${svgClass}"`) : svg}
+      <div class="mr-metrics">
+        <div class="label">Classification</div>
+        <div style="font-size:20px; font-weight:600">${esc(label)}</div>
+        <div style="color:var(--muted); max-width:280px;">${esc(description)}</div>
+        <div class="label" style="margin-top:8px;">Mass–radius estimates</div>
+        ${metrics.map(m => `<div><span class="label">${esc(m.label)}:</span> <span class="stat">${esc(m.value)}</span></div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderPlanetSummary(planet) {
+  if (!planet) {
+    selectedSummary.innerHTML = `
+      <h4>Planet details</h4>
+      <p style="margin:0; color:var(--muted);">Choose a planet from the table to see its host, orbit, and climate.</p>
+    `;
+    return;
+  }
+  selectedSummary.innerHTML = `
+    <h4>${esc(planet.name)}</h4>
+    <dl>
+      <dt>Host star</dt><dd>${esc(planet.host)}</dd>
+      <dt>Discovery year</dt><dd>${esc(planet.year ?? '—')}</dd>
+      <dt>Orbit period (days)</dt><dd>${fmtOrDash(planet.period)}</dd>
+      <dt>Equilibrium temp (K)</dt><dd>${fmtOrDash(planet.eqt, 0)}</dd>
+      <dt>Right ascension</dt><dd>${fmtOrDash(planet.ra, 3)}</dd>
+      <dt>Declination</dt><dd>${fmtOrDash(planet.dec, 3)}</dd>
+    </dl>
+  `;
+}
+
+function describePlanetType(planet) {
+  const r = Number.isFinite(planet.rade) ? planet.rade : null;
+  if (r == null) {
+    return {
+      label: 'Unknown',
+      description: 'No radius estimate is available for this world yet.',
+      svgClass: 'unknown',
+      svg: svgUnknown()
+    };
+  }
+  if (r != null && r < 1.25) {
+    return {
+      label: 'Rocky terrestrial',
+      description: 'Comparable in size to Earth and likely dominated by silicate rock and metal.',
+      svgClass: 'rocky',
+      svg: svgRocky()
+    };
+  }
+  if (r != null && r < 2) {
+    return {
+      label: 'Super-Earth',
+      description: 'Larger than Earth but smaller than ice giants, potentially with thick atmospheres.',
+      svgClass: 'super-earth',
+      svg: svgSuperEarth()
+    };
+  }
+  if (r != null && r < 4) {
+    return {
+      label: 'Sub-Neptune',
+      description: 'Intermediate worlds with volatile-rich envelopes atop rocky cores.',
+      svgClass: 'sub-neptune',
+      svg: svgSubNeptune()
+    };
+  }
+  if (r != null && r < 6) {
+    return {
+      label: 'Neptune-like',
+      description: 'Ice giant analogues with deep atmospheres of hydrogen, helium, and methane.',
+      svgClass: 'neptune',
+      svg: svgNeptune()
+    };
+  }
+  return {
+    label: 'Gas giant',
+    description: 'Enormous planets with massive hydrogen-helium envelopes similar to Jupiter or Saturn.',
+    svgClass: 'gas-giant',
+    svg: svgGasGiant()
+  };
+}
+
 function syncURL() {
   const q = new URLSearchParams();
   const s = getState();
@@ -286,10 +389,125 @@ function syncURL() {
 function setStatus(t) { statusEl.textContent = t || ''; }
 function num(x) { const n = Number(x); return Number.isFinite(n) ? n : null; }
 function fmt(x, d=2) { return Number.isFinite(x) ? Number(x).toFixed(d) : ''; }
+function fmtOrDash(x, d=2, placeholder='–') {
+  const out = fmt(x, d);
+  return out === '' ? placeholder : out;
+}
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[m])); }
 function median(arr) {
   if (!arr.length) return null;
   const a = arr.slice().sort((x,y)=>x-y);
   const i = Math.floor(a.length/2);
   return a.length % 2 ? a[i] : (a[i-1]+a[i])/2;
+}
+
+function svgBase(inner, gradient) {
+  return `
+    <svg viewBox="0 0 160 160" role="img" aria-hidden="true">
+      <defs>
+        ${gradient || ''}
+        <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="6" result="coloredBlur"></feGaussianBlur>
+          <feMerge>
+            <feMergeNode in="coloredBlur"></feMergeNode>
+            <feMergeNode in="SourceGraphic"></feMergeNode>
+          </feMerge>
+        </filter>
+      </defs>
+      <g filter="url(#glow)">
+        ${inner}
+      </g>
+    </svg>
+  `;
+}
+
+function svgRocky() {
+  const gradient = `
+    <radialGradient id="rockyGrad" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#ffd7a3" />
+      <stop offset="60%" stop-color="#d58a5a" />
+      <stop offset="100%" stop-color="#7a4b34" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="60" fill="url(#rockyGrad)" />
+    <path d="M25 70c10-8 22-12 34-10s26 4 36-4" stroke="#5b2e1f" stroke-width="4" stroke-linecap="round" opacity="0.4" />
+    <path d="M40 100c8 6 18 9 28 8s22-4 32 2" stroke="#ffe0b8" stroke-width="3" stroke-linecap="round" opacity="0.3" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgSuperEarth() {
+  const gradient = `
+    <radialGradient id="seGrad" cx="45%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#b8f2ff" />
+      <stop offset="70%" stop-color="#3b7fd5" />
+      <stop offset="100%" stop-color="#1c3463" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="62" fill="url(#seGrad)" />
+    <path d="M18 84c28-18 58-26 90-16" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.25" />
+    <path d="M30 56c18 6 42 4 66-6" stroke="#0b3f8f" stroke-width="6" stroke-linecap="round" opacity="0.3" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgSubNeptune() {
+  const gradient = `
+    <radialGradient id="snGrad" cx="55%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#d5f4ff" />
+      <stop offset="80%" stop-color="#5fb3ff" />
+      <stop offset="100%" stop-color="#215fbd" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="65" fill="url(#snGrad)" />
+    <ellipse cx="80" cy="70" rx="70" ry="16" fill="rgba(255,255,255,0.18)" />
+    <ellipse cx="80" cy="94" rx="60" ry="14" fill="rgba(14,68,150,0.25)" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgNeptune() {
+  const gradient = `
+    <radialGradient id="nepGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#d1e7ff" />
+      <stop offset="75%" stop-color="#4f7bd9" />
+      <stop offset="100%" stop-color="#243d8f" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="66" fill="url(#nepGrad)" />
+    <path d="M15 88c40-20 72-24 110-10" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.2" />
+    <ellipse cx="80" cy="80" rx="80" ry="24" fill="none" stroke="rgba(170,210,255,0.55)" stroke-width="6" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgGasGiant() {
+  const gradient = `
+    <radialGradient id="gasGrad" cx="55%" cy="42%" r="65%">
+      <stop offset="0%" stop-color="#fff1d6" />
+      <stop offset="70%" stop-color="#f7a861" />
+      <stop offset="100%" stop-color="#c25f28" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="70" fill="url(#gasGrad)" />
+    <g stroke-width="10" stroke-linecap="round" opacity="0.35">
+      <path d="M10 66c46-22 96-22 140 0" stroke="#fff5e3" />
+      <path d="M20 90c40-18 80-18 120 0" stroke="#ac4a1b" />
+    </g>
+    <ellipse cx="80" cy="92" rx="96" ry="30" fill="none" stroke="rgba(255,194,120,0.45)" stroke-width="8" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgUnknown() {
+  const inner = `
+    <circle cx="80" cy="80" r="56" fill="#1c2734" stroke="#314354" stroke-width="4" />
+    <text x="80" y="90" text-anchor="middle" font-size="48" fill="#4c637c">?</text>
+  `;
+  return svgBase(inner);
 }
