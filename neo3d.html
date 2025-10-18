@@ -37,9 +37,6 @@
             <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
             <span id="neo3d-time-label" class="meta">—</span>
           </label>
-          <button id="neo3d-toggle-atlas" class="neo3d-atlas" type="button" disabled aria-pressed="false">
-            Hide 3I/ATLAS
-          </button>
         </div>
         <div class="neo3d-neo-panel">
           <div class="neo3d-neo-panel-header">
@@ -55,6 +52,26 @@
           <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
           <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
         </div>
+        <section id="sbdb-panel" style="margin-top:12px">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+            <label for="sbdb-input" style="font-weight:600">SBDB (asteroids/comets):</label>
+            <input
+              id="sbdb-input"
+              type="text"
+              placeholder="e.g. 433 Eros, 101955 Bennu, 99942 Apophis, C/2025 N1 (ATLAS)"
+              style="flex:1; min-width:260px; padding:6px 8px"
+            />
+            <button id="sbdb-add" type="button">Add</button>
+          </div>
+          <div style="margin-top:8px; font-size:12px; opacity:0.85">
+            Examples:
+            <button class="sbdb-example" type="button">433 Eros</button>
+            <button class="sbdb-example" type="button">101955 Bennu</button>
+            <button class="sbdb-example" type="button">99942 Apophis</button>
+            <button class="sbdb-example" type="button">C/2025 N1 (ATLAS)</button>
+          </div>
+          <div id="sbdb-loaded" style="margin-top:10px; display:flex; flex-wrap:wrap; gap:6px"></div>
+        </section>
       </div>
     </section>
 

@@ -407,6 +407,24 @@ export class Neo3D {
     this.refreshInteractiveMeshes();
   }
 
+  removeSmallBody(name: string): void {
+    const keep: typeof this.bodies = [];
+    let removed = false;
+    for (const body of this.bodies) {
+      if (body.spec.name === name) {
+        this.scene.remove(body.mesh);
+        if (body.orbitLine) this.scene.remove(body.orbitLine);
+        removed = true;
+      } else {
+        keep.push(body);
+      }
+    }
+    if (removed) {
+      this.bodies = keep;
+      this.refreshInteractiveMeshes();
+    }
+  }
+
   setSmallBodiesVisible(visible: boolean): void {
     this.smallBodiesVisible = visible;
     for (const body of this.bodies) {
