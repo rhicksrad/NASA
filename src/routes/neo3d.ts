@@ -92,6 +92,10 @@ type NeoCandidate = {
   allowWeakName: boolean;
 };
 
+function normalizeEntryKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function isCometLike(neo: NeoItem): boolean {
   const designation = typeof neo.designation === 'string' ? neo.designation.trim() : '';
   if (designation.includes('/')) return true;
@@ -170,7 +174,7 @@ function createNeoCandidate(neo: NeoItem): NeoCandidate | null {
   const keys = new Set<string>();
   const pushKey = (value: string | number | null | undefined) => {
     if (value == null) return;
-    const normalized = normalizeKey(String(value));
+    const normalized = normalizeEntryKey(String(value));
     if (!normalized || normalized === 'null' || normalized === 'undefined') return;
     keys.add(normalized);
   };
@@ -181,7 +185,7 @@ function createNeoCandidate(neo: NeoItem): NeoCandidate | null {
 
   let nameKey: string | null = null;
   if (typeof neo.name === 'string') {
-    const normalized = normalizeKey(neo.name);
+    const normalized = normalizeEntryKey(neo.name);
     if (normalized && normalized !== 'null' && normalized !== 'undefined') {
       nameKey = normalized;
       keys.add(normalized);
@@ -662,10 +666,6 @@ export async function initNeo3D(
   const sbdbEntries = new Map<string, LoadedSbdbEntry>();
   const sbdbAliasIndex = new Map<string, string>();
 
-  function normalizeKey(value: string): string {
-    return value.trim().toLowerCase();
-  }
-
   function makeColorFor(label: string): number {
     if (/atlas/i.test(label)) return 0xf87171;
     let hash = 0;
@@ -1046,7 +1046,7 @@ export async function initNeo3D(
   async function addSBDBObject(raw: string): Promise<void> {
     const query = raw.trim();
     if (!query) return;
-    const key = normalizeKey(query);
+    const key = normalizeEntryKey(query);
     if (sbdbAliasIndex.has(key)) {
       const existingId = sbdbAliasIndex.get(key);
       const existing = existingId ? sbdbEntries.get(existingId) : undefined;
@@ -1061,7 +1061,7 @@ export async function initNeo3D(
       const aliasSet = new Set<string>();
       const pushAlias = (value: string | null | undefined) => {
         if (typeof value !== 'string') return;
-        const normalized = normalizeKey(value);
+        const normalized = normalizeEntryKey(value);
         if (!normalized) return;
         aliasSet.add(normalized);
       };
@@ -1172,8 +1172,8 @@ export async function initNeo3D(
 
       const entryId = `sbdb:${sbdbCounter += 1}`;
       const primaryKey =
-        (row?.id && aliasSet.has(normalizeKey(row.id)) ? normalizeKey(row.id) : null) ??
-        (aliasSet.has(normalizeKey(label)) ? normalizeKey(label) : null) ??
+        (row?.id && aliasSet.has(normalizeEntryKey(row.id)) ? normalizeEntryKey(row.id) : null) ??
+        (aliasSet.has(normalizeEntryKey(label)) ? normalizeEntryKey(label) : null) ??
         normalizedKeys[0] ?? key;
 
       const entryInfo: LoadedSbdbEntry = {
