@@ -11,6 +11,7 @@ export default defineConfig({
         neo3d: 'neo3d.html',
         storm: 'storm.html',
         events: 'events.html',
+        exo: 'exo.html',
       },
     },
   },
