@@ -5,7 +5,7 @@ import type { NextApproach } from '../lib/neo-client';
 import type { NeoCloseApproach, NeoItem } from '../types/nasa';
 import { initNeo3D } from './neo3d';
 
-const NEO_FETCH = { pageSize: 100, maxPages: 5, limit: 50 } as const;
+const NEO_FETCH = { pageSize: 100, maxPages: 5, limit: 250 } as const;
 
 type CatalogOptions = {
   pageSize: number;
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     neos = await fetchNeoCatalog({ ...NEO_FETCH });
     controller?.setNeos(neos);
     const summary = document.getElementById('neo3d-neo-summary');
-    if (summary) {
+    if (summary && !controller) {
       summary.textContent = `Loaded ${neos.length} near-Earth objects.`;
     }
   } catch (error) {

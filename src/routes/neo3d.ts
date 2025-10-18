@@ -571,11 +571,23 @@ export async function initNeo3D(
     updateSpeed();
   }
 
-  const neoEntries = new Map<string, { spec: SmallBodySpec; enabled: boolean; checkbox: HTMLInputElement | null }>();
-  let totalNeosListed = 0;
+  type EntrySource = 'neo' | 'sbdb';
+
+  type NeoEntry = {
+    spec: SmallBodySpec;
+    enabled: boolean;
+    checkbox: HTMLInputElement | null;
+    element: HTMLDivElement;
+    normalizedKeys: string[];
+    source: EntrySource;
+  };
+
+  const neoEntries = new Map<string, NeoEntry>();
+  const entryKeyIndex = new Map<string, string>();
   let allNeos: NeoItem[] = [];
   let nextNeoIndex = 0;
-  const loadedSBDB = new Map<string, { spec: SmallBodySpec; chip: HTMLSpanElement | null }>();
+  let sbdbCounter = 0;
+  const loadedSBDB = new Map<string, { spec: SmallBodySpec; chip: HTMLSpanElement | null; entryId: string }>();
 
   function normalizeKey(value: string): string {
     return value.trim().toLowerCase();
@@ -591,8 +603,14 @@ export async function initNeo3D(
     return hues[Math.abs(hash) % hues.length];
   }
 
-  const renderNeoEmptyState = () => {
+  const clearEmptyState = () => {
     if (!neoList) return;
+    const empty = neoList.querySelector('.neo3d-empty');
+    empty?.remove();
+  };
+
+  const renderNeoEmptyState = () => {
+    if (!neoList || neoEntries.size > 0) return;
     neoList.innerHTML = '';
     const empty = document.createElement('div');
     empty.className = 'neo3d-empty';
@@ -628,26 +646,90 @@ export async function initNeo3D(
     neoLoadMore.textContent = `Load ${nextCount} more`;
   };
 
-  const syncSbdbBodies = () => {
-    if (loadedSBDB.size === 0) return;
-    const specs = Array.from(loadedSBDB.values(), (entry) => entry.spec);
-    if (specs.length > 0) {
-      simulation.addSmallBodies(specs);
+  const registerEntryKeys = (id: string, keys: string[]) => {
+    for (const key of keys) {
+      if (key) {
+        entryKeyIndex.set(key, id);
+      }
     }
+  };
+
+  const unregisterEntryKeys = (id: string) => {
+    for (const [key, value] of entryKeyIndex.entries()) {
+      if (value === id) {
+        entryKeyIndex.delete(key);
+      }
+    }
+  };
+
+  const insertEntryElement = (entry: NeoEntry, anchor?: Element | null) => {
+    if (!neoList) return;
+    if (anchor && anchor.parentElement === neoList) {
+      neoList.insertBefore(entry.element, anchor);
+    } else {
+      if (entry.source === 'neo') {
+        const sbdbAnchor = neoList.querySelector('[data-source="sbdb"]');
+        if (sbdbAnchor) {
+          neoList.insertBefore(entry.element, sbdbAnchor);
+          return;
+        }
+      }
+      neoList.appendChild(entry.element);
+    }
+  };
+
+  const addEntry = (id: string, entry: NeoEntry, anchor?: Element | null) => {
+    registerEntryKeys(id, entry.normalizedKeys);
+    neoEntries.set(id, entry);
+    clearEmptyState();
+    insertEntryElement(entry, anchor);
+  };
+
+  const removeEntry = (id: string) => {
+    const entry = neoEntries.get(id);
+    if (!entry) return;
+    unregisterEntryKeys(id);
+    entry.element.remove();
+    neoEntries.delete(id);
+    if (neoEntries.size === 0) {
+      renderNeoEmptyState();
+    }
+  };
+
+  const removeEntriesBySource = (source: EntrySource) => {
+    const ids = Array.from(neoEntries.entries())
+      .filter(([, entry]) => entry.source === source)
+      .map(([id]) => id);
+    for (const id of ids) {
+      removeEntry(id);
+    }
+  };
+
+  const countEntries = () => {
+    let neoCount = 0;
+    let sbdbCount = 0;
+    let enabledCount = 0;
+    for (const entry of neoEntries.values()) {
+      if (entry.source === 'neo') {
+        neoCount += 1;
+      } else {
+        sbdbCount += 1;
+      }
+      if (entry.enabled) {
+        enabledCount += 1;
+      }
+    }
+    return { neoCount, sbdbCount, enabledCount, total: neoCount + sbdbCount };
   };
 
   const updateAllToggleState = () => {
     if (!neoAllToggle) return;
-    const total = neoEntries.size;
+    const { total, enabledCount } = countEntries();
     if (total === 0) {
       neoAllToggle.checked = false;
       neoAllToggle.indeterminate = false;
       neoAllToggle.disabled = true;
       return;
-    }
-    let enabledCount = 0;
-    for (const entry of neoEntries.values()) {
-      if (entry.enabled) enabledCount += 1;
     }
     neoAllToggle.disabled = false;
     neoAllToggle.checked = enabledCount === total;
@@ -656,8 +738,8 @@ export async function initNeo3D(
 
   const updateNeoSummary = () => {
     if (!neoSummary) return;
-    const total = totalNeosListed;
-    if (total === 0) {
+    const counts = countEntries();
+    if (counts.total === 0) {
       if (!allNeos.length) {
         neoSummary.textContent = 'Awaiting NEO data…';
       } else if (nextNeoIndex >= allNeos.length) {
@@ -667,18 +749,23 @@ export async function initNeo3D(
       }
       return;
     }
-    let enabledCount = 0;
-    for (const entry of neoEntries.values()) {
-      if (entry.enabled) enabledCount += 1;
-    }
-    const noun = total === 1 ? 'NEO' : 'NEOs';
     let message: string;
-    if (enabledCount === 0) {
-      message = `All ${noun} hidden.`;
-    } else if (enabledCount === total) {
-      message = `Showing all ${total} ${noun}.`;
+    if (counts.enabledCount === 0) {
+      message = 'All objects hidden.';
+    } else if (counts.enabledCount === counts.total) {
+      message = `Showing all ${counts.total} objects.`;
     } else {
-      message = `Showing ${enabledCount} of ${total} ${noun}.`;
+      message = `Showing ${counts.enabledCount} of ${counts.total} objects.`;
+    }
+    const details: string[] = [];
+    if (counts.neoCount > 0) {
+      details.push(`${counts.neoCount} ${counts.neoCount === 1 ? 'NEO' : 'NEOs'}`);
+    }
+    if (counts.sbdbCount > 0) {
+      details.push(`${counts.sbdbCount} SBDB ${counts.sbdbCount === 1 ? 'object' : 'objects'}`);
+    }
+    if (details.length) {
+      message = `${message} (${details.join(' • ')})`;
     }
     const remaining = getRemainingNeos();
     if (remaining > 0) {
@@ -694,7 +781,15 @@ export async function initNeo3D(
     updateLoadMoreState();
   };
 
-  const updateSmallBodies = () => {
+  const formatDiameterValue = (km: number | undefined | null): string | null => {
+    if (!(typeof km === 'number' && Number.isFinite(km)) || km <= 0) return null;
+    if (km >= 1) return `${km.toFixed(2)} km`;
+    const meters = km * 1000;
+    if (meters >= 1) return `${meters.toFixed(0)} m`;
+    return `${(meters * 100).toFixed(0)} cm`;
+  };
+
+  function updateSmallBodies() {
     const bodies: SmallBodySpec[] = [];
     for (const entry of neoEntries.values()) {
       if (entry.enabled) {
@@ -702,14 +797,98 @@ export async function initNeo3D(
       }
     }
     simulation.setSmallBodies(bodies);
-    syncSbdbBodies();
+  }
+
+  interface ListEntryOptions {
+    id: string;
+    spec: SmallBodySpec;
+    name: string;
+    metaParts: string[];
+    hazard?: string | null;
+    defaultEnabled: boolean;
+    normalizedKeys: string[];
+    source: EntrySource;
+  }
+
+  const createListEntry = ({
+    id,
+    spec,
+    name,
+    metaParts,
+    hazard,
+    defaultEnabled,
+    normalizedKeys,
+    source,
+  }: ListEntryOptions): NeoEntry => {
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = defaultEnabled;
+    checkbox.id = `neo3d-entry-${id}`;
+    checkbox.className = 'neo3d-neo-checkbox';
+
+    const item = document.createElement('div');
+    item.className = 'neo3d-neo-item';
+    item.dataset.entryId = id;
+    item.dataset.source = source;
+    item.setAttribute('role', 'listitem');
+
+    const label = document.createElement('label');
+
+    const nameRow = document.createElement('span');
+    nameRow.className = 'neo3d-neo-name';
+
+    const colorDot = document.createElement('span');
+    colorDot.className = 'neo3d-neo-color';
+    colorDot.style.background = hexColor(spec.color ?? 0x22d3ee);
+
+    nameRow.appendChild(checkbox);
+    nameRow.appendChild(colorDot);
+    const nameText = document.createElement('span');
+    nameText.textContent = name;
+    nameRow.appendChild(nameText);
+
+    const meta = document.createElement('span');
+    meta.className = 'neo3d-neo-meta';
+    const filteredMeta = metaParts.filter((part) => part && part.trim().length > 0);
+    meta.textContent = filteredMeta.length ? filteredMeta.join(' • ') : '—';
+
+    label.appendChild(nameRow);
+    label.appendChild(meta);
+
+    if (hazard) {
+      const hazardTag = document.createElement('span');
+      hazardTag.className = 'neo3d-neo-hazard';
+      hazardTag.textContent = hazard;
+      label.appendChild(hazardTag);
+    }
+
+    item.appendChild(label);
+
+    const entry: NeoEntry = {
+      spec,
+      enabled: defaultEnabled,
+      checkbox,
+      element: item,
+      normalizedKeys,
+      source,
+    };
+
+    checkbox.addEventListener('change', () => {
+      entry.enabled = checkbox.checked;
+      updateSmallBodies();
+      refreshNeoUi();
+    });
+
+    return entry;
   };
 
   const loadNextNeos = (batchSize = NEO_BATCH_SIZE) => {
     if (!allNeos.length) {
-      totalNeosListed = 0;
       updateSmallBodies();
       refreshNeoUi();
+      if (neoEntries.size === 0) {
+        renderNeoEmptyState();
+      }
       return;
     }
 
@@ -731,50 +910,25 @@ export async function initNeo3D(
       if (neoEntries.size === 0) {
         renderNeoEmptyState();
       }
-      totalNeosListed = neoEntries.size;
       updateSmallBodies();
       refreshNeoUi();
       return;
     }
 
-    if (neoList && neoEntries.size === 0) {
-      neoList.innerHTML = '';
-    }
-
-    const fragment = document.createDocumentFragment();
     const defaultEnabled =
       neoAllToggle && !neoAllToggle.disabled && !neoAllToggle.indeterminate
         ? neoAllToggle.checked
         : true;
 
+    const anchor = neoList?.querySelector('[data-source="sbdb"]') ?? null;
+
     for (const { neo, spec } of entriesToAdd) {
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = defaultEnabled;
-      checkbox.id = `neo3d-neo-${neo.id}`;
-      checkbox.className = 'neo3d-neo-checkbox';
-
-      const item = document.createElement('div');
-      item.className = 'neo3d-neo-item';
-      item.setAttribute('role', 'listitem');
-
-      const label = document.createElement('label');
-
-      const nameRow = document.createElement('span');
-      nameRow.className = 'neo3d-neo-name';
-
-      const colorDot = document.createElement('span');
-      colorDot.className = 'neo3d-neo-color';
-      colorDot.style.background = hexColor(spec.color ?? 0x22d3ee);
-
-      nameRow.appendChild(checkbox);
-      nameRow.appendChild(colorDot);
-      const nameText = document.createElement('span');
-      nameText.textContent = neo.name;
-      nameRow.appendChild(nameText);
-
-      const meta = document.createElement('span');
-      meta.className = 'neo3d-neo-meta';
+      const normalizedKeys = [neo.name, neo.id, neo.neo_reference_id, neo.designation]
+        .map((value) => (typeof value === 'string' ? normalizeKey(value) : ''))
+        .filter((key): key is string => Boolean(key && key !== 'null' && key !== 'undefined'));
+      if (normalizedKeys.some((key) => entryKeyIndex.has(key))) {
+        continue;
+      }
       const metaParts = [`H ${neo.absolute_magnitude_h.toFixed(1)}`];
       const sizeLabel = formatNeoSize(neo);
       if (sizeLabel) metaParts.push(`~${sizeLabel}`);
@@ -784,36 +938,21 @@ export async function initNeo3D(
       } else if (neo.next === null) {
         metaParts.push('Next: No future approaches on record.');
       }
-      meta.textContent = metaParts.join(' • ');
 
-      label.appendChild(nameRow);
-      label.appendChild(meta);
-
-      if (neo.is_potentially_hazardous_asteroid) {
-        const hazard = document.createElement('span');
-        hazard.className = 'neo3d-neo-hazard';
-        hazard.textContent = 'Potentially hazardous';
-        label.appendChild(hazard);
-      }
-
-      item.appendChild(label);
-      fragment.appendChild(item);
-
-      const entry = { spec, enabled: defaultEnabled, checkbox };
-      checkbox.addEventListener('change', () => {
-        entry.enabled = checkbox.checked;
-        updateSmallBodies();
-        refreshNeoUi();
+      const entryId = `neo:${neo.id}`;
+      const entry = createListEntry({
+        id: entryId,
+        spec,
+        name: neo.name,
+        metaParts,
+        hazard: neo.is_potentially_hazardous_asteroid ? 'Potentially hazardous' : null,
+        defaultEnabled,
+        normalizedKeys,
+        source: 'neo',
       });
-
-      neoEntries.set(neo.id, entry);
+      addEntry(entryId, entry, anchor);
     }
 
-    if (neoList) {
-      neoList.appendChild(fragment);
-    }
-
-    totalNeosListed = neoEntries.size;
     updateSmallBodies();
     refreshNeoUi();
   };
@@ -823,18 +962,28 @@ export async function initNeo3D(
     if (!query) return;
     const key = normalizeKey(query);
     if (loadedSBDB.has(key)) {
-      toast(`Already added: ${query}`);
+      toastError(`Already added: ${query}`);
       return;
     }
 
     try {
-      const { conic, label } = await loadSBDBConic(query);
+      const { conic, label, row } = await loadSBDBConic(query);
 
-      for (const entry of loadedSBDB.values()) {
-        if (normalizeKey(entry.spec.name) === normalizeKey(label)) {
-          toast(`Already added: ${label}`);
+      const candidateKeys = new Set<string>();
+      candidateKeys.add(key);
+      candidateKeys.add(normalizeKey(label));
+      if (row?.id) candidateKeys.add(normalizeKey(row.id));
+      if (row?.name) candidateKeys.add(normalizeKey(row.name));
+
+      for (const candidate of candidateKeys) {
+        if (!candidate) continue;
+        const existingId = entryKeyIndex.get(candidate);
+        if (existingId) {
+          const existing = neoEntries.get(existingId);
+          const existingLabel = existing?.spec.label ?? existing?.spec.name ?? label;
+          toastError(`${label} is already loaded as ${existingLabel}.`);
           return;
-      }
+        }
       }
 
       const color = makeColorFor(label);
@@ -886,7 +1035,41 @@ export async function initNeo3D(
         orbit: { color, segments, spanDays },
       };
 
-      simulation.addSmallBodies([spec]);
+      const normalizedKeys = Array.from(candidateKeys).filter(Boolean);
+      const defaultEnabled =
+        neoAllToggle && !neoAllToggle.disabled && !neoAllToggle.indeterminate
+          ? neoAllToggle.checked
+          : true;
+
+      const metaParts: string[] = [];
+      if (row?.H != null && Number.isFinite(row.H)) {
+        metaParts.push(`H ${row.H.toFixed(2)}`);
+      }
+      const sizeLabel = formatDiameterValue(row?.estDiameterKm ?? null);
+      if (sizeLabel) {
+        metaParts.push(`~${sizeLabel}`);
+      }
+      metaParts.push(`e ${conic.e.toFixed(4)}`);
+      metaParts.push(`q ${conic.q.toFixed(3)} au`);
+      if (row?.type) {
+        metaParts.push(row.type);
+      }
+
+      const entryId = `sbdb:${sbdbCounter += 1}`;
+      const entry = createListEntry({
+        id: entryId,
+        spec,
+        name: label,
+        metaParts,
+        hazard: null,
+        defaultEnabled,
+        normalizedKeys,
+        source: 'sbdb',
+      });
+      addEntry(entryId, entry);
+
+      updateSmallBodies();
+      refreshNeoUi();
 
       let chip: HTMLSpanElement | null = null;
       if (sbdbLoaded) {
@@ -897,7 +1080,9 @@ export async function initNeo3D(
         chip.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${swatch}"></span><span>${label}</span><button aria-label="Remove">×</button>`;
         const removeBtn = chip.querySelector('button');
         removeBtn?.addEventListener('click', () => {
-          simulation.removeSmallBody(spec.name);
+          removeEntry(entryId);
+          updateSmallBodies();
+          refreshNeoUi();
           loadedSBDB.delete(key);
           chip?.remove();
           updateSbdbLoadedState();
@@ -905,7 +1090,7 @@ export async function initNeo3D(
         sbdbLoaded.appendChild(chip);
       }
 
-      loadedSBDB.set(key, { spec, chip });
+      loadedSBDB.set(key, { spec, chip, entryId });
       toast(`Added SBDB: ${label}`);
       updateSbdbLoadedState();
     } catch (error) {
@@ -986,15 +1171,13 @@ export async function initNeo3D(
   const applyNeos = (neos: NeoItem[]) => {
     allNeos = [...neos];
     nextNeoIndex = 0;
-    neoEntries.clear();
-    totalNeosListed = 0;
-    if (neoList) {
-      neoList.innerHTML = '';
-    }
+    removeEntriesBySource('neo');
     updateSmallBodies();
+    refreshNeoUi();
     if (!allNeos.length) {
-      renderNeoEmptyState();
-      refreshNeoUi();
+      if (neoEntries.size === 0) {
+        renderNeoEmptyState();
+      }
       return;
     }
     loadNextNeos(NEO_BATCH_SIZE);
