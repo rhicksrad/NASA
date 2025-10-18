@@ -1,5 +1,5 @@
 /* src/api/epic.ts */
-import { WORKER_BASE, getTextOrJSON } from './base';
+import { getTextOrJSON } from './base';
 export interface EpicItem {
   identifier: string; // e.g. "20241001123456"
   caption: string;
@@ -18,11 +18,13 @@ export interface EpicDay {
 const EPIC_META_LATEST = '/epic/natural';
 const EPIC_META_BY_DATE = (date: string) => `/epic/natural/date/${date}`;
 
-const buildEpicArchivePath = (date: string, imageBase: string) => {
-  // date is "YYYY-MM-DD HH:MM:SS" → split
+// Build direct EPIC image URL (images are NOT on api.nasa.gov)
+const EPIC_IMG_URL = (date: string, imageBase: string) => {
+  // date is "YYYY-MM-DD HH:MM:SS"
   const [d] = date.split(' ');
   const [Y, M, D] = d.split('-');
-  return `/epic/archive/natural/${Y}/${M}/${D}/png/${imageBase}.png`;
+  // Direct archive host (no API key needed; public CDN)
+  return `https://epic.gsfc.nasa.gov/archive/natural/${Y}/${M}/${D}/png/${imageBase}.png`;
 };
 
 async function getEpicJSON<T>(path: string): Promise<T> {
@@ -43,7 +45,7 @@ export async function fetchEpicByDate(date: string): Promise<EpicDay> {
 }
 
 export function buildEpicImageUrl(item: EpicItem): string {
-  return `${WORKER_BASE}${buildEpicArchivePath(item.date, item.image)}`;
+  return EPIC_IMG_URL(item.date, item.image);
 }
 
 export function extractLatestDate(items: EpicItem[]): string | null {
