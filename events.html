@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EONET Explorer</title>
+<link rel="stylesheet" href="./assets/events.css">
+<body>
+<header class="bar">
+  <a class="home" href="./">← Home</a>
+  <h1>EONET Explorer</h1>
+</header>
+
+<main class="wrap">
+  <section class="controls card">
+    <form id="filters" class="row">
+      <label>Status
+        <select id="status" name="status">
+          <option value="open" selected>open</option>
+          <option value="closed">closed</option>
+        </select>
+      </label>
+      <label>Category
+        <select id="category" name="category">
+          <option value="">All</option>
+        </select>
+      </label>
+      <label>Start
+        <input id="start" name="start" type="date" required>
+      </label>
+      <label>End
+        <input id="end" name="end" type="date" required>
+      </label>
+      <button type="submit">Load</button>
+    </form>
+  </section>
+
+  <section class="grid">
+    <div class="panel card">
+      <h2>Live Event Map</h2>
+      <div id="map" class="map"></div>
+      <div id="legend" class="legend"></div>
+    </div>
+
+    <div class="panel card">
+      <h2>Events</h2>
+      <ul id="list" class="list"></ul>
+    </div>
+
+    <div class="panel card detail">
+      <h2 id="detailTitle">Event Detail</h2>
+      <article id="detail" class="markdown">Pick an event.</article>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./assets/events.js"></script>
+</body>
+</html>
