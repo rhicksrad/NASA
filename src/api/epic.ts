@@ -1,5 +1,5 @@
 /* src/api/epic.ts */
-import { getTextOrJSON } from './base';
+import { getTextOrJSON, HttpError } from './base';
 export interface EpicItem {
   identifier: string; // e.g. "20241001123456"
   caption: string;
@@ -40,8 +40,15 @@ export async function fetchEpicLatest(): Promise<EpicItem[]> {
 }
 
 export async function fetchEpicByDate(date: string): Promise<EpicDay> {
-  const items = await getEpicJSON<EpicItem[]>(EPIC_META_BY_DATE(date));
-  return { date, items: items.sort((a, b) => a.date.localeCompare(b.date)) };
+  try {
+    const items = await getEpicJSON<EpicItem[]>(EPIC_META_BY_DATE(date));
+    return { date, items: items.sort((a, b) => a.date.localeCompare(b.date)) };
+  } catch (err) {
+    if (err instanceof HttpError && (err.status === 404 || err.status === 503)) {
+      return { date, items: [] };
+    }
+    throw err;
+  }
 }
 
 export function buildEpicImageUrl(item: EpicItem): string {
