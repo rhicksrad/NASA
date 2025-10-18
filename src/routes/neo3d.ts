@@ -587,7 +587,16 @@ export async function initNeo3D(
   let allNeos: NeoItem[] = [];
   let nextNeoIndex = 0;
   let sbdbCounter = 0;
-  const loadedSBDB = new Map<string, { spec: SmallBodySpec; chip: HTMLSpanElement | null; entryId: string }>();
+  type LoadedSbdbEntry = {
+    spec: SmallBodySpec;
+    chip: HTMLSpanElement | null;
+    entryId: string;
+    keys: Set<string>;
+    primaryKey: string;
+    label: string;
+  };
+  const sbdbEntries = new Map<string, LoadedSbdbEntry>();
+  const sbdbAliasIndex = new Map<string, string>();
 
   function normalizeKey(value: string): string {
     return value.trim().toLowerCase();
@@ -623,9 +632,9 @@ export async function initNeo3D(
 
   const updateSbdbLoadedState = () => {
     if (sbdbLoadedEmpty) {
-      sbdbLoadedEmpty.hidden = loadedSBDB.size > 0;
+      sbdbLoadedEmpty.hidden = sbdbEntries.size > 0;
     }
-    if (sbdbLoaded && loadedSBDB.size === 0) {
+    if (sbdbLoaded && sbdbEntries.size === 0) {
       sbdbLoaded.innerHTML = '';
     }
   };
@@ -688,6 +697,18 @@ export async function initNeo3D(
   const removeEntry = (id: string) => {
     const entry = neoEntries.get(id);
     if (!entry) return;
+    if (entry.source === 'sbdb') {
+      const sbdbEntry = sbdbEntries.get(id);
+      if (sbdbEntry) {
+        for (const aliasKey of sbdbEntry.keys) {
+          sbdbAliasIndex.delete(aliasKey);
+        }
+        sbdbEntry.chip?.remove();
+        sbdbEntry.chip = null;
+        sbdbEntries.delete(id);
+      }
+      updateSbdbLoadedState();
+    }
     unregisterEntryKeys(id);
     entry.element.remove();
     neoEntries.delete(id);
@@ -961,19 +982,37 @@ export async function initNeo3D(
     const query = raw.trim();
     if (!query) return;
     const key = normalizeKey(query);
-    if (loadedSBDB.has(key)) {
-      toastError(`Already added: ${query}`);
+    if (sbdbAliasIndex.has(key)) {
+      const existingId = sbdbAliasIndex.get(key);
+      const existing = existingId ? sbdbEntries.get(existingId) : undefined;
+      const label = existing?.label ?? query;
+      toastError(`Already added: ${label}`);
       return;
     }
 
     try {
-      const { conic, label, row } = await loadSBDBConic(query);
+      const { conic, label, row, aliases } = await loadSBDBConic(query);
 
-      const candidateKeys = new Set<string>();
-      candidateKeys.add(key);
-      candidateKeys.add(normalizeKey(label));
-      if (row?.id) candidateKeys.add(normalizeKey(row.id));
-      if (row?.name) candidateKeys.add(normalizeKey(row.name));
+      const aliasSet = new Set<string>();
+      const pushAlias = (value: string | null | undefined) => {
+        if (typeof value !== 'string') return;
+        const normalized = normalizeKey(value);
+        if (!normalized) return;
+        aliasSet.add(normalized);
+      };
+
+      pushAlias(query);
+      pushAlias(label);
+      if (row?.id) pushAlias(row.id);
+      if (row?.name) pushAlias(row.name);
+      for (const alias of aliases) {
+        pushAlias(alias);
+      }
+
+      const candidateKeys = Array.from(aliasSet);
+      if (candidateKeys.length === 0) {
+        candidateKeys.push(key);
+      }
 
       for (const candidate of candidateKeys) {
         if (!candidate) continue;
@@ -981,6 +1020,13 @@ export async function initNeo3D(
         if (existingId) {
           const existing = neoEntries.get(existingId);
           const existingLabel = existing?.spec.label ?? existing?.spec.name ?? label;
+          toastError(`${label} is already loaded as ${existingLabel}.`);
+          return;
+        }
+        const existingSbdbId = sbdbAliasIndex.get(candidate);
+        if (existingSbdbId) {
+          const existing = sbdbEntries.get(existingSbdbId);
+          const existingLabel = existing?.label ?? label;
           toastError(`${label} is already loaded as ${existingLabel}.`);
           return;
         }
@@ -1039,7 +1085,7 @@ export async function initNeo3D(
         orbit: { color, segments, spanDays },
       };
 
-      const normalizedKeys = Array.from(candidateKeys).filter(Boolean);
+      const normalizedKeys = candidateKeys.length > 0 ? candidateKeys : [key];
       const defaultEnabled =
         neoAllToggle && !neoAllToggle.disabled && !neoAllToggle.indeterminate
           ? neoAllToggle.checked
@@ -1060,6 +1106,20 @@ export async function initNeo3D(
       }
 
       const entryId = `sbdb:${sbdbCounter += 1}`;
+      const primaryKey =
+        (row?.id && aliasSet.has(normalizeKey(row.id)) ? normalizeKey(row.id) : null) ??
+        (aliasSet.has(normalizeKey(label)) ? normalizeKey(label) : null) ??
+        normalizedKeys[0] ?? key;
+
+      const entryInfo: LoadedSbdbEntry = {
+        spec,
+        chip: null,
+        entryId,
+        keys: new Set(normalizedKeys),
+        primaryKey,
+        label,
+      };
+
       const entry = createListEntry({
         id: entryId,
         spec,
@@ -1067,9 +1127,15 @@ export async function initNeo3D(
         metaParts,
         hazard: null,
         defaultEnabled,
-        normalizedKeys,
+        normalizedKeys: Array.from(entryInfo.keys),
         source: 'sbdb',
       });
+
+      sbdbEntries.set(entryId, entryInfo);
+      for (const aliasKey of entryInfo.keys) {
+        sbdbAliasIndex.set(aliasKey, entryId);
+      }
+
       addEntry(entryId, entry);
 
       updateSmallBodies();
@@ -1079,7 +1145,7 @@ export async function initNeo3D(
       if (sbdbLoaded) {
         chip = document.createElement('span');
         chip.className = 'sbdb-chip';
-        chip.dataset.key = key;
+        chip.dataset.key = entryInfo.primaryKey;
         const swatch = `#${color.toString(16).padStart(6, '0')}`;
         chip.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${swatch}"></span><span>${label}</span><button aria-label="Remove">×</button>`;
         const removeBtn = chip.querySelector('button');
@@ -1087,14 +1153,11 @@ export async function initNeo3D(
           removeEntry(entryId);
           updateSmallBodies();
           refreshNeoUi();
-          loadedSBDB.delete(key);
-          chip?.remove();
-          updateSbdbLoadedState();
         });
         sbdbLoaded.appendChild(chip);
       }
 
-      loadedSBDB.set(key, { spec, chip, entryId });
+      entryInfo.chip = chip;
       toast(`Added SBDB: ${label}`);
       updateSbdbLoadedState();
     } catch (error) {
