@@ -1,44 +1,66 @@
 .neo-card {
   display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 0.6rem;
+  grid-template-columns: 84px 1fr;
+  gap: 0.85rem;
   align-items: start;
+  background: rgba(15, 23, 42, 0.82);
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 0.75rem;
+  box-shadow: 0 18px 30px rgba(2, 6, 23, 0.48);
+  transition: transform 160ms ease, box-shadow 160ms ease, border 160ms ease;
 }
 
-.neo-thumb {
-  width: 72px;
-  height: 72px;
-  border-radius: 6px;
-  background: #f2f4f8;
+.neo-card:hover,
+.neo-card:focus-within {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 24px 40px rgba(56, 189, 248, 0.28);
+}
+
+.neo-thumb,
+.neo-skel {
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.4);
   object-fit: cover;
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.35);
 }
 
 .neo-title {
   font-weight: 600;
+  font-size: 1rem;
+  color: #f8fafc;
 }
 
 .neo-meta {
-  color: #444;
+  color: rgba(226, 232, 240, 0.7);
   font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .neo-asset-link {
   font-size: 0.85rem;
-  color: #0b3d91;
+  color: #38bdf8;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.neo-asset-link:hover,
+.neo-asset-link:focus-visible {
+  color: #f8fafc;
   text-decoration: underline;
 }
 
 .neo-skel {
-  width: 72px;
-  height: 72px;
-  border-radius: 6px;
-  background: #e6edf6;
   animation: neoPulse 1.2s ease-in-out infinite;
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.16), rgba(56, 189, 248, 0.25));
 }
 
 @keyframes neoPulse {
   0% {
-    opacity: 0.5;
+    opacity: 0.6;
   }
 
   50% {
@@ -46,6 +68,6 @@
   }
 
   100% {
-    opacity: 0.5;
+    opacity: 0.6;
   }
 }
