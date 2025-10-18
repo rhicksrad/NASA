@@ -23,6 +23,7 @@
     .controls .row { grid-column:1 / -1; display:flex; gap:10px; align-items:end; }
     button { padding:9px 12px; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:8px; cursor:pointer; }
     button.primary { background:var(--accent); border-color:var(--accent); color:#041208; }
+    button.example { background:transparent; border-style:dashed; border-color:var(--muted); color:var(--fg); font-weight:500; }
     .cards { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
     .card { padding:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
     .stat { font-variant-numeric: tabular-nums; }
@@ -34,9 +35,14 @@
     .toolbar { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin:8px 0; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
     canvas { width:100% !important; height:400px !important; }
+    .examples { margin:12px 0 28px; padding:16px; border:1px solid var(--line); border-radius:12px; background:color-mix(in srgb, var(--card) 92%, transparent); display:flex; flex-direction:column; gap:10px; }
+    .examples h2 { margin:0; font-size:16px; }
+    .examples p { margin:0; color:var(--muted); max-width:720px; }
+    .examples-buttons { display:flex; flex-wrap:wrap; gap:10px; }
     @media (max-width: 920px) {
       .controls { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .cards { grid-template-columns: 1fr; }
+      .examples-buttons { flex-direction:column; align-items:stretch; }
     }
   </style>
 </head>
@@ -98,6 +104,16 @@
       </div>
     </section>
 
+    <section class="examples" aria-label="examples">
+      <h2>Try a curated example</h2>
+      <p>New to exoplanets? These presets highlight interesting subsets of NASA Exoplanet Archive data.</p>
+      <div class="examples-buttons">
+        <button type="button" class="example" data-example="temperate">Temperate TESS super-Earths</button>
+        <button type="button" class="example" data-example="hotJupiter">Scorching hot Jupiters</button>
+        <button type="button" class="example" data-example="keplerHabZone">Kepler habitable zone finds</button>
+      </div>
+    </section>
+
     <section class="cards">
       <div class="card">
         <h3 style="margin:0 0 8px">Mass–Radius</h3>
@@ -123,7 +139,7 @@
 
     <section style="margin-top:16px">
       <div class="toolbar">
-        <span class="mono" id="hint"></span>
+        <span class="mono" id="hint">Use the filters above or start with a preset.</span>
       </div>
       <div class="table" id="tblWrap">
         <table id="tbl">

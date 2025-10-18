@@ -1,6 +1,8 @@
+/* global Chart */
 // Exoplanet Explorer frontend
 // Fetches from your Worker: /exo/ps, /exo/pscomp, /exo/tap
-const W = location.origin; // same origin as the worker sits behind your domain/proxy
+const WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
+const W = WORKER_BASE;
 
 const el = (id) => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
@@ -21,6 +23,7 @@ const statusEl = el('status');
 const adqlEl   = el('adql');
 const rowsEl   = el('rows');
 const hintEl   = el('hint');
+const exampleButtons = Array.from(document.querySelectorAll('[data-example]'));
 
 const sumCount = el('sumCount');
 const sumR = el('sumR');
@@ -28,6 +31,22 @@ const sumT = el('sumT');
 const sumMass = el('sumMass');
 
 let mrChart;
+let activeExampleDesc = '';
+
+const EXAMPLE_FILTERS = {
+  temperate: {
+    filters: { facility: 'TESS', yearMin: 2018, rMin: 0.8, rMax: 1.8, tMin: 180, tMax: 320 },
+    description: 'Example: temperate TESS candidates in the super-Earth range.'
+  },
+  hotJupiter: {
+    filters: { facility: '', yearMin: 2000, rMin: 8, rMax: '', tMin: 800, tMax: '' },
+    description: 'Example: very large, hot worlds often called “hot Jupiters”.'
+  },
+  keplerHabZone: {
+    filters: { facility: 'Kepler', yearMin: 2009, rMin: 0.7, rMax: 1.6, tMin: 150, tMax: 300 },
+    description: 'Example: Kepler discoveries near the classical habitable zone.'
+  }
+};
 
 initFromURL();
 wire();
@@ -36,7 +55,6 @@ async function run() {
   const ctrl = new AbortController();
   const q = getState();
   const { where, filtersDesc } = whereClause(q);
-  const select = 'pl_name,hostname,pl_rade,pl_masse,pl_eqt,ra,dec,pl_orbper,disc_year';
   const adql =
 `SELECT TOP 1000 pl_name, hostname,
   AVG(pl_rade) AS rade,
@@ -52,7 +70,8 @@ ORDER BY eqt`;
 
   adqlEl.textContent = adql;
 
-  const url = `${W}/exo/tap?adql=${encodeURIComponent(adql)}`;
+  const url = new URL('/exo/tap', W);
+  url.searchParams.set('adql', adql);
   const t0 = performance.now();
   setStatus('Loading…');
   let data;
@@ -69,7 +88,8 @@ ORDER BY eqt`;
   const rows = normalizeRows(data);
   const dt = (performance.now() - t0).toFixed(0);
   setStatus(`${rows.length} rows in ${dt} ms`);
-  hintEl.textContent = filtersDesc;
+  const hintText = activeExampleDesc ? `${filtersDesc} • ${activeExampleDesc}` : filtersDesc;
+  hintEl.textContent = hintText;
 
   renderTable(rows);
   renderSummary(rows);
@@ -187,9 +207,15 @@ function getState() {
     tMax:     inputs.tMax.value.trim(),
   };
 }
-function setState(obj) {
+function setState(obj, { clear = false } = {}) {
+  if (clear) {
+    for (const key of Object.keys(inputs)) {
+      inputs[key].value = '';
+    }
+  }
   for (const [k,v] of Object.entries(obj)) {
-    if (k in inputs && v != null && v !== '') inputs[k].value = String(v);
+    if (!(k in inputs)) continue;
+    inputs[k].value = v == null ? '' : String(v);
   }
 }
 function initFromURL() {
@@ -201,6 +227,7 @@ function initFromURL() {
 }
 function wire() {
   btnFetch.addEventListener('click', () => {
+    activeExampleDesc = '';
     syncURL();
     run();
   });
@@ -227,6 +254,22 @@ function wire() {
   Object.values(inputs).forEach(inp => inp.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { syncURL(); run(); }
   }));
+  Object.values(inputs).forEach(inp => inp.addEventListener('input', () => {
+    activeExampleDesc = '';
+  }));
+
+  exampleButtons.forEach((btn) => {
+    const key = btn.dataset.example;
+    const preset = EXAMPLE_FILTERS[key];
+    if (!preset) return;
+    btn.title = preset.description;
+    btn.addEventListener('click', () => {
+      setState(preset.filters, { clear: true });
+      activeExampleDesc = preset.description;
+      syncURL();
+      run();
+    });
+  });
 
   // Auto-run on first load
   run();
