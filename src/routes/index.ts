@@ -1,5 +1,4 @@
 import { initMarsPage } from './mars_page';
-import { initImagesPage } from './images';
 import { initImagesExplorerPage } from './imagesExplorer';
 
 type RouteHandler = (host: HTMLElement) => void | (() => void);
@@ -11,7 +10,6 @@ export function initRouter() {
   }
 
   const marsLink = document.querySelector<HTMLAnchorElement>('#nav-mars');
-  const imagesLink = document.querySelector<HTMLAnchorElement>('#nav-images');
   const imagesExplorerLink = document.querySelector<HTMLAnchorElement>('#nav-images-explorer');
   const homeHtml = host.innerHTML;
 
@@ -19,7 +17,6 @@ export function initRouter() {
     '/mars': container => {
       initMarsPage(container);
     },
-    '/images': container => initImagesPage(container),
     '/images/explorer': container => initImagesExplorerPage(container),
   };
 
@@ -48,13 +45,6 @@ export function initRouter() {
         marsLink.removeAttribute('aria-current');
       }
     }
-    if (imagesLink) {
-      if (pathname === '/images') {
-        imagesLink.setAttribute('aria-current', 'page');
-      } else {
-        imagesLink.removeAttribute('aria-current');
-      }
-    }
     if (imagesExplorerLink) {
       if (pathname === '/images/explorer') {
         imagesExplorerLink.setAttribute('aria-current', 'page');
@@ -69,6 +59,12 @@ export function initRouter() {
     const path = hash.startsWith('#') ? hash.slice(1) : hash;
     const [rawPathname] = path.split('?');
     const normalizedPath = normalizePathname(rawPathname);
+    if (normalizedPath === '/images') {
+      if (window.location.hash !== '#/images/explorer') {
+        window.location.hash = '#/images/explorer';
+      }
+      return;
+    }
     const handler = routes[normalizedPath];
     if (handler) {
       cleanup?.();
