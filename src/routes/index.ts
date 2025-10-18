@@ -1,4 +1,4 @@
-import { initMarsPage } from './mars_page';
+import { mountMarsPage } from './marsImages';
 import { initImagesExplorerPage } from './imagesExplorer';
 
 type RouteHandler = (host: HTMLElement) => void | (() => void);
@@ -14,9 +14,7 @@ export function initRouter() {
   const homeHtml = host.innerHTML;
 
   const routes: Record<string, RouteHandler> = {
-    '/mars': container => {
-      initMarsPage(container);
-    },
+    '/mars': container => mountMarsPage(container),
     '/images/explorer': container => initImagesExplorerPage(container),
   };
 
