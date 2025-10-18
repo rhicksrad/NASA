@@ -18,6 +18,7 @@ const GAUSSIAN_K = 0.01720209895;
 const DEFAULT_RANGE_DAYS = 120;
 const MIN_RANGE_SPAN_DAYS = 1 / 24;
 const SLIDER_STEP_DAYS = 1 / 24;
+const MAX_PLANET_SAMPLES = 360;
 
 const SPEED_PRESETS: Array<{ seconds: number; label: string }> = [
   { seconds: 3600, label: '1 hr/s' },
@@ -187,6 +188,7 @@ class PlanetEphemeris {
   private pending = new Map<string, Promise<void>>();
   private fetched = new Set<string>();
   private radius: number | null = null;
+  private lastRequestedJd: number | null = null;
 
   constructor(private readonly spk: number) {}
 
@@ -202,6 +204,8 @@ class PlanetEphemeris {
     if (this.samples.length < 2) return null;
 
     const targetJd = jdFromDateUTC(date);
+    this.lastRequestedJd = targetJd;
+    this.trimSamples(targetJd);
     let previous = this.samples[0];
     let next = this.samples[this.samples.length - 1];
     for (const sample of this.samples) {
@@ -259,9 +263,7 @@ class PlanetEphemeris {
           }
         }
         this.samples.sort((a, b) => a.jd - b.jd);
-        if (this.samples.length > 10) {
-          this.samples.splice(0, this.samples.length - 10);
-        }
+        this.trimSamples(this.lastRequestedJd);
         this.fetched.add(startIso);
       })
       .catch((error) => {
@@ -274,6 +276,26 @@ class PlanetEphemeris {
 
     this.pending.set(startIso, promise);
     return promise;
+  }
+
+  private trimSamples(aroundJd: number | null): void {
+    if (this.samples.length <= MAX_PLANET_SAMPLES) return;
+    if (aroundJd == null || !Number.isFinite(aroundJd)) {
+      this.samples.splice(0, this.samples.length - MAX_PLANET_SAMPLES);
+      return;
+    }
+
+    while (this.samples.length > MAX_PLANET_SAMPLES) {
+      const first = this.samples[0];
+      const last = this.samples[this.samples.length - 1];
+      const distFirst = Math.abs(first.jd - aroundJd);
+      const distLast = Math.abs(last.jd - aroundJd);
+      if (distFirst > distLast) {
+        this.samples.shift();
+      } else {
+        this.samples.pop();
+      }
+    }
   }
 }
 
