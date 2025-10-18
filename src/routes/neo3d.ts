@@ -84,53 +84,117 @@ function differenceInDays(start: Date, end: Date): number {
   return (end.getTime() - start.getTime()) / DAY_MS;
 }
 
-function buildSmallBodyEntries(neos: NeoItem[]): Array<{ neo: NeoItem; spec: SmallBodySpec }> {
-  const bodies: Array<{ neo: NeoItem; spec: SmallBodySpec }> = [];
-  for (const neo of neos) {
-    const orbital = neo.orbital_data;
-    if (!orbital) continue;
+type NeoCandidate = {
+  neo: NeoItem;
+  spec: SmallBodySpec;
+  normalizedKeys: string[];
+  nameKey: string | null;
+  allowWeakName: boolean;
+};
 
-    const a = parseNumber(orbital.semi_major_axis);
-    const e = parseNumber(orbital.eccentricity);
-    const i = parseNumber(orbital.inclination);
-    const Omega = parseNumber(orbital.ascending_node_longitude);
-    const omega = parseNumber(orbital.perihelion_argument);
-    const M = parseNumber(orbital.mean_anomaly);
-    const epochJD = parseNumber(orbital.epoch_osculation);
+function isCometLike(neo: NeoItem): boolean {
+  const designation = typeof neo.designation === 'string' ? neo.designation.trim() : '';
+  if (designation.includes('/')) return true;
+  const orbitType = neo.orbital_data?.orbit_class?.orbit_class_type;
+  return typeof orbitType === 'string' && /comet/i.test(orbitType);
+}
 
-    if (
-      !Number.isFinite(a) ||
-      !Number.isFinite(e) ||
-      !Number.isFinite(i) ||
-      !Number.isFinite(Omega) ||
-      !Number.isFinite(omega) ||
-      !Number.isFinite(M) ||
-      !Number.isFinite(epochJD)
-    ) {
-      continue;
+function getNeoDisplayName(neo: NeoItem): string {
+  const designation = typeof neo.designation === 'string' ? neo.designation.trim() : '';
+  const name = typeof neo.name === 'string' ? neo.name.trim() : '';
+  if (designation) {
+    if (designation.includes('/') || !name) {
+      return designation;
     }
-
-    const els: Keplerian = {
-      a,
-      e,
-      i: i * DEG2RAD,
-      Omega: Omega * DEG2RAD,
-      omega: omega * DEG2RAD,
-      M: M * DEG2RAD,
-      epochJD,
-    };
-
-    const color = neo.is_potentially_hazardous_asteroid ? 0xef4444 : 0x22d3ee;
-    const segments = e < 1 ? 720 : 1600;
-    const orbit: NonNullable<SmallBodySpec['orbit']> = {
-      color,
-      segments,
-      spanDays: e < 1 ? undefined : 3200,
-    };
-
-    bodies.push({ neo, spec: { name: neo.name, color, els, orbit } });
   }
-  return bodies;
+  if (name) return name;
+  if (designation) return designation;
+  const id =
+    (typeof neo.id === 'string' && neo.id.trim()) ||
+    (typeof neo.neo_reference_id === 'string' && neo.neo_reference_id.trim()) ||
+    '';
+  return id ? `NEO ${id}` : 'Near-Earth Object';
+}
+
+function createNeoCandidate(neo: NeoItem): NeoCandidate | null {
+  const orbital = neo.orbital_data;
+  if (!orbital) return null;
+
+  const a = parseNumber(orbital.semi_major_axis);
+  const e = parseNumber(orbital.eccentricity);
+  const i = parseNumber(orbital.inclination);
+  const Omega = parseNumber(orbital.ascending_node_longitude);
+  const omega = parseNumber(orbital.perihelion_argument);
+  const M = parseNumber(orbital.mean_anomaly);
+  const epochJD = parseNumber(orbital.epoch_osculation);
+
+  if (
+    !Number.isFinite(a) ||
+    !Number.isFinite(e) ||
+    !Number.isFinite(i) ||
+    !Number.isFinite(Omega) ||
+    !Number.isFinite(omega) ||
+    !Number.isFinite(M) ||
+    !Number.isFinite(epochJD)
+  ) {
+    return null;
+  }
+
+  const els: Keplerian = {
+    a,
+    e,
+    i: i * DEG2RAD,
+    Omega: Omega * DEG2RAD,
+    omega: omega * DEG2RAD,
+    M: M * DEG2RAD,
+    epochJD,
+  };
+
+  const color = neo.is_potentially_hazardous_asteroid ? 0xef4444 : 0x22d3ee;
+  const segments = e < 1 ? 720 : 1600;
+  const orbit: NonNullable<SmallBodySpec['orbit']> = {
+    color,
+    segments,
+    spanDays: e < 1 ? undefined : 3200,
+  };
+
+  const displayName = getNeoDisplayName(neo);
+  const spec: SmallBodySpec = {
+    name: displayName,
+    label: displayName,
+    color,
+    els,
+    orbit,
+  };
+
+  const keys = new Set<string>();
+  const pushKey = (value: string | number | null | undefined) => {
+    if (value == null) return;
+    const normalized = normalizeKey(String(value));
+    if (!normalized || normalized === 'null' || normalized === 'undefined') return;
+    keys.add(normalized);
+  };
+
+  pushKey(neo.id);
+  pushKey(neo.neo_reference_id);
+  pushKey(neo.designation);
+
+  let nameKey: string | null = null;
+  if (typeof neo.name === 'string') {
+    const normalized = normalizeKey(neo.name);
+    if (normalized && normalized !== 'null' && normalized !== 'undefined') {
+      nameKey = normalized;
+      keys.add(normalized);
+    }
+  }
+
+  return {
+    neo,
+    spec,
+    normalizedKeys: Array.from(keys),
+    nameKey,
+    allowWeakName: isCometLike(neo),
+  };
 }
 
 function hexColor(color: number): string {
@@ -584,7 +648,7 @@ export async function initNeo3D(
 
   const neoEntries = new Map<string, NeoEntry>();
   const entryKeyIndex = new Map<string, string>();
-  let allNeos: NeoItem[] = [];
+  let allNeos: NeoCandidate[] = [];
   let nextNeoIndex = 0;
   let sbdbCounter = 0;
   type LoadedSbdbEntry = {
@@ -923,45 +987,52 @@ export async function initNeo3D(
     let added = 0;
 
     while (nextNeoIndex < allNeos.length && added < batchSize) {
-      const candidates = buildSmallBodyEntries([allNeos[nextNeoIndex]]);
+      const candidate = allNeos[nextNeoIndex];
       nextNeoIndex += 1;
 
-      for (const { neo, spec } of candidates) {
-        const normalizedKeys = [neo.name, neo.id, neo.neo_reference_id, neo.designation]
-          .map((value) => (typeof value === 'string' ? normalizeKey(value) : ''))
-          .filter((key): key is string => Boolean(key && key !== 'null' && key !== 'undefined'));
-        if (normalizedKeys.some((key) => entryKeyIndex.has(key))) {
-          continue;
-        }
-
-        const metaParts = [`H ${neo.absolute_magnitude_h.toFixed(1)}`];
-        const sizeLabel = formatNeoSize(neo);
-        if (sizeLabel) metaParts.push(`~${sizeLabel}`);
-        const nextApproach = formatNextApproach(neo);
-        if (nextApproach) {
-          metaParts.push(`Next: ${nextApproach}`);
-        } else if (neo.next === null) {
-          metaParts.push('Next: No future approaches on record.');
-        }
-
-        const entryId = `neo:${neo.id}`;
-        const entry = createListEntry({
-          id: entryId,
-          spec,
-          name: neo.name,
-          metaParts,
-          hazard: neo.is_potentially_hazardous_asteroid ? 'Potentially hazardous' : null,
-          defaultEnabled,
-          normalizedKeys,
-          source: 'neo',
-        });
-        addEntry(entryId, entry, anchor);
-        added += 1;
-
-        if (added >= batchSize) {
-          break;
+      let normalizedKeys = [...candidate.normalizedKeys];
+      if (candidate.allowWeakName && candidate.nameKey) {
+        const existingId = entryKeyIndex.get(candidate.nameKey);
+        if (existingId) {
+          const existingEntry = neoEntries.get(existingId);
+          if (existingEntry?.source === 'neo') {
+            normalizedKeys = normalizedKeys.filter((key) => key !== candidate.nameKey);
+          }
         }
       }
+
+      if (normalizedKeys.length === 0) {
+        continue;
+      }
+
+      if (normalizedKeys.some((key) => entryKeyIndex.has(key))) {
+        continue;
+      }
+
+      const { neo, spec } = candidate;
+      const metaParts = [`H ${neo.absolute_magnitude_h.toFixed(1)}`];
+      const sizeLabel = formatNeoSize(neo);
+      if (sizeLabel) metaParts.push(`~${sizeLabel}`);
+      const nextApproach = formatNextApproach(neo);
+      if (nextApproach) {
+        metaParts.push(`Next: ${nextApproach}`);
+      } else if (neo.next === null) {
+        metaParts.push('Next: No future approaches on record.');
+      }
+
+      const entryId = `neo:${neo.id}`;
+      const entry = createListEntry({
+        id: entryId,
+        spec,
+        name: getNeoDisplayName(neo),
+        metaParts,
+        hazard: neo.is_potentially_hazardous_asteroid ? 'Potentially hazardous' : null,
+        defaultEnabled,
+        normalizedKeys,
+        source: 'neo',
+      });
+      addEntry(entryId, entry, anchor);
+      added += 1;
     }
 
     if (added === 0 && neoEntries.size === 0) {
@@ -1230,7 +1301,10 @@ export async function initNeo3D(
   updatePlayControls();
 
   const applyNeos = (neos: NeoItem[]) => {
-    allNeos = [...neos];
+    const candidates = neos
+      .map((neo) => createNeoCandidate(neo))
+      .filter((candidate): candidate is NeoCandidate => candidate !== null);
+    allNeos = candidates;
     nextNeoIndex = 0;
     removeEntriesBySource('neo');
     updateSmallBodies();
