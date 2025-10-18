@@ -154,6 +154,16 @@ section > * {
   z-index: 1;
 }
 
+section#neo-3d {
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.25rem);
+  padding-block-start: clamp(1rem, 3vw, 1.5rem);
+}
+
+section#neo-3d .neo3d-control-panel {
+  margin-top: 0;
+}
+
 h1,
 h2,
 h3,
@@ -345,20 +355,6 @@ body.neo3d-fullscreen section#neo-3d {
   flex-direction: column;
   gap: clamp(1.25rem, 3vw, 1.75rem);
   box-shadow: none;
-}
-
-body.neo3d-fullscreen #neo-3d .subhead h2 {
-  margin: 0;
-  font-size: clamp(1.6rem, 1.3rem + 0.8vw, 1.9rem);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: #f8fafc;
-}
-
-body.neo3d-fullscreen #neo-3d .subhead {
-  border: none;
-  padding: 0;
-  margin-bottom: 0;
 }
 
 body.neo3d-fullscreen #neo-3d .neo3d-control-panel .meta {
