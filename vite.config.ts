@@ -10,6 +10,7 @@ export default defineConfig({
         index: 'index.html',
         neo3d: 'neo3d.html',
         storm: 'storm.html',
+        events: 'events.html',
       },
     },
   },
