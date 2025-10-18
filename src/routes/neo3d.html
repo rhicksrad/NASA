@@ -3,33 +3,47 @@
     <h2>NEO 3D</h2>
     <p class="meta">Heliocentric ecliptic J2000 • positions from orbital elements</p>
   </header>
-  <div id="neo3d-host" style="height:520px;border:1px solid var(--light);border-radius:8px;"></div>
-  <div class="controls" style="margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;">
-    <div style="display:flex;gap:.5rem;">
-      <button id="neo3d-play" type="button">Play</button>
-      <button id="neo3d-pause" type="button" disabled>Pause</button>
-    </div>
-    <label style="display:flex;flex-direction:column;min-width:160px;">
-      Speed
-      <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
-    </label>
-    <span id="neo3d-speed-label" class="meta" style="min-width:10ch;">1 day/s</span>
-    <label style="display:flex;align-items:center;gap:.35rem;">
-      <input type="checkbox" id="neo3d-toggle-neos" checked />
-      Show NEOs
-    </label>
-    <button id="neo3d-toggle-atlas" type="button" disabled aria-pressed="false">Hide 3I/ATLAS</button>
-    <label style="display:flex;flex-direction:column;min-width:260px;">
-      Date range
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-        <input type="datetime-local" id="neo3d-range-start" step="3600" />
-        <input type="datetime-local" id="neo3d-range-end" step="3600" />
+  <div id="neo3d-host" class="neo3d-stage"></div>
+  <div class="neo3d-control-panel">
+    <div class="neo3d-primary-controls">
+      <div class="neo3d-playback">
+        <button id="neo3d-play" type="button">Play</button>
+        <button id="neo3d-pause" type="button" disabled>Pause</button>
       </div>
-    </label>
-    <label style="display:flex;flex-direction:column;min-width:220px;">
-      Offset within range (days)
-      <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
-    </label>
-    <span id="neo3d-time-label" class="meta" style="min-width:16ch;">—</span>
+      <label class="neo3d-field">
+        <span class="neo3d-field-label">Speed</span>
+        <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
+        <span id="neo3d-speed-label" class="meta">1 day/s</span>
+      </label>
+      <label class="neo3d-field">
+        <span class="neo3d-field-label">Date range</span>
+        <div class="neo3d-date-range">
+          <input type="datetime-local" id="neo3d-range-start" step="3600" />
+          <input type="datetime-local" id="neo3d-range-end" step="3600" />
+        </div>
+      </label>
+      <label class="neo3d-field">
+        <span class="neo3d-field-label">Time scrubber</span>
+        <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
+        <span id="neo3d-time-label" class="meta">—</span>
+      </label>
+      <button id="neo3d-toggle-atlas" class="neo3d-atlas" type="button" disabled aria-pressed="false">
+        Hide 3I/ATLAS
+      </button>
+    </div>
+    <div class="neo3d-neo-panel">
+      <div class="neo3d-neo-panel-header">
+        <div>
+          <h3>Near-Earth Objects</h3>
+          <p class="meta">Toggle individual NEOs to focus on their orbits.</p>
+        </div>
+        <label class="neo3d-select-all">
+          <input type="checkbox" id="neo3d-toggle-neos" checked />
+          Show all NEOs
+        </label>
+      </div>
+      <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
+      <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
+    </div>
   </div>
 </section>
