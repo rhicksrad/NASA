@@ -913,29 +913,6 @@ export async function initNeo3D(
       return;
     }
 
-    const entriesToAdd: Array<{ neo: NeoItem; spec: SmallBodySpec }> = [];
-    let added = 0;
-
-    while (nextNeoIndex < allNeos.length && added < batchSize) {
-      const remaining = batchSize - added;
-      const sliceEnd = Math.min(allNeos.length, nextNeoIndex + remaining);
-      const slice = allNeos.slice(nextNeoIndex, sliceEnd);
-      nextNeoIndex = sliceEnd;
-      const built = buildSmallBodyEntries(slice);
-      if (built.length === 0) continue;
-      entriesToAdd.push(...built);
-      added += built.length;
-    }
-
-    if (entriesToAdd.length === 0) {
-      if (neoEntries.size === 0) {
-        renderNeoEmptyState();
-      }
-      updateSmallBodies();
-      refreshNeoUi();
-      return;
-    }
-
     const defaultEnabled =
       neoAllToggle && !neoAllToggle.disabled && !neoAllToggle.indeterminate
         ? neoAllToggle.checked
@@ -943,35 +920,52 @@ export async function initNeo3D(
 
     const anchor = neoList?.querySelector('[data-source="sbdb"]') ?? null;
 
-    for (const { neo, spec } of entriesToAdd) {
-      const normalizedKeys = [neo.name, neo.id, neo.neo_reference_id, neo.designation]
-        .map((value) => (typeof value === 'string' ? normalizeKey(value) : ''))
-        .filter((key): key is string => Boolean(key && key !== 'null' && key !== 'undefined'));
-      if (normalizedKeys.some((key) => entryKeyIndex.has(key))) {
-        continue;
-      }
-      const metaParts = [`H ${neo.absolute_magnitude_h.toFixed(1)}`];
-      const sizeLabel = formatNeoSize(neo);
-      if (sizeLabel) metaParts.push(`~${sizeLabel}`);
-      const nextApproach = formatNextApproach(neo);
-      if (nextApproach) {
-        metaParts.push(`Next: ${nextApproach}`);
-      } else if (neo.next === null) {
-        metaParts.push('Next: No future approaches on record.');
-      }
+    let added = 0;
 
-      const entryId = `neo:${neo.id}`;
-      const entry = createListEntry({
-        id: entryId,
-        spec,
-        name: neo.name,
-        metaParts,
-        hazard: neo.is_potentially_hazardous_asteroid ? 'Potentially hazardous' : null,
-        defaultEnabled,
-        normalizedKeys,
-        source: 'neo',
-      });
-      addEntry(entryId, entry, anchor);
+    while (nextNeoIndex < allNeos.length && added < batchSize) {
+      const candidates = buildSmallBodyEntries([allNeos[nextNeoIndex]]);
+      nextNeoIndex += 1;
+
+      for (const { neo, spec } of candidates) {
+        const normalizedKeys = [neo.name, neo.id, neo.neo_reference_id, neo.designation]
+          .map((value) => (typeof value === 'string' ? normalizeKey(value) : ''))
+          .filter((key): key is string => Boolean(key && key !== 'null' && key !== 'undefined'));
+        if (normalizedKeys.some((key) => entryKeyIndex.has(key))) {
+          continue;
+        }
+
+        const metaParts = [`H ${neo.absolute_magnitude_h.toFixed(1)}`];
+        const sizeLabel = formatNeoSize(neo);
+        if (sizeLabel) metaParts.push(`~${sizeLabel}`);
+        const nextApproach = formatNextApproach(neo);
+        if (nextApproach) {
+          metaParts.push(`Next: ${nextApproach}`);
+        } else if (neo.next === null) {
+          metaParts.push('Next: No future approaches on record.');
+        }
+
+        const entryId = `neo:${neo.id}`;
+        const entry = createListEntry({
+          id: entryId,
+          spec,
+          name: neo.name,
+          metaParts,
+          hazard: neo.is_potentially_hazardous_asteroid ? 'Potentially hazardous' : null,
+          defaultEnabled,
+          normalizedKeys,
+          source: 'neo',
+        });
+        addEntry(entryId, entry, anchor);
+        added += 1;
+
+        if (added >= batchSize) {
+          break;
+        }
+      }
+    }
+
+    if (added === 0 && neoEntries.size === 0) {
+      renderNeoEmptyState();
     }
 
     updateSmallBodies();
