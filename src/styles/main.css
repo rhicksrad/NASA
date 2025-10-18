@@ -36,6 +36,13 @@ body.neo3d-fullscreen #neo-3d .neo3d-control-panel .meta{color:#334155}
 .neo3d-neo-list{display:grid;gap:.75rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 .neo3d-neo-item{display:flex;flex-direction:column;gap:.35rem;padding:.85rem;border-radius:10px;background:#fff;border:1px solid rgba(15,23,42,0.08);box-shadow:0 8px 16px rgba(15,23,42,0.1)}
 .neo3d-neo-item label{display:flex;flex-direction:column;gap:.35rem;cursor:pointer}
+.neo3d-sbdb-panel{display:flex;flex-direction:column;gap:1.1rem;padding:1.25rem;border-radius:12px;background:rgba(15,23,42,0.82);border:1px solid rgba(148,163,184,0.35);box-shadow:0 12px 28px rgba(15,23,42,0.18);color:#e2e8f0}
+.neo3d-sbdb-panel header{display:flex;flex-direction:column;gap:.35rem}
+.neo3d-sbdb-panel h3{margin:0;font-size:1.1rem;color:#f8fafc}
+.neo3d-sbdb-panel .meta{color:rgba(226,232,240,0.78)}
+.neo3d-sbdb-loaded{display:flex;flex-direction:column;gap:.5rem;padding:1rem;border-radius:10px;background:rgba(15,23,42,0.45);border:1px solid rgba(148,163,184,0.35)}
+.neo3d-sbdb-loaded h4{margin:0;font-size:.95rem;font-weight:600;color:#f8fafc}
+.neo3d-sbdb-chips{display:flex;flex-wrap:wrap;gap:.5rem}
 .neo3d-neo-name{display:flex;align-items:center;gap:.4rem;font-weight:600;color:#0f172a}
 .neo3d-neo-checkbox{width:1.05rem;height:1.05rem;flex:0 0 auto}
 .neo3d-neo-color{width:.85rem;height:.85rem;border-radius:50%;box-shadow:0 0 0 1px rgba(15,23,42,0.12) inset}

@@ -1,7 +1,6 @@
 import { mountMarsPage } from './marsImages';
 import { initImagesExplorerPage } from './imagesExplorer';
 import mountEpic from './epic';
-import mountSbdb from './sbdb';
 
 type RouteHandler = (host: HTMLElement) => void | (() => void);
 
@@ -14,7 +13,6 @@ export function initRouter() {
   const marsLink = document.querySelector<HTMLAnchorElement>('#nav-mars');
   const imagesExplorerLink = document.querySelector<HTMLAnchorElement>('#nav-images-explorer');
   const epicLink = document.querySelector<HTMLAnchorElement>('#nav-epic');
-  const sbdbLink = document.querySelector<HTMLAnchorElement>('#nav-sbdb');
   const homeHtml = host.innerHTML;
 
   const routes: Record<string, RouteHandler> = {
@@ -26,7 +24,6 @@ export function initRouter() {
       container.replaceChildren(host);
       mountEpic(host);
     },
-    '/sbdb': container => mountSbdb(container),
   };
 
   const normalizePathname = (value: string): string => {
@@ -66,13 +63,6 @@ export function initRouter() {
         epicLink.setAttribute('aria-current', 'page');
       } else {
         epicLink.removeAttribute('aria-current');
-      }
-    }
-    if (sbdbLink) {
-      if (pathname === '/sbdb') {
-        sbdbLink.setAttribute('aria-current', 'page');
-      } else {
-        sbdbLink.removeAttribute('aria-current');
       }
     }
   };

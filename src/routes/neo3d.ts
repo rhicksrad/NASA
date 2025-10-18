@@ -8,8 +8,10 @@ import {
   isFiniteVec3,
 } from '../api/neo3dData';
 import { loadSBDBConic } from '../api/sbdb';
+import { SbdbExplorer } from '../components/SbdbExplorer';
 import { propagateConic, type ConicElements } from '../orbits';
 import { type Keplerian } from '../utils/orbit';
+import '../styles/sbdb.css';
 
 const DEG2RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;
@@ -415,10 +417,14 @@ export async function initNeo3D(
   const neoAllToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
   const neoList = document.getElementById('neo3d-neo-list') as HTMLElement | null;
   const neoSummary = document.getElementById('neo3d-neo-summary') as HTMLElement | null;
-  const sbdbInput = document.getElementById('sbdb-input') as HTMLInputElement | null;
-  const sbdbAdd = document.getElementById('sbdb-add') as HTMLButtonElement | null;
+  const sbdbHost = document.getElementById('sbdb-explorer-host') as HTMLDivElement | null;
   const sbdbLoaded = document.getElementById('sbdb-loaded') as HTMLDivElement | null;
-  const exampleBtns = Array.from(document.querySelectorAll('button.sbdb-example')) as HTMLButtonElement[];
+  const sbdbLoadedEmpty = document.getElementById('sbdb-loaded-empty') as HTMLElement | null;
+
+  if (sbdbHost) {
+    sbdbHost.innerHTML = '';
+    new SbdbExplorer(sbdbHost);
+  }
 
   let sliderBaseMs = rangeStart.getTime();
   let sliderSpanDays = Math.max(MIN_RANGE_SPAN_DAYS, differenceInDays(rangeStart, rangeEnd));
@@ -576,6 +582,17 @@ export async function initNeo3D(
     return hues[Math.abs(hash) % hues.length];
   }
 
+  const updateSbdbLoadedState = () => {
+    if (sbdbLoadedEmpty) {
+      sbdbLoadedEmpty.hidden = loadedSBDB.size > 0;
+    }
+    if (sbdbLoaded && loadedSBDB.size === 0) {
+      sbdbLoaded.innerHTML = '';
+    }
+  };
+
+  updateSbdbLoadedState();
+
   const syncSbdbBodies = () => {
     if (loadedSBDB.size === 0) return;
     const specs = Array.from(loadedSBDB.values(), (entry) => entry.spec);
@@ -649,15 +666,13 @@ export async function initNeo3D(
     }
 
     try {
-      if (sbdbAdd) sbdbAdd.disabled = true;
       const { conic, label } = await loadSBDBConic(query);
 
       for (const entry of loadedSBDB.values()) {
         if (normalizeKey(entry.spec.name) === normalizeKey(label)) {
           toast(`Already added: ${label}`);
-          if (sbdbInput) sbdbInput.value = '';
           return;
-        }
+      }
       }
 
       const color = makeColorFor(label);
@@ -723,37 +738,19 @@ export async function initNeo3D(
           simulation.removeSmallBody(spec.name);
           loadedSBDB.delete(key);
           chip?.remove();
+          updateSbdbLoadedState();
         });
         sbdbLoaded.appendChild(chip);
       }
 
       loadedSBDB.set(key, { spec, chip });
       toast(`Added SBDB: ${label}`);
-      if (sbdbInput) sbdbInput.value = '';
+      updateSbdbLoadedState();
     } catch (error) {
       console.error('[sbdb] add failed', error);
       const message = error instanceof Error && error.message ? error.message : 'SBDB add failed';
       toastError(message);
-    } finally {
-      if (sbdbAdd) sbdbAdd.disabled = false;
     }
-  }
-
-  if (sbdbAdd && sbdbInput) {
-    sbdbAdd.addEventListener('click', () => {
-      void addSBDBObject(sbdbInput.value);
-    });
-    sbdbInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        void addSBDBObject(sbdbInput.value);
-      }
-    });
-  }
-  for (const button of exampleBtns) {
-    button.addEventListener('click', () => {
-      void addSBDBObject(button.textContent ?? '');
-    });
   }
 
   window.addEventListener('neo3d:add-sbdb', (event) => {
