@@ -420,11 +420,24 @@ export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}
   const queue: string[] = [];
   const seen = new Set<string>();
   const pushVariant = (value: string | null | undefined) => {
-    const normalized = value?.trim();
-    if (!normalized) return;
-    if (seen.has(normalized)) return;
-    seen.add(normalized);
-    queue.push(normalized);
+    if (typeof value !== 'string') return;
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    const enqueue = (candidate: string) => {
+      const next = candidate.trim();
+      if (!next || seen.has(next)) return;
+      seen.add(next);
+      queue.push(next);
+    };
+
+    enqueue(trimmed);
+
+    const slashParts = trimmed.split(/[\\/]/);
+    for (const part of slashParts) {
+      if (part === trimmed) continue;
+      enqueue(part);
+    }
   };
 
   pushVariant(sstr);

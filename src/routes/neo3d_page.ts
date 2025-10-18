@@ -5,11 +5,10 @@ import type { NextApproach } from '../lib/neo-client';
 import type { NeoCloseApproach, NeoItem } from '../types/nasa';
 import { initNeo3D } from './neo3d';
 
-const NEO_FETCH = { pageSize: 100, maxPages: 5, limit: 500 } as const;
+const NEO_FETCH = { pageSize: 100, limit: 500 } as const;
 
 type CatalogOptions = {
   pageSize: number;
-  maxPages: number;
   limit: number;
   signal?: AbortSignal;
 };
@@ -70,12 +69,12 @@ function deriveNextApproach(neo: NeoItem, refTime = Date.now()): NextApproachLit
   return { jd, date: formatted, distAu, vRelKms };
 }
 
-async function fetchNeoCatalog({ pageSize, maxPages, limit, signal }: CatalogOptions): Promise<NeoItem[]> {
+async function fetchNeoCatalog({ pageSize, limit, signal }: CatalogOptions): Promise<NeoItem[]> {
   const results: NeoItem[] = [];
   let page = 0;
-  let totalPages = 1;
+  let totalPages: number | null = null;
 
-  while (page < totalPages && page < maxPages && results.length < limit) {
+  while (results.length < limit && (totalPages == null || page < totalPages)) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     const data = await getNeoBrowse({ page, size: pageSize }, { signal });
     const objects = data.near_earth_objects ?? [];
@@ -86,11 +85,22 @@ async function fetchNeoCatalog({ pageSize, maxPages, limit, signal }: CatalogOpt
       results.push(neo);
     }
     const info = data.page;
-    totalPages = info?.total_pages ?? totalPages;
-    page = (info?.number ?? page) + 1;
+    if (info) {
+      if (typeof info.total_pages === 'number' && Number.isFinite(info.total_pages)) {
+        totalPages = info.total_pages;
+      }
+      const nextPage = typeof info.number === 'number' ? info.number + 1 : page + 1;
+      page = nextPage > page ? nextPage : page + 1;
+    } else {
+      page += 1;
+    }
+
+    if (objects.length === 0) {
+      break;
+    }
   }
 
-  return results;
+  return results.slice(0, limit);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
