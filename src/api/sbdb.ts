@@ -319,7 +319,7 @@ export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}
 }
 
 export async function sbdbSuggest(q: string): Promise<SbdbSuggestResult> {
-  const url = `/sbdb?sstr=${encodeURIComponent(q)}&search=1`;
+  const url = `/sbdb?sstr=${encodeURIComponent(q)}&neo=1`;
   try {
     type SbdbSuggestItem = { fullname?: string; name?: string; sstr?: string };
     type SbdbSuggestPayload = { list?: SbdbSuggestItem[] };
