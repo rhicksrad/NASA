@@ -20,6 +20,14 @@ export function initRouter() {
     '/images': container => initImagesPage(container),
   };
 
+  const normalizePathname = (value: string): string => {
+    const trimmed = value.trim();
+    if (!trimmed) return '/';
+    const withSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    const withoutTrailing = withSlash.replace(/\/+$/, '');
+    return withoutTrailing ? withoutTrailing.toLowerCase() : '/';
+  };
+
   let cleanup: (() => void) | undefined;
 
   const restoreHome = () => {
@@ -29,7 +37,7 @@ export function initRouter() {
   };
 
   const setActive = (path: string) => {
-    const pathname = path.split('?')[0];
+    const pathname = normalizePathname(path);
     if (marsLink) {
       if (pathname === '/mars') {
         marsLink.setAttribute('aria-current', 'page');
@@ -49,8 +57,9 @@ export function initRouter() {
   const dispatch = () => {
     const hash = window.location.hash || '#/';
     const path = hash.startsWith('#') ? hash.slice(1) : hash;
-    const [pathname] = path.split('?');
-    const handler = routes[pathname];
+    const [rawPathname] = path.split('?');
+    const normalizedPath = normalizePathname(rawPathname);
+    const handler = routes[normalizedPath];
     if (handler) {
       cleanup?.();
       const result = handler(host);
@@ -58,7 +67,7 @@ export function initRouter() {
     } else {
       restoreHome();
     }
-    setActive(path);
+    setActive(normalizedPath);
   };
 
   window.addEventListener('hashchange', dispatch);
