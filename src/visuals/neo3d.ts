@@ -202,6 +202,7 @@ export class Neo3D {
   private interactiveMeshes: THREE.Mesh[] = [];
   private hoveredMesh: THREE.Mesh | null = null;
   private projected = new THREE.Vector3();
+  private pointerViewport = { x: 0, y: 0 };
 
   constructor(private readonly options: Neo3DOptions) {
     const { host } = options;
@@ -255,7 +256,9 @@ export class Neo3D {
     this.tooltip = document.createElement('div');
     this.tooltip.className = 'neo3d-tooltip';
     Object.assign(this.tooltip.style, {
-      position: 'absolute',
+      position: 'fixed',
+      top: '0',
+      left: '0',
       pointerEvents: 'none',
       background: 'rgba(15, 23, 42, 0.85)',
       color: '#e2e8f0',
@@ -270,7 +273,8 @@ export class Neo3D {
       transition: 'opacity 0.12s ease',
       zIndex: '1000',
     });
-    host.appendChild(this.tooltip);
+    const tooltipParent = typeof document !== 'undefined' && document.body ? document.body : host;
+    tooltipParent.appendChild(this.tooltip);
 
     this.renderer.domElement.addEventListener('pointermove', this.onPointerMove);
     this.renderer.domElement.addEventListener('pointerleave', this.onPointerLeave);
@@ -493,6 +497,7 @@ export class Neo3D {
     const hostRect = this.options.host.getBoundingClientRect();
     this.pointerClient.x = event.clientX - hostRect.left;
     this.pointerClient.y = event.clientY - hostRect.top;
+    this.pointerViewport = { x: event.clientX, y: event.clientY };
 
     this.hasPointer = true;
   };
@@ -572,6 +577,10 @@ export class Neo3D {
     const hostRect = this.options.host.getBoundingClientRect();
     const hostWidth = hostRect.width;
     const hostHeight = hostRect.height;
+    if (hostWidth <= 0 || hostHeight <= 0) {
+      this.hideTooltip();
+      return;
+    }
 
     this.tooltip.style.opacity = '1';
     this.tooltip.style.visibility = 'visible';
@@ -580,10 +589,14 @@ export class Neo3D {
     const offsetHeight = this.tooltip.offsetHeight;
 
     const padding = 8;
-    let x = this.pointerClient.x + 12;
-    let y = this.pointerClient.y + 12;
-    x = Math.min(hostWidth - offsetWidth - padding, Math.max(padding, x));
-    y = Math.min(hostHeight - offsetHeight - padding, Math.max(padding, y));
+    let x = this.pointerViewport.x + 12;
+    let y = this.pointerViewport.y + 12;
+    const minX = hostRect.left + padding;
+    const maxX = hostRect.right - offsetWidth - padding;
+    const minY = hostRect.top + padding;
+    const maxY = hostRect.bottom - offsetHeight - padding;
+    x = Math.min(maxX, Math.max(minX, x));
+    y = Math.min(maxY, Math.max(minY, y));
 
     this.tooltip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   }
