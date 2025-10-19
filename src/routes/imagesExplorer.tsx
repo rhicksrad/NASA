@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { imagesSearch, largestAssetUrl, type NasaImageItem, type SearchParams } from '../api/nasaImages';
+import searchIcon from '../assets/icons/search.svg?raw';
+import calendarIcon from '../assets/icons/calendar.svg?raw';
+import tagIcon from '../assets/icons/tag.svg?raw';
+import applyIcon from '../assets/icons/check-circle.svg?raw';
+import chevronLeftIcon from '../assets/icons/chevron-left.svg?raw';
+import chevronRightIcon from '../assets/icons/chevron-right.svg?raw';
+import closeIcon from '../assets/icons/close.svg?raw';
+import statusIcon from '../assets/icons/status-spark.svg?raw';
 import '../styles/imagesExplorer.css';
 
 type Preset = 'apollo' | 'artemis' | 'custom';
@@ -77,6 +85,16 @@ function friendlyError(err: unknown): string {
     return `Request failed${status ? ` (HTTP ${status})` : ''}`;
   }
   return 'Request failed';
+}
+
+function InlineIcon({ markup, className }: { markup: string; className?: string }) {
+  return (
+    <span
+      className={className ?? 'images-explorer__icon'}
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: markup }}
+    />
+  );
 }
 
 export function initImagesExplorerPage(host?: HTMLElement | null) {
@@ -216,43 +234,59 @@ export default function ImagesExplorer() {
           setPage(1);
         }}
       >
-        <input
-          className="images-explorer__input"
-          value={q}
-          onChange={event => setQ(event.target.value)}
-          placeholder="Search..."
-        />
-        <input
-          className="images-explorer__input"
-          value={ys ?? ''}
-          onChange={event => {
-            const value = event.target.value.trim();
-            setYs(value ? Number(value) : undefined);
-          }}
-          placeholder="Year start"
-        />
-        <input
-          className="images-explorer__input"
-          value={ye ?? ''}
-          onChange={event => {
-            const value = event.target.value.trim();
-            setYe(value ? Number(value) : undefined);
-          }}
-          placeholder="Year end"
-        />
-        <input
-          className="images-explorer__input"
-          value={kwInput}
-          onChange={event => setKwInput(event.target.value)}
-          placeholder="Keywords (comma-separated)"
-        />
+        <label className="images-explorer__field" aria-label="Search query">
+          <InlineIcon markup={searchIcon} />
+          <input
+            className="images-explorer__input"
+            value={q}
+            onChange={event => setQ(event.target.value)}
+            placeholder="Search..."
+          />
+        </label>
+        <label className="images-explorer__field" aria-label="Year start">
+          <InlineIcon markup={calendarIcon} />
+          <input
+            className="images-explorer__input"
+            value={ys ?? ''}
+            onChange={event => {
+              const value = event.target.value.trim();
+              setYs(value ? Number(value) : undefined);
+            }}
+            placeholder="Year start"
+            inputMode="numeric"
+          />
+        </label>
+        <label className="images-explorer__field" aria-label="Year end">
+          <InlineIcon markup={calendarIcon} />
+          <input
+            className="images-explorer__input"
+            value={ye ?? ''}
+            onChange={event => {
+              const value = event.target.value.trim();
+              setYe(value ? Number(value) : undefined);
+            }}
+            placeholder="Year end"
+            inputMode="numeric"
+          />
+        </label>
+        <label className="images-explorer__field" aria-label="Keywords">
+          <InlineIcon markup={tagIcon} />
+          <input
+            className="images-explorer__input"
+            value={kwInput}
+            onChange={event => setKwInput(event.target.value)}
+            placeholder="Keywords (comma-separated)"
+          />
+        </label>
         <button className="images-explorer__submit" type="submit">
+          <InlineIcon markup={applyIcon} className="images-explorer__icon images-explorer__icon--button" />
           Apply
         </button>
       </form>
 
       <div className="images-explorer__status">
-        {loading ? 'Loading…' : error ? error : `${total.toLocaleString()} results`}
+        <InlineIcon markup={statusIcon} className="images-explorer__icon images-explorer__icon--status" />
+        <span>{loading ? 'Loading…' : error ? error : `${total.toLocaleString()} results`}</span>
       </div>
 
       {!loading && !error && items.length === 0 && (
@@ -296,6 +330,7 @@ export default function ImagesExplorer() {
           onClick={() => setPage(current => Math.max(1, current - 1))}
           type="button"
         >
+          <InlineIcon markup={chevronLeftIcon} className="images-explorer__icon images-explorer__icon--button" />
           Prev
         </button>
         <span className="images-explorer__page-indicator">Page {page}</span>
@@ -306,6 +341,7 @@ export default function ImagesExplorer() {
           type="button"
         >
           Next
+          <InlineIcon markup={chevronRightIcon} className="images-explorer__icon images-explorer__icon--button" />
         </button>
       </div>
 
@@ -332,6 +368,7 @@ export default function ImagesExplorer() {
                 onClick={() => setSelected(null)}
                 type="button"
               >
+                <InlineIcon markup={closeIcon} className="images-explorer__icon images-explorer__icon--button" />
                 Close
               </button>
             </div>

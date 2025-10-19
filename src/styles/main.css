@@ -104,6 +104,10 @@ body::before {
   border: 1px solid transparent;
   background: rgba(148, 163, 184, 0.08);
   transition: background 180ms ease, color 180ms ease, border 180ms ease, transform 180ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  line-height: 1;
 }
 
 .primary-nav a:hover,
@@ -119,6 +123,21 @@ body::before {
   color: #041226;
   border-color: rgba(148, 163, 184, 0.65);
   box-shadow: 0 10px 22px rgba(56, 189, 248, 0.35);
+}
+
+.primary-nav__icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+.primary-nav__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 main {

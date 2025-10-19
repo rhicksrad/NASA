@@ -55,18 +55,32 @@
   align-items: end;
 }
 
+.images-explorer__field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .images-explorer__input {
   width: 100%;
+  padding-left: 2.6rem;
 }
 
 .images-explorer__submit {
   justify-self: end;
   min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .images-explorer__status {
-  opacity: 0.8;
+  opacity: 0.85;
   font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .images-explorer__empty {
@@ -147,6 +161,10 @@
   color: #e2e8f0;
   box-shadow: 0 12px 24px rgba(2, 6, 23, 0.45);
   transition: transform 160ms ease, box-shadow 160ms ease, border 160ms ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
 }
 
 .images-explorer__page-button:hover,
@@ -217,6 +235,9 @@
   border: 1px solid rgba(148, 163, 184, 0.3);
   background: rgba(8, 13, 31, 0.85);
   color: #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .images-explorer__modal-close:hover,
@@ -244,6 +265,38 @@
 .images-explorer__modal-loading {
   padding: 1.2rem;
   color: rgba(148, 163, 184, 0.85);
+}
+
+.images-explorer__icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(148, 163, 184, 0.92);
+}
+
+.images-explorer__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.images-explorer__field > .images-explorer__icon {
+  position: absolute;
+  left: 0.75rem;
+  pointer-events: none;
+}
+
+.images-explorer__icon--button,
+.images-explorer__icon--status {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: inherit;
+}
+
+.images-explorer__status .images-explorer__icon {
+  color: rgba(56, 189, 248, 0.75);
 }
 
 .images-explorer__modal-description {

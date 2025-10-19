@@ -45,6 +45,13 @@
   font-size: 0.9rem;
 }
 
+.epic-label-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgba(226, 232, 240, 0.85);
+}
+
 .epic-range-group {
   display: flex;
   flex-wrap: wrap;
@@ -69,6 +76,9 @@
   border-color: rgba(148, 163, 184, 0.5);
   cursor: pointer;
   transition: transform 150ms ease, box-shadow 150ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .epic-btn:hover,
@@ -81,6 +91,9 @@
   background: rgba(8, 13, 31, 0.92);
   color: #f8fafc;
   border-color: rgba(148, 163, 184, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .epic-btn-secondary:hover,
@@ -155,4 +168,29 @@
   border-radius: 12px;
   box-shadow: 0 12px 24px rgba(2, 6, 23, 0.38);
   width: min(100%, 960px);
+}
+
+.epic-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+.epic-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.epic-icon--label {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.epic-btn-label {
+  font-weight: 600;
 }

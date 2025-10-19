@@ -18,7 +18,7 @@
   box-shadow: 0 18px 32px rgba(2, 6, 23, 0.45);
 }
 
-#mars-root .mars-controls label {
+#mars-root .mars-field {
   display: flex;
   flex-direction: column;
   font-size: 0.95rem;
@@ -31,11 +31,89 @@
   min-width: 160px;
 }
 
-#mars-root .mars-page-controls {
+#mars-root .mars-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(8, 13, 31, 0.85);
+  color: #f1f5f9;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, border 150ms ease;
+  text-decoration: none;
+}
+
+#mars-root .mars-action:hover,
+#mars-root .mars-action:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.5);
+  box-shadow: 0 12px 26px rgba(56, 189, 248, 0.25);
+}
+
+#mars-root .mars-action--ghost {
+  background: rgba(15, 23, 42, 0.6);
+  color: rgba(226, 232, 240, 0.92);
+}
+
+#mars-root .mars-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+#mars-root .mars-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#mars-root .mars-status-indicator {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+#mars-root .mars-status-indicator .mars-icon {
+  color: rgba(56, 189, 248, 0.75);
+}
+
+#mars-root .mars-status-text {
+  min-width: 140px;
+}
+
+#mars-root .mars-pager {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-top: 0.75rem;
+}
+
+#mars-root .mars-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(8, 13, 31, 0.8);
+  color: #f1f5f9;
+  cursor: pointer;
+  transition: transform 150ms ease, box-shadow 150ms ease, border 150ms ease;
+}
+
+#mars-root .mars-page:hover,
+#mars-root .mars-page:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 12px 24px rgba(56, 189, 248, 0.25);
 }
 
 #mars-root .mars-grid {
@@ -70,44 +148,51 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
-#mars-root .mars-meta {
-  padding: 0.85rem 1rem 1.1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-#mars-root .mars-meta h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  line-height: 1.35;
-}
-
-#mars-root .mars-meta time {
+#mars-root .mars-caption {
+  padding: 0.75rem 1rem 1.05rem;
   font-size: 0.85rem;
-  opacity: 0.8;
+  color: rgba(226, 232, 240, 0.85);
 }
 
-#mars-root .mars-status {
-  font-size: 0.95rem;
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
+#mars-root .mars-thumb-button {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
 }
 
-#mars-root .mars-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(3, 7, 18, 0.78);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: clamp(1.5rem, 4vw, 2.5rem);
-  z-index: 1000;
-  backdrop-filter: blur(6px);
+#mars-root .mars-thumb-button:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.7);
+  outline-offset: 4px;
+}
+
+#mars-root .mars-empty {
+  padding: 1.1rem 1.25rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(8, 13, 31, 0.65);
+  color: rgba(226, 232, 240, 0.85);
+  text-align: center;
 }
 
 #mars-root .mars-modal {
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+#mars-root .mars-modal::backdrop {
+  background: rgba(3, 7, 18, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+#mars-root .mars-modal[open] {
+  display: grid;
+  place-items: center;
+}
+
+#mars-root .mars-modal-content {
   max-width: min(960px, 92vw);
   max-height: 90vh;
   overflow-y: auto;
@@ -118,28 +203,24 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   border: 1px solid rgba(148, 163, 184, 0.25);
-}
-
-#mars-root .mars-modal img {
-  width: 100%;
-  display: block;
-}
-
-#mars-root .mars-modal-content {
   padding: clamp(1rem, 3vw, 1.5rem);
-  display: flex;
-  flex-direction: column;
   gap: 0.85rem;
 }
 
-#mars-root .mars-modal-content h2 {
-  margin: 0;
+#mars-root .mars-modal-image {
+  width: 100%;
+  display: block;
 }
 
 #mars-root .mars-modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+}
+
+#mars-root .mars-modal-meta {
+  font-size: 0.9rem;
+  color: rgba(226, 232, 240, 0.88);
 }
 
 #mars-root .mars-modal button,

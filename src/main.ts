@@ -2,6 +2,44 @@ import './styles/main.css';
 import { getHourlyHighlight, type HourlyHighlight } from './lib/hourlyHighlight';
 import { initRouter } from './routes/index';
 import { initNeoPage } from './routes/neo';
+import navImagesIcon from './assets/icons/nav-images-explorer.svg?raw';
+import navEpicIcon from './assets/icons/nav-epic-earth.svg?raw';
+import navNeoIcon from './assets/icons/nav-neo3d.svg?raw';
+import navCmeIcon from './assets/icons/nav-cme.svg?raw';
+import navEonetIcon from './assets/icons/nav-eonet.svg?raw';
+import navExoIcon from './assets/icons/nav-exoplanet.svg?raw';
+import navMarsIcon from './assets/icons/nav-mars.svg?raw';
+
+const NAV_ICONS = new Map<string, string>([
+  ['nav-images-explorer', navImagesIcon],
+  ['nav-epic', navEpicIcon],
+  ['nav-neo3d', navNeoIcon],
+  ['nav-storm', navCmeIcon],
+  ['nav-events', navEonetIcon],
+  ['nav-exo', navExoIcon],
+  ['nav-mars', navMarsIcon],
+]);
+
+function injectNavigationIcons(): void {
+  const nav = document.querySelector('.primary-nav');
+  if (!nav) return;
+  NAV_ICONS.forEach((svg, id) => {
+    const anchor = nav.querySelector<HTMLAnchorElement>(`#${CSS.escape(id)}`);
+    if (!anchor || anchor.querySelector('.primary-nav__icon')) {
+      return;
+    }
+    const wrapper = document.createElement('span');
+    wrapper.className = 'primary-nav__icon';
+    wrapper.setAttribute('aria-hidden', 'true');
+    wrapper.innerHTML = svg;
+    const svgEl = wrapper.querySelector('svg');
+    if (svgEl) {
+      svgEl.setAttribute('focusable', 'false');
+      svgEl.setAttribute('aria-hidden', 'true');
+    }
+    anchor.prepend(wrapper);
+  });
+}
 
 const dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' });
 
@@ -112,6 +150,7 @@ async function initIndexPage(): Promise<void> {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  injectNavigationIcons();
   initRouter();
   initIndexPage().catch(err => console.error('Index init failed', err));
 

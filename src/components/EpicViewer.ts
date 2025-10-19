@@ -1,5 +1,10 @@
 /* src/components/EpicViewer.ts */
 import { fetchEpicLatest, fetchEpicByDate, buildEpicImageUrl, extractLatestDate, type EpicItem } from '../api/epic';
+import playIcon from '../assets/icons/play.svg?raw';
+import pauseIcon from '../assets/icons/pause.svg?raw';
+import rangeIcon from '../assets/icons/range.svg?raw';
+import cloudIcon from '../assets/icons/cloud-download.svg?raw';
+import speedIcon from '../assets/icons/speed.svg?raw';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -49,6 +54,19 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
   return el;
 }
 
+function iconSpan(markup: string, className = 'epic-icon'): HTMLSpanElement {
+  const span = document.createElement('span');
+  span.className = className;
+  span.setAttribute('aria-hidden', 'true');
+  span.innerHTML = markup;
+  const svg = span.querySelector('svg');
+  if (svg) {
+    svg.setAttribute('focusable', 'false');
+    svg.setAttribute('aria-hidden', 'true');
+  }
+  return span;
+}
+
 export class EpicViewer {
   private host: HTMLElement;
   private imgEl!: HTMLImageElement;
@@ -57,6 +75,7 @@ export class EpicViewer {
   private startInput!: HTMLInputElement;
   private endInput!: HTMLInputElement;
   private loadBtn!: HTMLButtonElement;
+  private loadLabel!: HTMLSpanElement;
   private fpsSel!: HTMLSelectElement;
   private metaEl!: HTMLDivElement;
 
@@ -79,26 +98,27 @@ export class EpicViewer {
       h(
         'label',
         { class: 'epic-label epic-label-stack' },
-        'Start (UTC)',
+        h('span', { class: 'epic-label-heading' }, iconSpan(rangeIcon, 'epic-icon epic-icon--label'), 'Start (UTC)'),
         (this.startInput = h('input', { type: 'date', class: 'epic-date' }) as HTMLInputElement),
       ),
       h(
         'label',
         { class: 'epic-label epic-label-stack' },
-        'End (UTC)',
+        h('span', { class: 'epic-label-heading' }, iconSpan(rangeIcon, 'epic-icon epic-icon--label'), 'End (UTC)'),
         (this.endInput = h('input', { type: 'date', class: 'epic-date' }) as HTMLInputElement),
       ),
-      (this.loadBtn = h('button', { class: 'epic-btn epic-btn-secondary', type: 'button' }, 'Load Range') as HTMLButtonElement),
+      (this.loadBtn = h('button', { class: 'epic-btn epic-btn-secondary', type: 'button' }) as HTMLButtonElement),
     );
 
     const controls = h(
       'div',
       { class: 'epic-controls' },
       rangeControls,
-      (this.playBtn = h('button', { class: 'epic-btn', type: 'button' }, 'Play') as HTMLButtonElement),
+      (this.playBtn = h('button', { class: 'epic-btn', type: 'button' }) as HTMLButtonElement),
       h(
         'label',
         { class: 'epic-label epic-label-inline' },
+        iconSpan(speedIcon, 'epic-icon epic-icon--label'),
         'Speed:',
         (this.fpsSel = h(
           'select',
@@ -129,6 +149,12 @@ export class EpicViewer {
 
     const wrap = h('div', { class: 'epic-wrap' }, stage, timeline, controls, note);
     this.host.replaceChildren(wrap);
+
+    this.loadLabel = document.createElement('span');
+    this.loadLabel.className = 'epic-btn-label';
+    this.loadLabel.textContent = 'Load Range';
+    this.loadBtn.append(iconSpan(cloudIcon, 'epic-icon epic-icon--button'), this.loadLabel);
+    this.renderPlayButton();
 
     // Wire events
     this.playBtn.onclick = () => this.togglePlay();
@@ -186,13 +212,14 @@ export class EpicViewer {
     this.state.items = [];
     this.preloadMap.clear();
     this.playBtn.disabled = true;
+    this.renderPlayButton();
     this.slider.disabled = true;
     this.slider.max = '0';
     this.slider.value = '0';
     this.imgEl.src = '';
     this.metaEl.textContent = 'Loading EPIC imagery…';
     this.loadBtn.disabled = true;
-    this.loadBtn.textContent = 'Loading…';
+    this.loadLabel.textContent = 'Loading…';
 
     try {
       const collected: EpicItem[] = [];
@@ -225,7 +252,7 @@ export class EpicViewer {
     } finally {
       if (token === this.loadToken) {
         this.loadBtn.disabled = false;
-        this.loadBtn.textContent = 'Load Range';
+        this.loadLabel.textContent = 'Load Range';
       }
     }
   }
@@ -278,10 +305,18 @@ export class EpicViewer {
     this.state.playing ? this.stop() : this.play();
   }
 
+  private renderPlayButton() {
+    if (!this.playBtn) return;
+    this.playBtn.textContent = '';
+    const markup = this.state.playing ? pauseIcon : playIcon;
+    const label = this.state.playing ? 'Pause' : 'Play';
+    this.playBtn.append(iconSpan(markup, 'epic-icon epic-icon--button'), document.createTextNode(label));
+  }
+
   private play() {
     if (this.state.items.length === 0 || this.playBtn.disabled) return;
     this.state.playing = true;
-    this.playBtn.textContent = 'Pause';
+    this.renderPlayButton();
     const stepMs = 1000 / this.state.fps;
 
     const loop = (ts: number) => {
@@ -298,7 +333,7 @@ export class EpicViewer {
 
   private stop() {
     this.state.playing = false;
-    this.playBtn.textContent = 'Play';
+    this.renderPlayButton();
     if (this.rafId != null) cancelAnimationFrame(this.rafId);
     this.rafId = null;
   }
@@ -355,6 +390,7 @@ export class EpicViewer {
     if (len <= 1) {
       this.stop();
     }
+    this.renderPlayButton();
   }
 
   private error(msg: string) {

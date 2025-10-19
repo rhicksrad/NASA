@@ -15,9 +15,21 @@
   box-shadow: 0 16px 32px rgba(2, 6, 23, 0.45);
 }
 
-.sbdb-toolbar input {
+.sbdb-label {
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.sbdb-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sbdb-input-wrap input {
   min-width: min(460px, 100%);
   max-width: 520px;
+  padding-left: 2.6rem;
 }
 
 .sbdb-toolbar button {
@@ -28,6 +40,52 @@
   opacity: 0.78;
   font-size: 0.95rem;
   color: rgba(226, 232, 240, 0.85);
+}
+
+.sbdb-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1.05rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: rgba(8, 13, 31, 0.85);
+  color: #f8fafc;
+  transition: transform 140ms ease, box-shadow 140ms ease, border 140ms ease;
+}
+
+.sbdb-action--ghost {
+  background: rgba(15, 23, 42, 0.65);
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.sbdb-action:hover,
+.sbdb-action:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 12px 24px rgba(59, 130, 246, 0.25);
+}
+
+.sbdb-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+}
+
+.sbdb-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sbdb-input-wrap .sbdb-icon {
+  position: absolute;
+  left: 0.75rem;
+  color: rgba(148, 163, 184, 0.8);
+  pointer-events: none;
 }
 
 .sbdb-controls {
@@ -43,6 +101,9 @@
   background: rgba(8, 13, 31, 0.85);
   color: #e2e8f0;
   transition: transform 140ms ease, box-shadow 140ms ease, border 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .sbdb-controls button.on {
@@ -140,6 +201,9 @@
   background: rgba(15, 23, 42, 0.75);
   color: #e2e8f0;
   transition: transform 140ms ease, box-shadow 140ms ease, border 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .sbdb-collection-load:hover,
@@ -196,6 +260,9 @@
 .sbdb-table button.add {
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .sbdb-typeahead {
