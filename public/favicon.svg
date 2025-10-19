@@ -1,6 +1,3 @@
-This is a significant upgrade to the standard "NASA visualization" style icon. It retains the 64x64 favicon size but adds professional branding colors (NASA "Meatball" Blue #0B3D91 and Red #FC3D21), depth via gradients, and proper layering to create a 3D effect where the orbit actually circles *around* the sphere.
-
-```svg
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
   <title id="title">NASA Visualization Icon</title>
   <desc id="desc">A detailed, stylized icon featuring a blue planet, a red aeronautics vector, and an orbital path.</desc>
@@ -72,4 +69,3 @@ This is a significant upgrade to the standard "NASA visualization" style icon. I
   </g>
 
 </svg>
-```
