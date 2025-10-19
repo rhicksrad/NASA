@@ -5,7 +5,7 @@ import type { NextApproach } from '../lib/neo-client';
 import type { NeoCloseApproach, NeoItem } from '../types/nasa';
 import { initNeo3D } from './neo3d';
 
-const NEO_FETCH = { pageSize: 100, limit: 500 } as const;
+const NEO_FETCH = { pageSize: 50, limit: 500 } as const;
 
 type CatalogOptions = {
   pageSize: number;
@@ -69,38 +69,49 @@ function deriveNextApproach(neo: NeoItem, refTime = Date.now()): NextApproachLit
   return { jd, date: formatted, distAu, vRelKms };
 }
 
-async function fetchNeoCatalog({ pageSize, limit, signal }: CatalogOptions): Promise<NeoItem[]> {
-  const results: NeoItem[] = [];
-  let page = 0;
-  let totalPages: number | null = null;
+type CatalogLoader = (signal?: AbortSignal) => Promise<{ items: NeoItem[]; done: boolean }>;
 
-  while (results.length < limit && (totalPages == null || page < totalPages)) {
+function createNeoCatalogLoader({ pageSize, limit }: CatalogOptions): CatalogLoader {
+  let nextPage = 0;
+  let totalPages: number | null = null;
+  let loaded = 0;
+
+  return async (signal) => {
+    if ((limit && loaded >= limit) || (totalPages != null && nextPage >= totalPages)) {
+      return { items: [], done: true };
+    }
+
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    const data = await getNeoBrowse({ page, size: pageSize }, { signal });
+
+    const data = await getNeoBrowse({ page: nextPage, size: pageSize }, { signal });
     const objects = data.near_earth_objects ?? [];
     const now = Date.now();
+    const batch: NeoItem[] = [];
     for (const neo of objects) {
-      if (results.length >= limit) break;
+      if (limit && loaded >= limit) break;
       neo.next = deriveNextApproach(neo, now);
-      results.push(neo);
+      batch.push(neo);
+      loaded += 1;
     }
+
     const info = data.page;
     if (info) {
       if (typeof info.total_pages === 'number' && Number.isFinite(info.total_pages)) {
         totalPages = info.total_pages;
       }
-      const nextPage = typeof info.number === 'number' ? info.number + 1 : page + 1;
-      page = nextPage > page ? nextPage : page + 1;
+      const reported = typeof info.number === 'number' ? info.number + 1 : nextPage + 1;
+      nextPage = reported > nextPage ? reported : nextPage + 1;
     } else {
-      page += 1;
+      nextPage += 1;
     }
 
     if (objects.length === 0) {
-      break;
+      return { items: batch, done: true };
     }
-  }
 
-  return results.slice(0, limit);
+    const noMorePages = (limit && loaded >= limit) || (totalPages != null && nextPage >= totalPages);
+    return { items: batch, done: noMorePages };
+  };
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -111,18 +122,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!(host instanceof HTMLElement)) return;
 
   let neos: NeoItem[] = [];
-  const controller = await initNeo3D(() => neos, host);
+  const loadCatalogPage = createNeoCatalogLoader({ ...NEO_FETCH });
+
+  const loadMoreNeos = async () => {
+    const { items, done } = await loadCatalogPage();
+    if (items.length) {
+      neos = neos.concat(items);
+    }
+    return { neos: items, done } as const;
+  };
+
+  const controller = await initNeo3D(() => neos, host, {
+    loadMore: () => loadMoreNeos(),
+  });
 
   try {
-    neos = await fetchNeoCatalog({ ...NEO_FETCH });
-    controller?.setNeos(neos);
+    const initial = await loadMoreNeos();
+    controller?.setNeos(neos, { hasMore: !initial.done });
     const summary = document.getElementById('neo3d-neo-summary');
     if (summary && !controller) {
       summary.textContent = `Loaded ${neos.length} near-Earth objects.`;
     }
   } catch (error) {
     console.error('[neo3d] failed to load NEOs', error);
-    controller?.setNeos([]);
+    controller?.setNeos([], { hasMore: false });
     const summary = document.getElementById('neo3d-neo-summary');
     if (summary) {
       summary.textContent = 'Failed to load NEO catalog. Reload the page to try again.';

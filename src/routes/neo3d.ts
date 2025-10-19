@@ -438,13 +438,20 @@ function addDaysIso(iso: string, days: number): string {
   return `${d.toISOString().slice(0, 19)}Z`;
 }
 
+export type NeoLoadMoreResponse = { neos?: NeoItem[]; done?: boolean } | NeoItem[] | null | undefined;
+
+export interface InitNeo3DOptions {
+  loadMore?: () => Promise<NeoLoadMoreResponse>;
+}
+
 export interface Neo3DController {
-  setNeos(neos: NeoItem[]): void;
+  setNeos(neos: NeoItem[], options?: { hasMore?: boolean }): void;
 }
 
 export async function initNeo3D(
   getSelectedNeos: () => NeoItem[],
   host?: HTMLElement | null,
+  options: InitNeo3DOptions = {},
 ): Promise<Neo3DController | null> {
   const container = host ?? document.getElementById('neo3d-host');
   if (!(container instanceof HTMLElement)) {
@@ -494,6 +501,11 @@ export async function initNeo3D(
   const sbdbHost = document.getElementById('sbdb-explorer-host') as HTMLDivElement | null;
   const sbdbLoaded = document.getElementById('sbdb-loaded') as HTMLDivElement | null;
   const sbdbLoadedEmpty = document.getElementById('sbdb-loaded-empty') as HTMLElement | null;
+
+  const loadMoreHandler = options.loadMore ?? null;
+  let loadMoreDone = loadMoreHandler ? false : true;
+  let loadMoreInFlight = false;
+  let pendingLoad: Promise<boolean> | null = null;
 
   if (sbdbHost) {
     sbdbHost.innerHTML = '';
@@ -694,6 +706,61 @@ export async function initNeo3D(
 
   const getRemainingNeos = () => Math.max(0, allNeos.length - nextNeoIndex);
 
+  const appendNeoCandidates = (neos: NeoItem[]): boolean => {
+    let appended = false;
+    for (const neo of neos) {
+      const candidate = createNeoCandidate(neo);
+      if (candidate) {
+        allNeos.push(candidate);
+        appended = true;
+      }
+    }
+    return appended;
+  };
+
+  const normalizeLoadMoreResult = (result: NeoLoadMoreResponse): { neos: NeoItem[]; done: boolean } => {
+    if (!result) {
+      return { neos: [], done: true };
+    }
+    if (Array.isArray(result)) {
+      return { neos: result, done: false };
+    }
+    const { neos, done } = result;
+    return { neos: Array.isArray(neos) ? neos : [], done: done === true };
+  };
+
+  const requestAdditionalNeos = async (): Promise<boolean> => {
+    if (!loadMoreHandler || loadMoreDone) {
+      return false;
+    }
+    if (pendingLoad) {
+      return pendingLoad;
+    }
+    loadMoreInFlight = true;
+    updateLoadMoreState();
+    const loadPromise = (async () => {
+      try {
+        const raw = await loadMoreHandler();
+        const { neos: newNeos, done } = normalizeLoadMoreResult(raw);
+        const appended = newNeos.length ? appendNeoCandidates(newNeos) : false;
+        if (done) {
+          loadMoreDone = true;
+        }
+        return appended;
+      } catch (error) {
+        console.error('[neo3d] failed to load additional NEOs', error);
+        toastError('Failed to load more NEOs.');
+        return false;
+      } finally {
+        loadMoreInFlight = false;
+        updateLoadMoreState();
+        pendingLoad = null;
+      }
+    })();
+    pendingLoad = loadPromise;
+    return loadPromise;
+  };
+
   const updateSbdbLoadedState = () => {
     if (sbdbLoadedEmpty) {
       sbdbLoadedEmpty.hidden = sbdbEntries.size > 0;
@@ -708,15 +775,26 @@ export async function initNeo3D(
   const updateLoadMoreState = () => {
     if (!neoLoadMore) return;
     const remaining = getRemainingNeos();
-    if (!allNeos.length || remaining <= 0) {
-      neoLoadMore.hidden = true;
+    const hasLocal = remaining > 0;
+    const canFetchMore = Boolean(loadMoreHandler) && !loadMoreDone;
+    const shouldShow = hasLocal || canFetchMore;
+    neoLoadMore.hidden = !shouldShow;
+    if (!shouldShow) {
       neoLoadMore.disabled = true;
       return;
     }
-    const nextCount = Math.min(NEO_BATCH_SIZE, remaining);
-    neoLoadMore.hidden = false;
+    if (loadMoreInFlight) {
+      neoLoadMore.disabled = true;
+      neoLoadMore.textContent = 'Loading…';
+      return;
+    }
     neoLoadMore.disabled = false;
-    neoLoadMore.textContent = `Add ${nextCount} more`;
+    if (hasLocal) {
+      const nextCount = Math.min(NEO_BATCH_SIZE, remaining);
+      neoLoadMore.textContent = `Add ${nextCount} more`;
+    } else {
+      neoLoadMore.textContent = `Add ${NEO_BATCH_SIZE} more`;
+    }
   };
 
   const registerEntryKeys = (id: string, keys: string[]) => {
@@ -828,7 +906,11 @@ export async function initNeo3D(
       if (!allNeos.length) {
         neoSummary.textContent = 'Awaiting NEO data…';
       } else if (nextNeoIndex >= allNeos.length) {
-        neoSummary.textContent = 'No NEOs with orbital data available.';
+        if (Boolean(loadMoreHandler) && !loadMoreDone) {
+          neoSummary.textContent = 'Add more NEOs to load candidates.';
+        } else {
+          neoSummary.textContent = 'No NEOs with orbital data available.';
+        }
       } else {
         neoSummary.textContent = 'Load more NEOs to display them.';
       }
@@ -856,6 +938,8 @@ export async function initNeo3D(
     if (remaining > 0) {
       const remainNoun = remaining === 1 ? 'NEO available' : 'NEOs available';
       message = `${message} ${remaining} more ${remainNoun}.`;
+    } else if (Boolean(loadMoreHandler) && !loadMoreDone) {
+      message = `${message} More NEOs available.`;
     }
     neoSummary.textContent = message;
   };
@@ -967,26 +1051,19 @@ export async function initNeo3D(
     return entry;
   };
 
-  const loadNextNeos = (batchSize = NEO_BATCH_SIZE) => {
-    if (!allNeos.length) {
-      updateSmallBodies();
-      refreshNeoUi();
-      if (neoEntries.size === 0) {
-        renderNeoEmptyState();
-      }
-      return;
-    }
-
-    const defaultEnabled =
-      neoAllToggle && !neoAllToggle.disabled && !neoAllToggle.indeterminate
-        ? neoAllToggle.checked
-        : true;
-
+  const loadNextNeos = async (batchSize = NEO_BATCH_SIZE) => {
     const anchor = neoList?.querySelector('[data-source="sbdb"]') ?? null;
-
     let added = 0;
 
-    while (nextNeoIndex < allNeos.length && added < batchSize) {
+    while (added < batchSize) {
+      if (nextNeoIndex >= allNeos.length) {
+        const fetched = await requestAdditionalNeos();
+        if (!fetched) {
+          break;
+        }
+        continue;
+      }
+
       const candidate = allNeos[nextNeoIndex];
       nextNeoIndex += 1;
 
@@ -1008,6 +1085,11 @@ export async function initNeo3D(
       if (normalizedKeys.some((key) => entryKeyIndex.has(key))) {
         continue;
       }
+
+      const defaultEnabled =
+        neoAllToggle && !neoAllToggle.disabled && !neoAllToggle.indeterminate
+          ? neoAllToggle.checked
+          : true;
 
       const { neo, spec } = candidate;
       const metaParts = [`H ${neo.absolute_magnitude_h.toFixed(1)}`];
@@ -1234,7 +1316,7 @@ export async function initNeo3D(
 
   if (neoLoadMore) {
     neoLoadMore.addEventListener('click', () => {
-      loadNextNeos(NEO_BATCH_SIZE);
+      void loadNextNeos(NEO_BATCH_SIZE);
     });
   }
 
@@ -1300,12 +1382,19 @@ export async function initNeo3D(
   updateTimeLabel(simulation.getCurrentDate());
   updatePlayControls();
 
-  const applyNeos = (neos: NeoItem[]) => {
+  const applyNeos = (neos: NeoItem[], applyOptions?: { hasMore?: boolean }) => {
     const candidates = neos
       .map((neo) => createNeoCandidate(neo))
       .filter((candidate): candidate is NeoCandidate => candidate !== null);
     allNeos = candidates;
     nextNeoIndex = 0;
+    if (typeof applyOptions?.hasMore === 'boolean') {
+      loadMoreDone = !applyOptions.hasMore;
+    } else if (!loadMoreHandler) {
+      loadMoreDone = true;
+    } else {
+      loadMoreDone = false;
+    }
     removeEntriesBySource('neo');
     updateSmallBodies();
     refreshNeoUi();
@@ -1315,10 +1404,10 @@ export async function initNeo3D(
       }
       return;
     }
-    loadNextNeos(NEO_BATCH_SIZE);
+    void loadNextNeos(NEO_BATCH_SIZE);
   };
 
-  applyNeos(getSelectedNeos());
+  applyNeos(getSelectedNeos(), { hasMore: !loadMoreDone });
 
   const iso = '2025-11-19T04:00:02Z';
   void Promise.all([
@@ -1330,8 +1419,8 @@ export async function initNeo3D(
   });
 
   return {
-    setNeos(neos: NeoItem[]) {
-      applyNeos(neos);
+    setNeos(neos: NeoItem[], setOptions?: { hasMore?: boolean }) {
+      applyNeos(neos, setOptions);
     },
   };
 }
