@@ -8,20 +8,20 @@ const qs = new URLSearchParams(location.search);
 
 const inputs = {
   facility: el('facility'),
-  yearMin:  el('yearMin'),
-  rMin:     el('rMin'),
-  rMax:     el('rMax'),
-  tMin:     el('tMin'),
-  tMax:     el('tMax'),
+  yearMin: el('yearMin'),
+  rMin: el('rMin'),
+  rMax: el('rMax'),
+  tMin: el('tMin'),
+  tMax: el('tMax'),
 };
 
 const btnFetch = el('btnFetch');
 const btnShare = el('btnShare');
-const btnCSV   = el('btnCSV');
+const btnCSV = el('btnCSV');
 const statusEl = el('status');
-const adqlEl   = el('adql');
-const rowsEl   = el('rows');
-const hintEl   = el('hint');
+const adqlEl = el('adql');
+const rowsEl = el('rows');
+const hintEl = el('hint');
 const examplesWrap = el('exampleButtons');
 let exampleButtons = [];
 
@@ -36,8 +36,7 @@ let currentRows = [];
 let selectedPlanetName = '';
 let activeExampleDesc = '';
 
-const EXAMPLE_PRESETS = [
-  {
+const EXAMPLE_PRESETS = [{
     key: 'lavaWorlds',
     label: 'Lava worlds',
     filters: { facility: '', yearMin: 2000, rMin: 0.4, rMax: 1.5, tMin: 900, tMax: '' },
@@ -141,13 +140,13 @@ async function run() {
   const q = getState();
   const { where, filtersDesc } = whereClause(q);
   const adql =
-`SELECT TOP 1000 pl_name, hostname,
-  AVG(pl_rade) AS rade,
-  MIN(pl_masse) AS masse,
-  MIN(pl_eqt)   AS eqt,
-  MIN(pl_orbper) AS period,
-  MIN(ra) AS ra, MIN(dec) AS dec,
-  MIN(disc_year) AS disc_year
+    `SELECT TOP 1000 pl_name, hostname,
+AVG(pl_rade) AS rade,
+MIN(pl_masse) AS masse,
+MIN(pl_eqt)   AS eqt,
+MIN(pl_orbper) AS period,
+MIN(ra) AS ra, MIN(dec) AS dec,
+MIN(disc_year) AS disc_year
 FROM ps
 WHERE tran_flag=1${where ? ' AND ' + where : ''}
 GROUP BY pl_name, hostname
@@ -206,18 +205,18 @@ function normalizeRows(out) {
 function renderTable(rows) {
   currentRows = rows;
   rowsEl.innerHTML = rows.map((r, i) => `
-    <tr data-index="${i}" tabindex="0">
-      <td><button type="button" class="planet-name-btn" data-index="${i}">${esc(r.name)}</button></td>
-      <td>${esc(r.host)}</td>
-      <td>${fmt(r.rade)}</td>
-      <td>${fmt(r.masse)}</td>
-      <td>${fmt(r.eqt)}</td>
-      <td>${fmt(r.period)}</td>
-      <td>${fmt(r.ra, 3)}</td>
-      <td>${fmt(r.dec, 3)}</td>
-      <td>${esc(r.year ?? '')}</td>
-    </tr>
-  `).join('');
+<tr data-index="${i}" tabindex="0">
+<td><button type="button" class="planet-name-btn" data-index="${i}">${esc(r.name)}</button></td>
+<td>${esc(r.host)}</td>
+<td>${fmt(r.rade)}</td>
+<td>${fmt(r.masse)}</td>
+<td>${fmt(r.eqt)}</td>
+<td>${fmt(r.period)}</td>
+<td>${fmt(r.ra, 3)}</td>
+<td>${fmt(r.dec, 3)}</td>
+<td>${esc(r.year ?? '')}</td>
+</tr>
+`).join('');
 }
 
 function renderSummary(rows) {
@@ -243,41 +242,44 @@ function whereClause(q) {
     }
   }
   if (q.yearMin) { clauses.push(`disc_year >= ${+q.yearMin}`); desc.push(`Year ≥ ${+q.yearMin}`); }
-  if (q.rMin)    { clauses.push(`pl_rade >= ${+q.rMin}`); desc.push(`Re ≥ ${+q.rMin}`); }
-  if (q.rMax)    { clauses.push(`pl_rade <= ${+q.rMax}`); desc.push(`Re ≤ ${+q.rMax}`); }
-  if (q.tMin)    { clauses.push(`pl_eqt >= ${+q.tMin}`); desc.push(`Teq ≥ ${+q.tMin} K`); }
-  if (q.tMax)    { clauses.push(`pl_eqt <= ${+q.tMax}`); desc.push(`Teq ≤ ${+q.tMax} K`); }
+  if (q.rMin) { clauses.push(`pl_rade >= ${+q.rMin}`); desc.push(`Re ≥ ${+q.rMin}`); }
+  if (q.rMax) { clauses.push(`pl_rade <= ${+q.rMax}`); desc.push(`Re ≤ ${+q.rMax}`); }
+  if (q.tMin) { clauses.push(`pl_eqt >= ${+q.tMin}`); desc.push(`Teq ≥ ${+q.tMin} K`); }
+  if (q.tMax) { clauses.push(`pl_eqt <= ${+q.tMax}`); desc.push(`Teq ≤ ${+q.tMax} K`); }
   return { where: clauses.filter(Boolean).join(' AND '), filtersDesc: desc.length ? desc.join(' · ') : 'No additional filters' };
 }
 
 function getState() {
   return {
     facility: inputs.facility.value.trim(),
-    yearMin:  inputs.yearMin.value.trim(),
-    rMin:     inputs.rMin.value.trim(),
-    rMax:     inputs.rMax.value.trim(),
-    tMin:     inputs.tMin.value.trim(),
-    tMax:     inputs.tMax.value.trim(),
+    yearMin: inputs.yearMin.value.trim(),
+    rMin: inputs.rMin.value.trim(),
+    rMax: inputs.rMax.value.trim(),
+    tMin: inputs.tMin.value.trim(),
+    tMax: inputs.tMax.value.trim(),
   };
 }
+
 function setState(obj, { clear = false } = {}) {
   if (clear) {
     for (const key of Object.keys(inputs)) {
       inputs[key].value = '';
     }
   }
-  for (const [k,v] of Object.entries(obj)) {
+  for (const [k, v] of Object.entries(obj)) {
     if (!(k in inputs)) continue;
     inputs[k].value = v == null ? '' : String(v);
   }
 }
+
 function initFromURL() {
   const seed = {};
-  for (const [k,v] of qs.entries()) {
+  for (const [k, v] of qs.entries()) {
     if (k in inputs) seed[k] = v;
   }
   setState(seed);
 }
+
 function wire() {
   btnFetch.addEventListener('click', () => {
     activeExampleDesc = '';
@@ -288,19 +290,21 @@ function wire() {
     syncURL();
     await navigator.clipboard.writeText(location.href);
     setStatus('Link copied');
-    setTimeout(()=> setStatus(''), 900);
+    setTimeout(() => setStatus(''), 900);
   });
   btnCSV.addEventListener('click', async () => {
     const rows = Array.from(rowsEl.querySelectorAll('tr')).map(tr => Array.from(tr.children).map(td => td.textContent));
-    const header = ['pl_name','hostname','pl_rade','pl_masse','pl_eqt','pl_orbper','ra','dec','disc_year'];
+    const header = ['pl_name', 'hostname', 'pl_rade', 'pl_masse', 'pl_eqt', 'pl_orbper', 'ra', 'dec', 'disc_year'];
     const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'exoplanets.csv';
-    document.body.appendChild(a); a.click(); a.remove();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setStatus('CSV saved');
-    setTimeout(()=> setStatus(''), 900);
+    setTimeout(() => setStatus(''), 900);
   });
 
   // Enter key triggers run
@@ -376,38 +380,38 @@ function renderMassRadiusPanel(planet) {
   ];
   const tooltip = `Radius: ${fmtOrDash(planet.rade)} Re\nMass: ${fmtOrDash(planet.masse)} Me`;
   mrViz.innerHTML = `
-    <div class="mr-visual" title="${esc(tooltip)}">
-      ${svgClass ? svg.replace('<svg', `<svg class="${svgClass}"`) : svg}
-      <div class="mr-metrics">
-        <div class="label">Classification</div>
-        <div style="font-size:20px; font-weight:600">${esc(label)}</div>
-        <div style="color:var(--muted); max-width:280px;">${esc(description)}</div>
-        <div class="label" style="margin-top:8px;">Mass–radius estimates</div>
-        ${metrics.map(m => `<div><span class="label">${esc(m.label)}:</span> <span class="stat">${esc(m.value)}</span></div>`).join('')}
-      </div>
-    </div>
-  `;
+<div class="mr-visual" title="${esc(tooltip)}">
+${svgClass ? svg.replace('<svg', `<svg class="${svgClass}"`) : svg}
+<div class="mr-metrics">
+<div class="label">Classification</div>
+<div style="font-size:20px; font-weight:600">${esc(label)}</div>
+<div style="color:var(--muted); max-width:280px;">${esc(description)}</div>
+<div class="label" style="margin-top:8px;">Mass–radius estimates</div>
+${metrics.map(m => `<div><span class="label">${esc(m.label)}:</span> <span class="stat">${esc(m.value)}</span></div>`).join('')}
+</div>
+</div>
+`;
 }
 
 function renderPlanetSummary(planet) {
   if (!planet) {
     selectedSummary.innerHTML = `
-      <h4>Planet details</h4>
-      <p style="margin:0; color:var(--muted);">Choose a planet from the table to see its host, orbit, and climate.</p>
-    `;
+<h4>Planet details</h4>
+<p style="margin:0; color:var(--muted);">Choose a planet from the table to see its host, orbit, and climate.</p>
+`;
     return;
   }
   selectedSummary.innerHTML = `
-    <h4>${esc(planet.name)}</h4>
-    <dl>
-      <dt>Host star</dt><dd>${esc(planet.host)}</dd>
-      <dt>Discovery year</dt><dd>${esc(planet.year ?? '—')}</dd>
-      <dt>Orbit period (days)</dt><dd>${fmtOrDash(planet.period)}</dd>
-      <dt>Equilibrium temp (K)</dt><dd>${fmtOrDash(planet.eqt, 0)}</dd>
-      <dt>Right ascension</dt><dd>${fmtOrDash(planet.ra, 3)}</dd>
-      <dt>Declination</dt><dd>${fmtOrDash(planet.dec, 3)}</dd>
-    </dl>
-  `;
+<h4>${esc(planet.name)}</h4>
+<dl>
+<dt>Host star</dt><dd>${esc(planet.host)}</dd>
+<dt>Discovery year</dt><dd>${esc(planet.year ?? '—')}</dd>
+<dt>Orbit period (days)</dt><dd>${fmtOrDash(planet.period)}</dd>
+<dt>Equilibrium temp (K)</dt><dd>${fmtOrDash(planet.eqt, 0)}</dd>
+<dt>Right ascension</dt><dd>${fmtOrDash(planet.ra, 3)}</dd>
+<dt>Declination</dt><dd>${fmtOrDash(planet.dec, 3)}</dd>
+</dl>
+`;
 }
 
 function describePlanetType(planet) {
@@ -545,7 +549,7 @@ function describePlanetType(planet) {
 function syncURL() {
   const q = new URLSearchParams();
   const s = getState();
-  for (const [k,v] of Object.entries(s)) if (v != null && v !== '') q.set(k, v);
+  for (const [k, v] of Object.entries(s)) if (v != null && v !== '') q.set(k, v);
   const url = `${location.pathname}?${q.toString()}`;
   history.replaceState(null, '', url);
 }
@@ -567,320 +571,363 @@ function buildExampleButtons() {
 }
 
 function setStatus(t) { statusEl.textContent = t || ''; }
+
 function num(x) { const n = Number(x); return Number.isFinite(n) ? n : null; }
-function fmt(x, d=2) { return Number.isFinite(x) ? Number(x).toFixed(d) : ''; }
-function fmtOrDash(x, d=2, placeholder='–') {
+
+function fmt(x, d = 2) { return Number.isFinite(x) ? Number(x).toFixed(d) : ''; }
+
+function fmtOrDash(x, d = 2, placeholder = '–') {
   const out = fmt(x, d);
   return out === '' ? placeholder : out;
 }
-function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;' }[m])); }
+
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[m])); }
+
 function median(arr) {
   if (!arr.length) return null;
-  const a = arr.slice().sort((x,y)=>x-y);
-  const i = Math.floor(a.length/2);
-  return a.length % 2 ? a[i] : (a[i-1]+a[i])/2;
+  const a = arr.slice().sort((x, y) => x - y);
+  const i = Math.floor(a.length / 2);
+  return a.length % 2 ? a[i] : (a[i - 1] + a[i]) / 2;
 }
 
-// Enhanced SVG base with ambient glow and better lighting
-function svgBase(inner, gradient) {
+function svgBase(inner, gradient, defs = '') {
   return `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-hidden="true">
-      <defs>
-        ${gradient || ''}
-        <!-- Ambient glow filter -->
-        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
-          <feMerge>
-            <feMergeNode in="blur"/>
-            <feMergeNode in="SourceGraphic"/>
-          </feMerge>
-        </filter>
-        <!-- Subtle cloud animation -->
-        <style>
-          @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-8px); } }
-          .cloud { animation: drift 4s infinite alternate ease-in-out; }
-        </style>
-      </defs>
-      <g filter="url(#glow)">
-        ${inner}
-      </g>
-    </svg>
-  `;
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-hidden="true">
+  <defs>
+    ${gradient || ''}
+    ${defs}
+    <!-- Rim light and atmosphere glow -->
+    <filter id="atmo" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+      <feSpecularLighting in="blur" surfaceScale="5" specularConstant="1" specularExponent="20" lighting-color="#ffffff" result="specOut">
+        <fePointLight x="-500" y="-100" z="300" />
+      </feSpecularLighting>
+      <feComposite in="specOut" in2="SourceAlpha" operator="in" result="specOut" />
+      <feComposite in="SourceGraphic" in2="specOut" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litPaint" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="ambientGlow" />
+      <feMerge>
+        <feMergeNode in="ambientGlow" />
+        <feMergeNode in="litPaint" />
+      </feMerge>
+    </filter>
+    <clipPath id="planetClip">
+      <circle cx="80" cy="80" r="78" />
+    </clipPath>
+  </defs>
+  <g filter="url(#atmo)">
+    ${inner}
+  </g>
+</svg>
+`;
 }
 
-// Improved SVGs with texture, lighting, and realism
 function svgAirlessDwarf() {
   const gradient = `
-    <radialGradient id="airlessGrad" cx="45%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#f5f0e8" />
-      <stop offset="60%" stop-color="#c0b5a8" />
-      <stop offset="100%" stop-color="#7a6e63" />
-    </radialGradient>
-  `;
+<radialGradient id="airlessGrad" cx="60%" cy="40%" r="75%">
+  <stop offset="0%" stop-color="#e0d8cf" />
+  <stop offset="60%" stop-color="#8a7f73" />
+  <stop offset="100%" stop-color="#423a35" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="48" fill="url(#airlessGrad)" />
-    <g fill="rgba(60,52,46,0.6)">
-      <ellipse cx="56" cy="60" rx="12" ry="8" />
-      <ellipse cx="98" cy="50" rx="8" ry="5" />
-      <ellipse cx="114" cy="90" rx="10" ry="7" />
-    </g>
-    <path d="M40 100 Q60 80 80 100 T120 100" stroke="#8a8075" stroke-width="3" fill="none" opacity="0.4"/>
-  `;
+<circle cx="80" cy="80" r="50" fill="url(#airlessGrad)" />
+<!-- Craters -->
+<g fill="rgba(0,0,0,0.25)" stroke="rgba(255,255,255,0.1)" stroke-width="1">
+  <ellipse cx="60" cy="65" rx="10" ry="8" transform="rotate(-15 60 65)" />
+  <ellipse cx="95" cy="55" rx="7" ry="5" />
+  <ellipse cx="110" cy="90" rx="8" ry="6" transform="rotate(20 110 90)" />
+  <circle cx="85" cy="105" r="4" />
+  <circle cx="45" cy="90" r="3" />
+</g>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgLavaWorld() {
   const gradient = `
-    <radialGradient id="lavaGrad" cx="50%" cy="35%" r="70%">
-      <stop offset="0%" stop-color="#ffe0a0" />
-      <stop offset="50%" stop-color="#ff6b2c" />
-      <stop offset="100%" stop-color="#8b0f0f" />
-    </radialGradient>
-  `;
+<radialGradient id="lavaGrad" cx="50%" cy="50%" r="65%" fx="40%" fy="40%">
+  <stop offset="0%" stop-color="#ff4d00" />
+  <stop offset="50%" stop-color="#8c2200" />
+  <stop offset="100%" stop-color="#2b0a00" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="60" fill="url(#lavaGrad)" />
-    <path d="M30 70 C50 50 70 55 90 60 S130 65 150 75" stroke="#fff" stroke-width="4" fill="none" opacity="0.3" />
-    <path d="M25 110 C50 100 75 105 100 100 S140 95 155 110" stroke="#400000" stroke-width="5" fill="none" opacity="0.4"/>
-    <circle cx="60" cy="50" r="4" fill="#ffe6b0" opacity="0.7">
-      <animate attributeName="r" values="4;5;4" dur="2s" repeatCount="indefinite"/>
-    </circle>
-  `;
+<circle cx="80" cy="80" r="60" fill="#3d1a1a" />
+<!-- Molten Cracks -->
+<g stroke-linecap="round" fill="none" filter="blur(0.5px)">
+  <path d="M30 70 Q 50 100, 90 90 T 140 80" stroke="#ff9100" stroke-width="5" opacity="0.8"/>
+  <path d="M30 70 Q 50 100, 90 90 T 140 80" stroke="#ffff00" stroke-width="2" />
+  
+  <path d="M60 30 Q 80 60, 110 50" stroke="#ff5500" stroke-width="4" opacity="0.7" />
+  <path d="M60 30 Q 80 60, 110 50" stroke="#ffcc00" stroke-width="1.5" />
+  
+  <path d="M50 120 Q 90 110, 120 130" stroke="#ff2a00" stroke-width="6" opacity="0.6" />
+  <path d="M50 120 Q 90 110, 120 130" stroke="#ff8800" stroke-width="2" />
+</g>
+<circle cx="80" cy="80" r="60" fill="url(#lavaGrad)" opacity="0.5" style="mix-blend-mode: overlay;" />
+`;
   return svgBase(inner, gradient);
 }
 
 function svgTemperateTerrestrial() {
   const gradient = `
-    <radialGradient id="temperateGrad" cx="40%" cy="35%" r="70%">
-      <stop offset="0%" stop-color="#d0f0ff" />
-      <stop offset="50%" stop-color="#4a9a70" />
-      <stop offset="100%" stop-color="#154a35" />
-    </radialGradient>
-  `;
+<radialGradient id="oceanGrad" cx="50%" cy="50%" r="70%" fx="30%" fy="30%">
+  <stop offset="0%" stop-color="#4facfe" />
+  <stop offset="100%" stop-color="#003a7d" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="60" fill="url(#temperateGrad)" />
-    <path d="M20 90 C60 70 100 75 140 90" stroke="#e0f8ff" stroke-width="6" fill="none" opacity="0.4"/>
-    <path d="M30 60 C70 80 110 70 150 65" stroke="#0a3528" stroke-width="5" fill="none" opacity="0.3"/>
-    <path d="M60 40 C70 50 90 50 100 40" stroke="#e0f8ff" stroke-width="3" fill="none" opacity="0.5"/>
-  `;
+<circle cx="80" cy="80" r="62" fill="url(#oceanGrad)" />
+<!-- Continents -->
+<g fill="#3a7d44" opacity="0.9" clip-path="url(#planetClip)">
+   <path d="M50 40 Q 70 20, 100 50 T 140 60 L 150 100 Q 100 120, 60 100 T 30 70 Z" />
+   <path d="M10 90 Q 30 80, 50 110 T 40 150 L 10 140 Z" fill="#5a4d3a"/>
+</g>
+<!-- Clouds -->
+<g fill="#ffffff" opacity="0.4" filter="blur(2px)">
+  <path d="M20 80 Q 50 60, 90 85 T 150 70" stroke="#fff" stroke-width="12" fill="none"/>
+  <path d="M40 40 Q 70 30, 110 45" stroke="#fff" stroke-width="8" fill="none"/>
+  <path d="M30 120 Q 80 130, 130 115" stroke="#fff" stroke-width="10" fill="none"/>
+</g>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgMegaEarth() {
   const gradient = `
-    <radialGradient id="megaGrad" cx="55%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#e0f5ff" />
-      <stop offset="60%" stop-color="#2c70c0" />
-      <stop offset="100%" stop-color="#0f2040" />
-    </radialGradient>
-  `;
+<radialGradient id="megaGrad" cx="50%" cy="50%" r="70%" fx="25%" fy="25%">
+  <stop offset="0%" stop-color="#8ecae6" />
+  <stop offset="100%" stop-color="#023047" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="66" fill="url(#megaGrad)" />
-    <ellipse cx="80" cy="80" rx="74" ry="20" fill="rgba(255,255,255,0.15)" />
-    <path d="M20 70 C60 50 100 55 140 70" stroke="#082c5a" stroke-width="8" fill="none" opacity="0.5"/>
-    <path d="M40 105 C80 95 120 95 160 105" stroke="#60a8f0" stroke-width="6" fill="none" opacity="0.3"/>
-  `;
+<circle cx="80" cy="80" r="70" fill="url(#megaGrad)" />
+<!-- Thick Atmosphere Bands -->
+<g opacity="0.2" fill="none" stroke="#fff" stroke-width="20" clip-path="url(#planetClip)">
+  <path d="M-20 60 Q 80 80, 180 60" />
+  <path d="M-20 100 Q 80 120, 180 100" />
+</g>
+<circle cx="80" cy="80" r="68" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.3" />
+`;
   return svgBase(inner, gradient);
 }
 
 function svgHotSuperEarth() {
   const gradient = `
-    <radialGradient id="hotSeGrad" cx="50%" cy="35%" r="70%">
-      <stop offset="0%" stop-color="#ffe8ff" />
-      <stop offset="60%" stop-color="#ff50a0" />
-      <stop offset="100%" stop-color="#600030" />
-    </radialGradient>
-  `;
+<linearGradient id="dayNight" x1="0%" y1="50%" x2="100%" y2="50%">
+  <stop offset="30%" stop-color="#fff5e0" /> <!-- Day side -->
+  <stop offset="50%" stop-color="#ff5e62" /> <!-- Terminator -->
+  <stop offset="85%" stop-color="#240b36" /> <!-- Night side -->
+</linearGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="64" fill="url(#hotSeGrad)" />
-    <path d="M20 85 C60 65 100 70 140 85" stroke="#ffd0f0" stroke-width="6" fill="none" opacity="0.4"/>
-    <path d="M30 55 C70 70 110 60 150 55" stroke="#600035" stroke-width="7" fill="none" opacity="0.4"/>
-    <circle cx="60" cy="60" r="5" fill="rgba(255,255,255,0.2)">
-      <animate attributeName="opacity" values="0.2;0.5;0.2" dur="3s" repeatCount="indefinite"/>
-    </circle>
-  `;
+<circle cx="80" cy="80" r="65" fill="url(#dayNight)" transform="rotate(-30 80 80)"/>
+<!-- Evaporating atmosphere tail hint -->
+<path d="M 30 30 Q 0 0, -20 -20" stroke="#fff5e0" stroke-width="10" opacity="0.1" filter="blur(5px)"/>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgHotSubNeptune() {
   const gradient = `
-    <radialGradient id="hotSnGrad" cx="55%" cy="35%" r="70%">
-      <stop offset="0%" stop-color="#fff0d0" />
-      <stop offset="60%" stop-color="#ff9040" />
-      <stop offset="100%" stop-color="#b02050" />
-    </radialGradient>
-  `;
+<radialGradient id="hotSnGrad" cx="50%" cy="50%" r="65%" fx="40%" fy="30%">
+  <stop offset="0%" stop-color="#ffecd2" />
+  <stop offset="50%" stop-color="#fcb69f" />
+  <stop offset="100%" stop-color="#c72c48" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="68" fill="url(#hotSnGrad)" />
-    <ellipse cx="80" cy="70" rx="76" ry="18" fill="rgba(255,255,255,0.2)" />
-    <ellipse cx="80" cy="96" rx="64" ry="16" fill="rgba(130,10,60,0.4)" />
-    <path d="M30 100 C70 95 110 95 150 100" stroke="#d04060" stroke-width="5" fill="none" opacity="0.3"/>
-  `;
+<circle cx="80" cy="80" r="68" fill="url(#hotSnGrad)" />
+<!-- Puffed up haze layers -->
+<circle cx="80" cy="80" r="68" fill="none" stroke="#ffecd2" stroke-width="4" opacity="0.2" />
+<circle cx="80" cy="80" r="64" fill="none" stroke="#fcb69f" stroke-width="4" opacity="0.1" />
+`;
   return svgBase(inner, gradient);
 }
 
 function svgColdSubNeptune() {
   const gradient = `
-    <radialGradient id="coldSnGrad" cx="48%" cy="35%" r="68%">
-      <stop offset="0%" stop-color="#f0f8ff" />
-      <stop offset="60%" stop-color="#50a0ff" />
-      <stop offset="100%" stop-color="#103070" />
-    </radialGradient>
-  `;
+<radialGradient id="coldSnGrad" cx="50%" cy="50%" r="70%" fx="30%" fy="30%">
+  <stop offset="0%" stop-color="#e0f7fa" />
+  <stop offset="100%" stop-color="#006064" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="68" fill="url(#coldSnGrad)" />
-    <ellipse cx="80" cy="70" rx="78" ry="18" fill="rgba(255,255,255,0.3)" />
-    <path d="M20 110 C60 105 100 105 140 110" stroke="#002050" stroke-width="6" fill="none" opacity="0.3"/>
-    <path d="M40 50 C80 60 120 55 160 50" stroke="#a0d0ff" stroke-width="4" fill="none" opacity="0.2"/>
-  `;
+<circle cx="80" cy="80" r="68" fill="url(#coldSnGrad)" />
+<!-- Methane clouds -->
+<g fill="#b2ebf2" opacity="0.3" filter="blur(3px)" clip-path="url(#planetClip)">
+  <ellipse cx="60" cy="50" rx="40" ry="10" />
+  <ellipse cx="100" cy="80" rx="50" ry="12" />
+  <ellipse cx="70" cy="110" rx="40" ry="8" />
+</g>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgWarmNeptune() {
   const gradient = `
-    <radialGradient id="warmNepGrad" cx="52%" cy="38%" r="66%">
-      <stop offset="0%" stop-color="#f0e0ff" />
-      <stop offset="60%" stop-color="#8060ff" />
-      <stop offset="100%" stop-color="#201070" />
-    </radialGradient>
-  `;
+<radialGradient id="warmNepGrad" cx="50%" cy="40%" r="70%">
+  <stop offset="0%" stop-color="#d1c4e9" />
+  <stop offset="60%" stop-color="#7e57c2" />
+  <stop offset="100%" stop-color="#311b92" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="70" fill="url(#warmNepGrad)" />
-    <path d="M15 85 C60 65 100 70 145 85" stroke="#f0d0ff" stroke-width="6" fill="none" opacity="0.3"/>
-    <ellipse cx="80" cy="80" rx="90" ry="26" fill="none" stroke="rgba(180,140,255,0.5)" stroke-width="6"/>
-  `;
+<circle cx="80" cy="80" r="70" fill="url(#warmNepGrad)" />
+<!-- Dark Spot -->
+<ellipse cx="110" cy="60" rx="15" ry="8" fill="#311b92" opacity="0.6" filter="blur(1px)" transform="rotate(-10 110 60)" />
+<!-- High wispy clouds -->
+<path d="M40 90 Q 80 100, 120 90" stroke="#ede7f6" stroke-width="3" fill="none" opacity="0.4" filter="blur(1px)" />
+`;
   return svgBase(inner, gradient);
 }
 
 function svgUltraHotJupiter() {
   const gradient = `
-    <radialGradient id="uhjGrad" cx="50%" cy="35%" r="72%">
-      <stop offset="0%" stop-color="#fff5d0" />
-      <stop offset="55%" stop-color="#ffb040" />
-      <stop offset="100%" stop-color="#ff3030" />
-    </radialGradient>
-  `;
+<radialGradient id="uhjGrad" cx="30%" cy="30%" r="80%">
+  <stop offset="0%" stop-color="#fff9c4" />
+  <stop offset="40%" stop-color="#fbc02d" />
+  <stop offset="100%" stop-color="#bf360c" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="76" fill="url(#uhjGrad)" />
-    <g stroke-width="10" stroke-linecap="round" opacity="0.4">
-      <path d="M10 65 C60 45 100 50 150 65" stroke="#ffe0a0" />
-      <path d="M20 90 C60 75 100 75 140 90" stroke="#cc2020" />
-    </g>
-    <circle cx="50" cy="40" r="6" fill="#ffe6b0">
-      <animate attributeName="r" values="6;7;6" dur="1.5s" repeatCount="indefinite"/>
-    </circle>
-  `;
+<circle cx="80" cy="80" r="75" fill="url(#uhjGrad)" />
+<!-- Intense heat bands representing supersonic winds -->
+<g stroke-width="2" stroke="#fff" opacity="0.2" fill="none">
+  <path d="M0 60 Q 80 60, 160 60" />
+  <path d="M0 100 Q 80 100, 160 100" />
+  <path d="M0 80 Q 80 80, 160 80" />
+</g>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgColdGasGiant() {
   const gradient = `
-    <radialGradient id="coldGasGrad" cx="55%" cy="40%" r="70%">
-      <stop offset="0%" stop-color="#e8f4ff" />
-      <stop offset="60%" stop-color="#4080d0" />
-      <stop offset="100%" stop-color="#0a1a40" />
-    </radialGradient>
-  `;
+<radialGradient id="coldGasGrad" cx="40%" cy="40%" r="70%">
+  <stop offset="0%" stop-color="#b3e5fc" />
+  <stop offset="100%" stop-color="#01579b" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="74" fill="url(#coldGasGrad)" />
-    <g stroke-width="10" stroke-linecap="round" opacity="0.35">
-      <path d="M15 70 C60 50 100 55 145 70" stroke="#d0e8ff" />
-      <path d="M25 95 C60 80 100 80 135 95" stroke="#104080" />
-    </g>
-    <ellipse cx="80" cy="96" rx="100" ry="30" fill="none" stroke="rgba(100,160,240,0.4)" stroke-width="7"/>
-  `;
+<circle cx="80" cy="80" r="72" fill="url(#coldGasGrad)" />
+<!-- Subtle bands -->
+<g fill="none" stroke="#0288d1" stroke-width="8" opacity="0.15" clip-path="url(#planetClip)">
+  <rect x="0" y="40" width="160" height="20" />
+  <rect x="0" y="100" width="160" height="20" />
+</g>
+<!-- Ring system -->
+<g transform="rotate(-20 80 80)" opacity="0.8">
+  <ellipse cx="80" cy="80" rx="95" ry="25" fill="none" stroke="#e1f5fe" stroke-width="2" opacity="0.4"/>
+  <ellipse cx="80" cy="80" rx="90" ry="20" fill="none" stroke="#b3e5fc" stroke-width="6" opacity="0.6"/>
+  <!-- Mask part of ring behind planet -->
+  <path d="M 15 80 A 65 25 0 0 0 145 80" stroke="#b3e5fc" stroke-width="6" fill="none" opacity="0.6" />
+</g>
+<!-- Redraw planet top half over back ring -->
+<path d="M 10 80 A 70 70 0 0 1 150 80" fill="url(#coldGasGrad)" clip-path="url(#planetClip)" transform="rotate(-20 80 80)"/>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgRocky() {
   const gradient = `
-    <radialGradient id="rockyGrad" cx="50%" cy="45%" r="62%">
-      <stop offset="0%" stop-color="#f0d0a0" />
-      <stop offset="60%" stop-color="#c07040" />
-      <stop offset="100%" stop-color="#603020" />
-    </radialGradient>
-  `;
+<radialGradient id="rockyGrad" cx="60%" cy="40%" r="70%">
+  <stop offset="0%" stop-color="#d7ccc8" />
+  <stop offset="60%" stop-color="#8d6e63" />
+  <stop offset="100%" stop-color="#3e2723" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="62" fill="url(#rockyGrad)" />
-    <path d="M25 70 C40 60 55 65 70 60 S110 55 125 70" stroke="#402010" stroke-width="4" fill="none" opacity="0.4"/>
-    <path d="M35 100 C50 110 70 105 85 110 S125 105 140 100" stroke="#f8e0b0" stroke-width="3" fill="none" opacity="0.3"/>
-  `;
+<circle cx="80" cy="80" r="58" fill="url(#rockyGrad)" />
+<!-- Tectonic features -->
+<path d="M50 40 Q 70 60, 40 90 T 70 130" stroke="#5d4037" stroke-width="2" fill="none" opacity="0.5" />
+<path d="M100 30 Q 120 70, 100 110" stroke="#3e2723" stroke-width="3" fill="none" opacity="0.3" />
+`;
   return svgBase(inner, gradient);
 }
 
 function svgSuperEarth() {
   const gradient = `
-    <radialGradient id="seGrad" cx="45%" cy="35%" r="68%">
-      <stop offset="0%" stop-color="#b0e0ff" />
-      <stop offset="70%" stop-color="#3070d0" />
-      <stop offset="100%" stop-color="#102050" />
-    </radialGradient>
-  `;
+<radialGradient id="seGrad" cx="40%" cy="40%" r="75%">
+  <stop offset="0%" stop-color="#80deea" />
+  <stop offset="100%" stop-color="#006064" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="64" fill="url(#seGrad)" />
-    <path d="M20 85 C60 65 100 70 140 85" stroke="#ffffff" stroke-width="5" fill="none" opacity="0.25"/>
-    <path d="M30 55 C70 75 110 65 150 55" stroke="#003080" stroke-width="6" fill="none" opacity="0.3"/>
-    <ellipse cx="80" cy="80" rx="70" ry="20" fill="rgba(255,255,255,0.1)" />
-  `;
+<circle cx="80" cy="80" r="64" fill="url(#seGrad)" />
+<!-- Swirling cloud patterns -->
+<g stroke="#e0f7fa" stroke-width="4" fill="none" opacity="0.3" filter="blur(2px)">
+   <path d="M30 50 C 50 30, 110 30, 130 50" />
+   <path d="M20 80 C 60 60, 100 100, 140 80" />
+   <path d="M40 110 C 60 130, 100 130, 120 110" />
+</g>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgSubNeptune() {
   const gradient = `
-    <radialGradient id="snGrad" cx="55%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#d0f0ff" />
-      <stop offset="75%" stop-color="#40a0ff" />
-      <stop offset="100%" stop-color="#1040b0" />
-    </radialGradient>
-  `;
+<radialGradient id="snGrad" cx="50%" cy="45%" r="70%">
+  <stop offset="0%" stop-color="#b39ddb" />
+  <stop offset="100%" stop-color="#4527a0" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="67" fill="url(#snGrad)" />
-    <ellipse cx="80" cy="70" rx="74" ry="18" fill="rgba(255,255,255,0.2)" />
-    <ellipse cx="80" cy="94" rx="64" ry="14" fill="rgba(10,60,140,0.25)" />
-    <path d="M25 105 C65 100 95 100 135 105" stroke="#2070d0" stroke-width="5" fill="none" opacity="0.2"/>
-  `;
+<circle cx="80" cy="80" r="66" fill="url(#snGrad)" />
+<!-- Hazy bands -->
+<rect x="0" y="60" width="160" height="40" fill="#673ab7" opacity="0.2" clip-path="url(#planetClip)" />
+`;
   return svgBase(inner, gradient);
 }
 
 function svgNeptune() {
   const gradient = `
-    <radialGradient id="nepGrad" cx="50%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#d0e8ff" />
-      <stop offset="75%" stop-color="#3070d0" />
-      <stop offset="100%" stop-color="#102060" />
-    </radialGradient>
-  `;
+<radialGradient id="nepGrad" cx="50%" cy="50%" r="70%" fx="30%" fy="30%">
+  <stop offset="0%" stop-color="#448aff" />
+  <stop offset="100%" stop-color="#1a237e" />
+</radialGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="68" fill="url(#nepGrad)" />
-    <path d="M15 88 C60 68 100 72 145 88" stroke="#ffffff" stroke-width="6" fill="none" opacity="0.2"/>
-    <ellipse cx="80" cy="80" rx="84" ry="26" fill="none" stroke="rgba(160,200,255,0.5)" stroke-width="6"/>
-  `;
+<circle cx="80" cy="80" r="68" fill="url(#nepGrad)" />
+<!-- Great Dark Spot & Clouds -->
+<ellipse cx="50" cy="100" rx="12" ry="8" fill="#1a237e" opacity="0.5" filter="blur(1px)" />
+<path d="M80 40 Q 110 30, 140 45" stroke="#fff" stroke-width="3" fill="none" opacity="0.5" filter="blur(1px)"/>
+<path d="M90 60 Q 120 55, 150 65" stroke="#fff" stroke-width="2" fill="none" opacity="0.3" filter="blur(1px)"/>
+`;
   return svgBase(inner, gradient);
 }
 
 function svgGasGiant() {
   const gradient = `
-    <radialGradient id="gasGrad" cx="55%" cy="42%" r="68%">
-      <stop offset="0%" stop-color="#fff0d0" />
-      <stop offset="70%" stop-color="#f5a050" />
-      <stop offset="100%" stop-color="#b04020" />
-    </radialGradient>
-  `;
+<radialGradient id="gasGrad" cx="40%" cy="40%" r="72%">
+  <stop offset="0%" stop-color="#ffe0b2" />
+  <stop offset="100%" stop-color="#e65100" />
+</radialGradient>
+`;
+  const defs = `
+<linearGradient id="bands" x1="0" x2="0" y1="0" y2="1">
+  <stop offset="0%" stop-color="#ffcc80" />
+  <stop offset="20%" stop-color="#ef6c00" />
+  <stop offset="40%" stop-color="#ffe0b2" />
+  <stop offset="50%" stop-color="#e65100" />
+  <stop offset="60%" stop-color="#ffe0b2" />
+  <stop offset="80%" stop-color="#ef6c00" />
+  <stop offset="100%" stop-color="#ffcc80" />
+</linearGradient>
+`;
   const inner = `
-    <circle cx="80" cy="80" r="72" fill="url(#gasGrad)" />
-    <g stroke-width="10" stroke-linecap="round" opacity="0.35">
-      <path d="M10 65 C60 45 100 50 150 65" stroke="#ffe0b0" />
-      <path d="M20 90 C60 75 100 75 140 90" stroke="#a03010" />
-    </g>
-    <ellipse cx="80" cy="94" rx="100" ry="32" fill="none" stroke="rgba(255,180,100,0.4)" stroke-width="8"/>
-    <circle cx="110" cy="60" r="8" fill="rgba(255,255,255,0.3)" class="cloud"/>
-  `;
-  return svgBase(inner, gradient);
+<circle cx="80" cy="80" r="72" fill="url(#bands)" transform="rotate(-15 80 80)" />
+<circle cx="80" cy="80" r="72" fill="url(#gasGrad)" opacity="0.5" style="mix-blend-mode: multiply;" />
+<!-- Great Red Spot -->
+<ellipse cx="110" cy="100" rx="18" ry="10" fill="#bf360c" opacity="0.8" transform="rotate(-15 110 100)" />
+`;
+  return svgBase(inner, gradient, defs);
 }
 
 function svgUnknown() {
   const inner = `
-    <circle cx="80" cy="80" r="56" fill="#1c2734" stroke="#314354" stroke-width="4" />
-    <text x="80" y="90" text-anchor="middle" font-size="48" fill="#4c637c" font-family="sans-serif">?</text>
-  `;
+<circle cx="80" cy="80" r="56" fill="#263238" stroke="#37474f" stroke-width="4" />
+<text x="80" y="100" text-anchor="middle" font-size="60" font-family="sans-serif" font-weight="bold" fill="#546e7a">?</text>
+`;
   return svgBase(inner);
 }
