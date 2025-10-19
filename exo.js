@@ -39,91 +39,91 @@ let activeExampleDesc = '';
 const EXAMPLE_PRESETS = [{
     key: 'lavaWorlds',
     label: 'Lava worlds',
-    filters: { facility: '', yearMin: 2000, rMin: 0.4, rMax: 1.5, tMin: 900, tMax: '' },
+    filters: { facility: '', yearMin: 2000, rMin: 0.4, rMax: 1.5, tMin: Math.round(kelvinToFahrenheit(900)), tMax: '' },
     description: 'Curated sample: tidally roasted worlds with magma oceans and vaporized rock skies.'
   },
   {
     key: 'airlessDwarfs',
     label: 'Airless dwarfs',
-    filters: { facility: '', yearMin: 1995, rMin: '', rMax: 0.5, tMin: '', tMax: 1200 },
+    filters: { facility: '', yearMin: 1995, rMin: '', rMax: 0.5, tMin: '', tMax: Math.round(kelvinToFahrenheit(1200)) },
     description: 'Curated sample: tiny, likely airless bodies dominated by bare rock surfaces.'
   },
   {
     key: 'temperateTerrestrials',
     label: 'Temperate terrestrials',
-    filters: { facility: '', yearMin: 2009, rMin: 0.7, rMax: 1.5, tMin: 240, tMax: 330 },
+    filters: { facility: '', yearMin: 2009, rMin: 0.7, rMax: 1.5, tMin: Math.round(kelvinToFahrenheit(240)), tMax: Math.round(kelvinToFahrenheit(330)) },
     description: 'Curated sample: Earth-sized planets receiving clement stellar irradiation.'
   },
   {
     key: 'rockyTerrestrials',
     label: 'Rocky terrestrials',
-    filters: { facility: '', yearMin: 1995, rMin: 0.5, rMax: 1.3, tMin: 120, tMax: 750 },
+    filters: { facility: '', yearMin: 1995, rMin: 0.5, rMax: 1.3, tMin: Math.round(kelvinToFahrenheit(120)), tMax: Math.round(kelvinToFahrenheit(750)) },
     description: 'Curated sample: compact rocky worlds similar in scale to the inner Solar System.'
   },
   {
     key: 'megaEarths',
     label: 'Mega-Earths',
-    filters: { facility: '', yearMin: 2005, rMin: 1.4, rMax: 2, tMin: '', tMax: 600 },
+    filters: { facility: '', yearMin: 2005, rMin: 1.4, rMax: 2, tMin: '', tMax: Math.round(kelvinToFahrenheit(600)) },
     description: 'Curated sample: massive terrestrial giants with extreme surface gravity.'
   },
   {
     key: 'hotSuperEarths',
     label: 'Hot super-Earths',
-    filters: { facility: '', yearMin: 2005, rMin: 1, rMax: 2, tMin: 800, tMax: '' },
+    filters: { facility: '', yearMin: 2005, rMin: 1, rMax: 2, tMin: Math.round(kelvinToFahrenheit(800)), tMax: '' },
     description: 'Curated sample: volatile-rich super-Earths orbiting scorchingly close to their stars.'
   },
   {
     key: 'superEarths',
     label: 'Super-Earths',
-    filters: { facility: '', yearMin: 2009, rMin: 1, rMax: 2, tMin: 200, tMax: 700 },
+    filters: { facility: '', yearMin: 2009, rMin: 1, rMax: 2, tMin: Math.round(kelvinToFahrenheit(200)), tMax: Math.round(kelvinToFahrenheit(700)) },
     description: 'Curated sample: larger-than-Earth worlds with substantial atmospheres.'
   },
   {
     key: 'hotSubNeptunes',
     label: 'Hot sub-Neptunes',
-    filters: { facility: '', yearMin: 2000, rMin: 2, rMax: 4, tMin: 800, tMax: '' },
+    filters: { facility: '', yearMin: 2000, rMin: 2, rMax: 4, tMin: Math.round(kelvinToFahrenheit(800)), tMax: '' },
     description: 'Curated sample: volatile sub-Neptunes puffed up by intense stellar heating.'
   },
   {
     key: 'coldSubNeptunes',
     label: 'Cold sub-Neptunes',
-    filters: { facility: '', yearMin: 1995, rMin: 1.5, rMax: 4, tMin: '', tMax: 200 },
+    filters: { facility: '', yearMin: 1995, rMin: 1.5, rMax: 4, tMin: '', tMax: Math.round(kelvinToFahrenheit(200)) },
     description: 'Curated sample: intermediate worlds orbiting beyond the snow line.'
   },
   {
     key: 'temperateSubNeptunes',
     label: 'Temperate sub-Neptunes',
-    filters: { facility: '', yearMin: 2009, rMin: 1.5, rMax: 4, tMin: 200, tMax: 650 },
+    filters: { facility: '', yearMin: 2009, rMin: 1.5, rMax: 4, tMin: Math.round(kelvinToFahrenheit(200)), tMax: Math.round(kelvinToFahrenheit(650)) },
     description: 'Curated sample: sub-Neptunes with moderate climates and thick envelopes.'
   },
   {
     key: 'warmNeptunes',
     label: 'Warm Neptunes',
-    filters: { facility: '', yearMin: 2000, rMin: 3.5, rMax: 6, tMin: 700, tMax: '' },
+    filters: { facility: '', yearMin: 2000, rMin: 3.5, rMax: 6, tMin: Math.round(kelvinToFahrenheit(700)), tMax: '' },
     description: 'Curated sample: ice giant analogues broiling enough to drive fierce winds.'
   },
   {
     key: 'neptuneLikes',
     label: 'Neptune-like worlds',
-    filters: { facility: '', yearMin: 1995, rMin: 3.5, rMax: 6, tMin: 200, tMax: 650 },
+    filters: { facility: '', yearMin: 1995, rMin: 3.5, rMax: 6, tMin: Math.round(kelvinToFahrenheit(200)), tMax: Math.round(kelvinToFahrenheit(650)) },
     description: 'Curated sample: classic ice giants with deep hydrogen-helium atmospheres.'
   },
   {
     key: 'ultraHotJupiters',
     label: 'Ultra-hot Jupiters',
-    filters: { facility: '', yearMin: 2000, rMin: 6, rMax: '', tMin: 1200, tMax: '' },
+    filters: { facility: '', yearMin: 2000, rMin: 6, rMax: '', tMin: Math.round(kelvinToFahrenheit(1200)), tMax: '' },
     description: 'Curated sample: gas giants skimming their stars with iron-vapor skies.'
   },
   {
     key: 'coldGasGiants',
     label: 'Cold gas giants',
-    filters: { facility: '', yearMin: 1995, rMin: 6, rMax: '', tMin: '', tMax: 350 },
+    filters: { facility: '', yearMin: 1995, rMin: 6, rMax: '', tMin: '', tMax: Math.round(kelvinToFahrenheit(350)) },
     description: 'Curated sample: distant gas giants bathed in muted sunlight and ammonia clouds.'
   },
   {
     key: 'gasGiants',
     label: 'Gas giants',
-    filters: { facility: '', yearMin: 1995, rMin: 6, rMax: '', tMin: 350, tMax: 1200 },
+    filters: { facility: '', yearMin: 1995, rMin: 6, rMax: '', tMin: Math.round(kelvinToFahrenheit(350)), tMax: Math.round(kelvinToFahrenheit(1200)) },
     description: 'Curated sample: Jupiter and Saturn analogues with massive hydrogen envelopes.'
   }
 ];
@@ -210,7 +210,7 @@ function renderTable(rows) {
 <td>${esc(r.host)}</td>
 <td>${fmt(r.rade)}</td>
 <td>${fmt(r.masse)}</td>
-<td>${fmt(r.eqt)}</td>
+<td>${fmtTemperature(r.eqt)}</td>
 <td>${fmt(r.period)}</td>
 <td>${fmt(r.ra, 3)}</td>
 <td>${fmt(r.dec, 3)}</td>
@@ -225,7 +225,8 @@ function renderSummary(rows) {
   const T = rows.map(r => r.eqt).filter(x => Number.isFinite(x));
   const M = rows.map(r => r.masse).filter(x => Number.isFinite(x));
   sumR.textContent = median(R)?.toFixed(2) ?? '–';
-  sumT.textContent = median(T)?.toFixed(0) ?? '–';
+  const medianKelvin = median(T);
+  sumT.textContent = medianKelvin == null ? '–' : fmtTemperature(medianKelvin, 0);
   sumMass.textContent = M.length;
 }
 
@@ -244,8 +245,22 @@ function whereClause(q) {
   if (q.yearMin) { clauses.push(`disc_year >= ${+q.yearMin}`); desc.push(`Year ≥ ${+q.yearMin}`); }
   if (q.rMin) { clauses.push(`pl_rade >= ${+q.rMin}`); desc.push(`Re ≥ ${+q.rMin}`); }
   if (q.rMax) { clauses.push(`pl_rade <= ${+q.rMax}`); desc.push(`Re ≤ ${+q.rMax}`); }
-  if (q.tMin) { clauses.push(`pl_eqt >= ${+q.tMin}`); desc.push(`Teq ≥ ${+q.tMin} K`); }
-  if (q.tMax) { clauses.push(`pl_eqt <= ${+q.tMax}`); desc.push(`Teq ≤ ${+q.tMax} K`); }
+  if (q.tMin) {
+    const fMin = num(q.tMin);
+    const kMin = fMin == null ? null : fahrenheitToKelvin(fMin);
+    if (kMin != null) {
+      clauses.push(`pl_eqt >= ${kMin.toFixed(2)}`);
+      desc.push(`Teq ≥ ${fMin} °F`);
+    }
+  }
+  if (q.tMax) {
+    const fMax = num(q.tMax);
+    const kMax = fMax == null ? null : fahrenheitToKelvin(fMax);
+    if (kMax != null) {
+      clauses.push(`pl_eqt <= ${kMax.toFixed(2)}`);
+      desc.push(`Teq ≤ ${fMax} °F`);
+    }
+  }
   return { where: clauses.filter(Boolean).join(' AND '), filtersDesc: desc.length ? desc.join(' · ') : 'No additional filters' };
 }
 
@@ -294,7 +309,7 @@ function wire() {
   });
   btnCSV.addEventListener('click', async () => {
     const rows = Array.from(rowsEl.querySelectorAll('tr')).map(tr => Array.from(tr.children).map(td => td.textContent));
-    const header = ['pl_name', 'hostname', 'pl_rade', 'pl_masse', 'pl_eqt', 'pl_orbper', 'ra', 'dec', 'disc_year'];
+    const header = ['pl_name', 'hostname', 'pl_rade', 'pl_masse', 'pl_eqt_f', 'pl_orbper', 'ra', 'dec', 'disc_year'];
     const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -407,7 +422,7 @@ function renderPlanetSummary(planet) {
 <dt>Host star</dt><dd>${esc(planet.host)}</dd>
 <dt>Discovery year</dt><dd>${esc(planet.year ?? '—')}</dd>
 <dt>Orbit period (days)</dt><dd>${fmtOrDash(planet.period)}</dd>
-<dt>Equilibrium temp (K)</dt><dd>${fmtOrDash(planet.eqt, 0)}</dd>
+<dt>Equilibrium temp (°F)</dt><dd>${fmtTemperatureOrDash(planet.eqt, 0)}</dd>
 <dt>Right ascension</dt><dd>${fmtOrDash(planet.ra, 3)}</dd>
 <dt>Declination</dt><dd>${fmtOrDash(planet.dec, 3)}</dd>
 </dl>
@@ -576,8 +591,18 @@ function num(x) { const n = Number(x); return Number.isFinite(n) ? n : null; }
 
 function fmt(x, d = 2) { return Number.isFinite(x) ? Number(x).toFixed(d) : ''; }
 
+function fmtTemperature(kelvin, d = 0) {
+  const f = kelvinToFahrenheit(kelvin);
+  return f == null ? '' : Number(f).toFixed(d);
+}
+
 function fmtOrDash(x, d = 2, placeholder = '–') {
   const out = fmt(x, d);
+  return out === '' ? placeholder : out;
+}
+
+function fmtTemperatureOrDash(kelvin, d = 0, placeholder = '–') {
+  const out = fmtTemperature(kelvin, d);
   return out === '' ? placeholder : out;
 }
 
@@ -588,6 +613,14 @@ function median(arr) {
   const a = arr.slice().sort((x, y) => x - y);
   const i = Math.floor(a.length / 2);
   return a.length % 2 ? a[i] : (a[i - 1] + a[i]) / 2;
+}
+
+function kelvinToFahrenheit(kelvin) {
+  return Number.isFinite(kelvin) ? (kelvin - 273.15) * 9 / 5 + 32 : null;
+}
+
+function fahrenheitToKelvin(fahrenheit) {
+  return Number.isFinite(fahrenheit) ? (fahrenheit - 32) * 5 / 9 + 273.15 : null;
 }
 
 function svgBase(inner, gradient, defs = '') {
