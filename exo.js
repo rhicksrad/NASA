@@ -330,6 +330,8 @@ function renderPlanetSummary(planet) {
 
 function describePlanetType(planet) {
   const r = Number.isFinite(planet.rade) ? planet.rade : null;
+  const t = Number.isFinite(planet.eqt) ? planet.eqt : null;
+  const m = Number.isFinite(planet.masse) ? planet.masse : null;
   if (r == null) {
     return {
       label: 'Unknown',
@@ -338,7 +340,31 @@ function describePlanetType(planet) {
       svg: svgUnknown()
     };
   }
-  if (r != null && r < 1.25) {
+  if (r < 1.5 && t != null && t >= 900) {
+    return {
+      label: 'Lava world',
+      description: 'A tidally roasted world with a magma ocean and vaporized rock atmosphere.',
+      svgClass: 'lava-world',
+      svg: svgLavaWorld()
+    };
+  }
+  if (r < 0.5) {
+    return {
+      label: 'Airless dwarf',
+      description: 'A tiny, likely airless body scarred by impacts and dominated by bare rock.',
+      svgClass: 'airless-dwarf',
+      svg: svgAirlessDwarf()
+    };
+  }
+  if (r < 1.5 && t != null && t >= 240 && t <= 330) {
+    return {
+      label: 'Temperate terrestrial',
+      description: 'Earth-sized and receiving clement irradiation that could allow liquid water.',
+      svgClass: 'temperate-terrestrial',
+      svg: svgTemperateTerrestrial()
+    };
+  }
+  if (r < 1.25) {
     return {
       label: 'Rocky terrestrial',
       description: 'Comparable in size to Earth and likely dominated by silicate rock and metal.',
@@ -346,7 +372,23 @@ function describePlanetType(planet) {
       svg: svgRocky()
     };
   }
-  if (r != null && r < 2) {
+  if (r < 2 && m != null && m >= 10) {
+    return {
+      label: 'Mega-Earth',
+      description: 'A super-dense terrestrial giant with crushing surface gravity and deep mantles.',
+      svgClass: 'mega-earth',
+      svg: svgMegaEarth()
+    };
+  }
+  if (r < 2 && t != null && t >= 800) {
+    return {
+      label: 'Hot super-Earth',
+      description: 'A volatile-rich super-Earth orbiting so close that its atmosphere is superheated.',
+      svgClass: 'hot-super-earth',
+      svg: svgHotSuperEarth()
+    };
+  }
+  if (r < 2) {
     return {
       label: 'Super-Earth',
       description: 'Larger than Earth but smaller than ice giants, potentially with thick atmospheres.',
@@ -354,7 +396,23 @@ function describePlanetType(planet) {
       svg: svgSuperEarth()
     };
   }
-  if (r != null && r < 4) {
+  if (r < 4 && t != null && t >= 800) {
+    return {
+      label: 'Hot sub-Neptune',
+      description: 'A volatile sub-Neptune blasted by stellar radiation that puffs up hazy envelopes.',
+      svgClass: 'hot-sub-neptune',
+      svg: svgHotSubNeptune()
+    };
+  }
+  if (r < 4 && t != null && t <= 200) {
+    return {
+      label: 'Cold sub-Neptune',
+      description: 'An intermediate world orbiting beyond the snow line with frigid upper clouds.',
+      svgClass: 'cold-sub-neptune',
+      svg: svgColdSubNeptune()
+    };
+  }
+  if (r < 4) {
     return {
       label: 'Sub-Neptune',
       description: 'Intermediate worlds with volatile-rich envelopes atop rocky cores.',
@@ -362,12 +420,36 @@ function describePlanetType(planet) {
       svg: svgSubNeptune()
     };
   }
-  if (r != null && r < 6) {
+  if (r < 6 && t != null && t >= 700) {
+    return {
+      label: 'Warm Neptune',
+      description: 'An ice giant analogue broiling enough to drive fast winds and dynamic clouds.',
+      svgClass: 'warm-neptune',
+      svg: svgWarmNeptune()
+    };
+  }
+  if (r < 6) {
     return {
       label: 'Neptune-like',
       description: 'Ice giant analogues with deep atmospheres of hydrogen, helium, and methane.',
       svgClass: 'neptune',
       svg: svgNeptune()
+    };
+  }
+  if (t != null && t >= 1200) {
+    return {
+      label: 'Ultra-hot Jupiter',
+      description: 'A gas giant skimming its star, glowing from iron-vapor skies and supersonic jets.',
+      svgClass: 'ultra-hot-jupiter',
+      svg: svgUltraHotJupiter()
+    };
+  }
+  if (t != null && t <= 350) {
+    return {
+      label: 'Cold gas giant',
+      description: 'A distant gas giant with muted sunlight and high-altitude ammonia clouds.',
+      svgClass: 'cold-gas-giant',
+      svg: svgColdGasGiant()
     };
   }
   return {
@@ -419,6 +501,181 @@ function svgBase(inner, gradient) {
       </g>
     </svg>
   `;
+}
+
+function svgAirlessDwarf() {
+  const gradient = `
+    <radialGradient id="airlessGrad" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#f7f2ed" />
+      <stop offset="70%" stop-color="#b3a79d" />
+      <stop offset="100%" stop-color="#6b6058" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="48" fill="url(#airlessGrad)" />
+    <g fill="rgba(60,52,46,0.55)">
+      <ellipse cx="58" cy="62" rx="10" ry="7" />
+      <ellipse cx="94" cy="52" rx="6" ry="4" />
+      <ellipse cx="112" cy="88" rx="8" ry="6" />
+    </g>
+    <g stroke="rgba(255,255,255,0.3)" stroke-width="2" opacity="0.4">
+      <path d="M36 96c18-6 36-6 54 0" />
+      <path d="M54 116c12-4 24-4 36 0" />
+    </g>
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgLavaWorld() {
+  const gradient = `
+    <radialGradient id="lavaGrad" cx="48%" cy="38%" r="68%">
+      <stop offset="0%" stop-color="#ffd2a8" />
+      <stop offset="55%" stop-color="#ff6b2c" />
+      <stop offset="100%" stop-color="#6e0d0d" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="58" fill="url(#lavaGrad)" />
+    <path d="M30 70c18-12 36-16 54-8s36 2 52-12" stroke="#ffd5b7" stroke-width="5" stroke-linecap="round" opacity="0.35" />
+    <path d="M32 108c22-10 46-8 70 4s34 12 50 0" stroke="#2b0202" stroke-width="6" stroke-linecap="round" opacity="0.45" />
+    <path d="M40 54c8 6 14 10 18 12" stroke="#ffd5b7" stroke-width="4" stroke-linecap="round" opacity="0.45" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgTemperateTerrestrial() {
+  const gradient = `
+    <radialGradient id="temperateGrad" cx="42%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#d6f9ff" />
+      <stop offset="55%" stop-color="#62c2a8" />
+      <stop offset="100%" stop-color="#1b5e4c" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="60" fill="url(#temperateGrad)" />
+    <path d="M18 92c32-18 66-22 104-8" stroke="#f3fff5" stroke-width="5" stroke-linecap="round" opacity="0.4" />
+    <path d="M24 66c18 12 40 12 62 2" stroke="#0e3f34" stroke-width="6" stroke-linecap="round" opacity="0.35" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgMegaEarth() {
+  const gradient = `
+    <radialGradient id="megaGrad" cx="54%" cy="40%" r="62%">
+      <stop offset="0%" stop-color="#d7f1ff" />
+      <stop offset="60%" stop-color="#3173c2" />
+      <stop offset="100%" stop-color="#122746" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="64" fill="url(#megaGrad)" />
+    <ellipse cx="80" cy="82" rx="70" ry="20" fill="rgba(255,255,255,0.18)" />
+    <path d="M26 60c26 16 54 20 82 12" stroke="#0a2a55" stroke-width="8" stroke-linecap="round" opacity="0.5" />
+    <path d="M46 106c20-6 42-6 64 0" stroke="#6fb8ff" stroke-width="6" stroke-linecap="round" opacity="0.35" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgHotSuperEarth() {
+  const gradient = `
+    <radialGradient id="hotSeGrad" cx="50%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#ffe6ff" />
+      <stop offset="60%" stop-color="#ff55a5" />
+      <stop offset="100%" stop-color="#5b0035" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="62" fill="url(#hotSeGrad)" />
+    <path d="M24 90c30-16 60-18 90-6" stroke="#ffd6f4" stroke-width="5" stroke-linecap="round" opacity="0.45" />
+    <path d="M38 58c20 10 42 8 66-4" stroke="#6a003b" stroke-width="7" stroke-linecap="round" opacity="0.4" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgHotSubNeptune() {
+  const gradient = `
+    <radialGradient id="hotSnGrad" cx="55%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#fff5d9" />
+      <stop offset="55%" stop-color="#ff9f4f" />
+      <stop offset="100%" stop-color="#c22c62" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="66" fill="url(#hotSnGrad)" />
+    <ellipse cx="80" cy="68" rx="72" ry="18" fill="rgba(255,255,255,0.2)" />
+    <ellipse cx="80" cy="96" rx="60" ry="16" fill="rgba(144,16,70,0.45)" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgColdSubNeptune() {
+  const gradient = `
+    <radialGradient id="coldSnGrad" cx="48%" cy="36%" r="65%">
+      <stop offset="0%" stop-color="#f4fbff" />
+      <stop offset="60%" stop-color="#6fbbff" />
+      <stop offset="100%" stop-color="#1c3f7f" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="66" fill="url(#coldSnGrad)" />
+    <ellipse cx="80" cy="70" rx="74" ry="18" fill="rgba(255,255,255,0.3)" />
+    <path d="M24 108c32-10 64-10 96 0" stroke="#0f2d5a" stroke-width="6" stroke-linecap="round" opacity="0.35" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgWarmNeptune() {
+  const gradient = `
+    <radialGradient id="warmNepGrad" cx="52%" cy="38%" r="64%">
+      <stop offset="0%" stop-color="#f0e3ff" />
+      <stop offset="60%" stop-color="#9a6bff" />
+      <stop offset="100%" stop-color="#3a1f7f" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="68" fill="url(#warmNepGrad)" />
+    <path d="M18 86c42-16 78-18 120-4" stroke="#f4e9ff" stroke-width="6" stroke-linecap="round" opacity="0.35" />
+    <ellipse cx="80" cy="80" rx="88" ry="26" fill="none" stroke="rgba(186,144,255,0.5)" stroke-width="6" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgUltraHotJupiter() {
+  const gradient = `
+    <radialGradient id="uhjGrad" cx="50%" cy="36%" r="70%">
+      <stop offset="0%" stop-color="#fff8d1" />
+      <stop offset="55%" stop-color="#ffb347" />
+      <stop offset="100%" stop-color="#ff433f" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="74" fill="url(#uhjGrad)" />
+    <g stroke-width="9" stroke-linecap="round" opacity="0.4">
+      <path d="M12 66c48-24 100-24 148 0" stroke="#ffe7a6" />
+      <path d="M24 94c40-18 80-18 120 0" stroke="#d82a3c" />
+    </g>
+    <path d="M50 36c8 10 22 18 44 20" stroke="#fff5d7" stroke-width="6" stroke-linecap="round" opacity="0.5" />
+  `;
+  return svgBase(inner, gradient);
+}
+
+function svgColdGasGiant() {
+  const gradient = `
+    <radialGradient id="coldGasGrad" cx="54%" cy="40%" r="68%">
+      <stop offset="0%" stop-color="#f0f7ff" />
+      <stop offset="60%" stop-color="#4e89d8" />
+      <stop offset="100%" stop-color="#0c2046" />
+    </radialGradient>
+  `;
+  const inner = `
+    <circle cx="80" cy="80" r="72" fill="url(#coldGasGrad)" />
+    <g stroke-width="9" stroke-linecap="round" opacity="0.35">
+      <path d="M16 70c44-18 92-18 136 0" stroke="#d7eaff" />
+      <path d="M28 98c36-14 72-14 108 0" stroke="#1e4f91" />
+    </g>
+    <ellipse cx="80" cy="96" rx="96" ry="28" fill="none" stroke="rgba(100,164,238,0.45)" stroke-width="7" />
+  `;
+  return svgBase(inner, gradient);
 }
 
 function svgRocky() {
