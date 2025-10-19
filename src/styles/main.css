@@ -49,6 +49,18 @@ body::before {
   mix-blend-mode: screen;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 
 .top-bar {
   position: sticky;
@@ -87,6 +99,43 @@ body::before {
 }
 
 
+.primary-nav__toggle {
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(8, 13, 31, 0.85);
+  color: var(--text-primary);
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.45);
+  transition: transform 160ms ease, box-shadow 160ms ease, border 160ms ease;
+}
+
+.primary-nav__toggle:hover,
+.primary-nav__toggle:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 18px 32px rgba(56, 189, 248, 0.32);
+  outline: 2px solid rgba(56, 189, 248, 0.65);
+  outline-offset: 2px;
+}
+
+.primary-nav__icon {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.primary-nav__icon span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+
 .primary-nav {
   display: flex;
   flex-wrap: wrap;
@@ -108,10 +157,11 @@ body::before {
 
 .primary-nav a:hover,
 .primary-nav a:focus-visible {
-  outline: none;
   background: rgba(148, 163, 184, 0.2);
   border-color: rgba(148, 163, 184, 0.4);
   transform: translateY(-1px);
+  outline: 2px solid rgba(56, 189, 248, 0.6);
+  outline-offset: 2px;
 }
 
 .primary-nav a[aria-current='page'] {
@@ -119,6 +169,42 @@ body::before {
   color: #041226;
   border-color: rgba(148, 163, 184, 0.65);
   box-shadow: 0 10px 22px rgba(56, 189, 248, 0.35);
+}
+
+@media (max-width: 820px) {
+  .primary-nav__toggle {
+    display: inline-flex;
+  }
+
+  .top-bar {
+    align-items: center;
+  }
+
+  .primary-nav {
+    position: absolute;
+    top: 100%;
+    right: clamp(1rem, 4vw, 2.5rem);
+    left: clamp(1rem, 4vw, 2.5rem);
+    margin-top: 0.75rem;
+    padding: 1rem;
+    border-radius: 18px;
+    border: 1px solid rgba(148, 163, 184, 0.32);
+    background: linear-gradient(150deg, rgba(8, 13, 31, 0.95), rgba(15, 23, 42, 0.9));
+    box-shadow: 0 26px 56px rgba(2, 6, 23, 0.55);
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+    z-index: 24;
+  }
+
+  .primary-nav[data-open='true'] {
+    display: flex;
+  }
+
+  .primary-nav a {
+    width: 100%;
+  }
 }
 
 main {
@@ -233,11 +319,16 @@ button {
   transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
 }
 
-button:hover,
-button:focus-visible {
-  outline: none;
+button:hover {
   transform: translateY(-1px);
   box-shadow: 0 16px 30px rgba(56, 189, 248, 0.4);
+}
+
+button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px rgba(56, 189, 248, 0.4);
+  outline: 2px solid rgba(56, 189, 248, 0.75);
+  outline-offset: 3px;
 }
 
 button[disabled] {
@@ -697,5 +788,26 @@ body.neo3d-fullscreen .neo3d-control-panel {
   .neo3d-select-all {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primary-nav a,
+  .primary-nav__toggle,
+  button,
+  input,
+  select,
+  textarea,
+  .hero-hourly__link,
+  .neo-card,
+  .mars-tile,
+  .images-explorer__card {
+    transition: none !important;
+  }
+
+  .hero-hourly__frame.loading::before,
+  .hero-hourly__frame.loading::after,
+  .neo-skel {
+    animation: none !important;
   }
 }

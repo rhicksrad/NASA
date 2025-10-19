@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { imagesSearch, largestAssetUrl, type NasaImageItem, type SearchParams } from '../api/nasaImages';
 import '../styles/imagesExplorer.css';
@@ -115,6 +115,9 @@ export default function ImagesExplorer() {
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<NasaImageItem | null>(null);
   const [fullUrl, setFullUrl] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     writeHashState({ preset, q, page, ys, ye, kw: keywordInputToList(kwInput) });
@@ -129,9 +132,10 @@ export default function ImagesExplorer() {
       keywords: keywordInputToList(kwInput),
     };
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
-    imagesSearch(params)
+    imagesSearch(params, { signal: controller.signal })
       .then(result => {
         if (cancelled) return;
         setItems(result.items);
@@ -140,7 +144,7 @@ export default function ImagesExplorer() {
         setTotal(result.total);
       })
       .catch(err => {
-        if (cancelled) return;
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return;
         setError(friendlyError(err));
         setItems([]);
         setHasNext(false);
@@ -152,6 +156,7 @@ export default function ImagesExplorer() {
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [q, page, ys, ye, kwInput]);
 
@@ -160,16 +165,21 @@ export default function ImagesExplorer() {
       setFullUrl(null);
       return;
     }
-    let cancelled = false;
-    largestAssetUrl(selected.nasa_id)
+    const controller = new AbortController();
+    setFullUrl(null);
+    largestAssetUrl(selected.nasa_id, controller.signal)
       .then(url => {
-        if (!cancelled) setFullUrl(url);
+        if (!controller.signal.aborted) {
+          setFullUrl(url);
+        }
       })
       .catch(() => {
-        if (!cancelled) setFullUrl(null);
+        if (!controller.signal.aborted) {
+          setFullUrl(null);
+        }
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [selected]);
 
@@ -186,6 +196,57 @@ export default function ImagesExplorer() {
     window.addEventListener('hashchange', handler);
     return () => window.removeEventListener('hashchange', handler);
   }, []);
+
+  useEffect(() => {
+    if (!selected && previouslyFocused.current) {
+      previouslyFocused.current.focus();
+      previouslyFocused.current = null;
+    }
+  }, [selected]);
+
+  useEffect(() => {
+    if (!selected || !modalRef.current) {
+      return;
+    }
+    const modalNode = modalRef.current;
+    const focusableSelectors =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const getFocusable = () =>
+      Array.from(modalNode.querySelectorAll<HTMLElement>(focusableSelectors)).filter(element =>
+        !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true'
+      );
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelected(null);
+        return;
+      }
+      if (event.key === 'Tab') {
+        const focusables = getFocusable();
+        if (!focusables.length) {
+          event.preventDefault();
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (event.shiftKey) {
+          if (document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          }
+        } else if (document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKeydown);
+    const focusables = getFocusable();
+    (focusables[0] ?? closeButtonRef.current)?.focus({ preventScroll: true });
+    return () => {
+      document.removeEventListener('keydown', handleKeydown);
+    };
+  }, [selected]);
 
   return (
     <div className="images-explorer">
@@ -251,7 +312,7 @@ export default function ImagesExplorer() {
         </button>
       </form>
 
-      <div className="images-explorer__status">
+      <div className="images-explorer__status" role="status" aria-live="polite">
         {loading ? 'Loading…' : error ? error : `${total.toLocaleString()} results`}
       </div>
 
@@ -264,7 +325,10 @@ export default function ImagesExplorer() {
           <button
             key={item.nasa_id || item.title}
             className="images-explorer__card"
-            onClick={() => setSelected(item)}
+            onClick={event => {
+              previouslyFocused.current = event.currentTarget;
+              setSelected(item);
+            }}
             title={item.title}
             type="button"
           >
@@ -317,12 +381,17 @@ export default function ImagesExplorer() {
         >
           <div
             className="images-explorer__modal"
+            ref={modalRef}
             onClick={event => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
+            aria-labelledby="images-explorer-modal-title"
+            aria-describedby={selected.description ? 'images-explorer-modal-description' : undefined}
           >
             <div className="images-explorer__modal-header">
-              <strong className="images-explorer__modal-title">{selected.title}</strong>
+              <strong className="images-explorer__modal-title" id="images-explorer-modal-title">
+                {selected.title}
+              </strong>
               <span className="images-explorer__modal-meta">
                 {formatMetaDate(selected.date_created)}
                 {selected.photographer ? ` • ${selected.photographer}` : ''}
@@ -330,6 +399,7 @@ export default function ImagesExplorer() {
               <button
                 className="images-explorer__modal-close"
                 onClick={() => setSelected(null)}
+                ref={closeButtonRef}
                 type="button"
               >
                 Close
@@ -346,7 +416,9 @@ export default function ImagesExplorer() {
                 <div className="images-explorer__modal-loading">Loading full-resolution…</div>
               )}
               {selected.description && (
-                <p className="images-explorer__modal-description">{selected.description}</p>
+                <p className="images-explorer__modal-description" id="images-explorer-modal-description">
+                  {selected.description}
+                </p>
               )}
             </div>
           </div>

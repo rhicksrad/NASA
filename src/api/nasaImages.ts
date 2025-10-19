@@ -73,7 +73,11 @@ type RawSearchResponse = {
   };
 };
 
-export async function imagesSearch(p: SearchParams): Promise<SearchResult> {
+export interface SearchOptions {
+  signal?: AbortSignal;
+}
+
+export async function imagesSearch(p: SearchParams, options: SearchOptions = {}): Promise<SearchResult> {
   const url = buildSearchUrl(p);
   const key = `imgx:${url.search}`;
   const storage = getSessionStorage();
@@ -91,6 +95,7 @@ export async function imagesSearch(p: SearchParams): Promise<SearchResult> {
   const response = await fetch(url.toString(), {
     headers: { Accept: 'application/json' },
     credentials: 'omit',
+    signal: options.signal,
   });
 
   if (!response.ok) {
@@ -139,11 +144,12 @@ type RawAssetResponse = {
   collection?: { items?: Array<{ href?: string }> };
 };
 
-export async function largestAssetUrl(nasa_id: string): Promise<string | null> {
+export async function largestAssetUrl(nasa_id: string, signal?: AbortSignal): Promise<string | null> {
   const url = buildWorkerUrl(`/images/asset/${encodeURIComponent(nasa_id)}`);
   const response = await fetch(url.toString(), {
     headers: { Accept: 'application/json' },
     credentials: 'omit',
+    signal,
   });
 
   if (!response.ok) {

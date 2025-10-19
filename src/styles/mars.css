@@ -54,6 +54,8 @@
   transition: transform 0.22s ease, box-shadow 0.22s ease, border 0.22s ease;
   cursor: pointer;
   box-shadow: 0 18px 40px rgba(2, 6, 23, 0.45);
+  color: inherit;
+  text-align: left;
 }
 
 #mars-root .mars-tile:hover,
@@ -61,6 +63,13 @@
   transform: translateY(-3px);
   border-color: rgba(56, 189, 248, 0.45);
   box-shadow: 0 28px 50px rgba(56, 189, 248, 0.25);
+}
+
+#mars-root .mars-tile:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.65);
+  outline-offset: 3px;
+  transform: translateY(-3px);
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
 #mars-root .mars-thumb {
@@ -93,6 +102,11 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  background: linear-gradient(140deg, rgba(12, 22, 48, 0.9), rgba(9, 17, 37, 0.78));
+  box-shadow: 0 16px 32px rgba(2, 6, 23, 0.4);
 }
 
 #mars-root .mars-modal-overlay {
@@ -159,4 +173,16 @@
   margin-top: 0.5rem;
   font-size: 0.85rem;
   color: #fbbf24;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mars-root .mars-tile {
+    transition: none !important;
+  }
+
+  #mars-root .mars-tile:hover,
+  #mars-root .mars-tile:focus-within,
+  #mars-root .mars-tile:focus-visible {
+    transform: none;
+  }
 }

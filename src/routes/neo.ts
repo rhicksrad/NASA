@@ -12,28 +12,55 @@ import type { NeoItem } from '../types/nasa';
 const PAGE_SIZE = 20;
 
 const MAX_CONCURRENT = 4;
-let inflight = 0;
-const q: Array<() => Promise<void>> = [];
 
-function schedule(task: () => Promise<void>) {
-  q.push(task);
-  pump();
-}
+function createScheduler(maxConcurrent: number, isCancelled: () => boolean) {
+  let inflight = 0;
+  const queue: Array<() => Promise<void>> = [];
 
-function pump() {
-  while (inflight < MAX_CONCURRENT && q.length) {
-    const t = q.shift()!;
-    inflight++;
-      t()
-        .catch(err => {
-          // eslint-disable-next-line no-console
-          console.warn('scheduled task failed', err);
-      })
-      .finally(() => {
-        inflight--;
-        pump();
+  const pump = () => {
+    if (isCancelled()) {
+      queue.length = 0;
+      return;
+    }
+    while (inflight < maxConcurrent && queue.length) {
+      const job = queue.shift()!;
+      inflight++;
+      Promise.resolve()
+        .then(async () => {
+          if (isCancelled()) {
+            return;
+          }
+          try {
+            await job();
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.warn('scheduled task failed', err);
+          }
+        })
+        .finally(() => {
+          inflight--;
+          pump();
+        });
+    }
+  };
+
+  return {
+    schedule(task: () => Promise<void>) {
+      if (isCancelled()) {
+        return;
+      }
+      queue.push(async () => {
+        if (isCancelled()) {
+          return;
+        }
+        await task();
       });
-  }
+      pump();
+    },
+    clear() {
+      queue.length = 0;
+    },
+  };
 }
 
 function el<T extends Element>(sel: string): T {
@@ -64,131 +91,8 @@ function sortItems(items: NeoFlat[], mode: string): NeoFlat[] {
   }
 }
 
-function renderList(listEl: HTMLUListElement, items: NeoFlat[], page: number) {
-  listEl.replaceChildren();
-  const start = page * PAGE_SIZE;
-  const slice = items.slice(start, start + PAGE_SIZE);
 
-  if (!slice.length) {
-    const li = document.createElement('li');
-    li.textContent = 'No objects match the current filters.';
-    listEl.appendChild(li);
-    return;
-  }
-
-  const observer =
-    typeof IntersectionObserver !== 'undefined'
-      ? new IntersectionObserver(
-          entries => {
-            const obs = observer;
-            if (!obs) return;
-            for (const ent of entries) {
-              if (ent.isIntersecting) {
-                const li = ent.target as HTMLLIElement;
-                obs.unobserve(li);
-                const id = li.dataset.neoId || '';
-                const name = li.dataset.neoName || '';
-                if (id || name) loadThumb(li, id, name);
-              }
-            }
-          },
-          { root: listEl, rootMargin: '200px' }
-        )
-      : null;
-
-  for (const d of slice) {
-    const li = document.createElement('li');
-    li.className = 'neo-card';
-    li.dataset.neoId = d.id;
-    li.dataset.neoName = d.name;
-
-    const skel = document.createElement('div');
-    skel.className = 'neo-skel';
-    skel.setAttribute('aria-hidden', 'true');
-
-    const txt = document.createElement('div');
-    const title = document.createElement('div');
-    title.className = 'neo-title';
-    title.textContent = `${d.name}`;
-    const meta = document.createElement('div');
-    const miss = d.miss_ld != null ? `${d.miss_ld.toFixed(2)} LD` : '—';
-    const vel = d.vel_kps != null ? `${d.vel_kps.toFixed(2)} km/s` : '—';
-    const dia = d.dia_km_max != null ? `${d.dia_km_max.toFixed(2)} km` : '—';
-    meta.className = 'neo-meta';
-    meta.textContent = `${d.date} • miss ${miss} • v ${vel} • dia ${dia}${d.is_hazardous ? ' • hazardous' : ''}`;
-
-    txt.appendChild(title);
-    txt.appendChild(meta);
-
-    li.appendChild(skel);
-    li.appendChild(txt);
-
-    listEl.appendChild(li);
-
-    if (observer) {
-      observer.observe(li);
-    } else {
-      loadThumb(li, d.id, d.name);
-    }
-  }
-}
-
-function loadThumb(li: HTMLLIElement, id: string, name: string) {
-  const cached = imageCache.get(id) || imageCache.get(name);
-  if (cached) {
-    replaceThumb(li, cached.url, cached.title, cached.asset);
-    return;
-  }
-  schedule(async () => {
-    try {
-      const pick = await searchFirstImage(name);
-      if (pick) {
-        imageCache.set(id, pick.thumbUrl, pick.title, pick.assetPage);
-        imageCache.set(name, pick.thumbUrl, pick.title, pick.assetPage);
-        replaceThumb(li, pick.thumbUrl, pick.title, pick.assetPage);
-      }
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('image load failed', name, e);
-    }
-  });
-}
-
-function replaceThumb(li: HTMLLIElement, url: string, title: string, asset?: string) {
-  const img = document.createElement('img');
-  img.className = 'neo-thumb';
-  const fallbackTitle = title || li.dataset.neoName || 'NASA Image';
-  img.alt = `${fallbackTitle} (NASA Image Library)`;
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  img.referrerPolicy = 'no-referrer';
-  img.src = url;
-
-  const curr = li.querySelector('.neo-skel');
-  if (curr) {
-    li.replaceChild(img, curr);
-  } else {
-    li.insertBefore(img, li.firstChild);
-  }
-
-  if (asset) {
-    const txt = li.children.item(1) as HTMLElement | null;
-    if (txt && !txt.querySelector('.neo-asset-link')) {
-      const wrapper = document.createElement('div');
-      wrapper.style.marginTop = '.2rem';
-      const link = document.createElement('a');
-      link.href = asset;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.className = 'neo-asset-link';
-      link.textContent = 'Asset';
-      wrapper.appendChild(link);
-      txt.appendChild(wrapper);
-    }
-  }
-}
-
-export async function initNeoPage() {
+export async function initNeoPage(): Promise<() => void> {
   const end = new Date();
   const start = new Date(end.getTime() - 6 * 86400_000);
 
@@ -204,9 +108,23 @@ export async function initNeoPage() {
   const pagerInfo = el<HTMLSpanElement>('#neo-page-info');
   const prevBtn = el<HTMLButtonElement>('#neo-prev');
   const nextBtn = el<HTMLButtonElement>('#neo-next');
+  const controlsForm = el<HTMLFormElement>('#neo-controls');
 
   const timelineEl = el<HTMLDivElement>('#neo-timeline');
   const histEl = el<HTMLDivElement>('#neo-hist');
+  const listWrap = el<HTMLDivElement>('#neo-list-wrap');
+
+  const statusEl = document.createElement('div');
+  statusEl.className = 'neo-status';
+  statusEl.id = 'neo-status';
+  statusEl.setAttribute('role', 'status');
+  statusEl.setAttribute('aria-live', 'polite');
+  statusEl.hidden = true;
+  listWrap.insertBefore(statusEl, listEl);
+
+  let destroyed = false;
+  const { schedule, clear } = createScheduler(MAX_CONCURRENT, () => destroyed);
+  let listObserver: IntersectionObserver | null = null;
 
   let all: NeoFlat[] = [];
   let filtered: NeoFlat[] = [];
@@ -214,90 +132,318 @@ export async function initNeoPage() {
   let neoMap = new Map<string, NeoItem>();
   let selectedNeos: NeoItem[] = [];
   let neo3dController: Neo3DController | null = null;
+  let activeLoadToken = 0;
 
-  function updateSelectionFromFiltered() {
+  const setStatus = (message: string | null, tone: 'info' | 'error' = 'info') => {
+    if (!message) {
+      statusEl.textContent = '';
+      statusEl.hidden = true;
+      statusEl.removeAttribute('data-tone');
+      return;
+    }
+    statusEl.hidden = false;
+    statusEl.textContent = message;
+    statusEl.dataset.tone = tone;
+  };
+
+  const replaceThumb = (li: HTMLLIElement, url: string, title: string, asset?: string) => {
+    if (destroyed || !listEl.contains(li)) {
+      return;
+    }
+    const img = document.createElement('img');
+    img.className = 'neo-thumb';
+    const fallbackTitle = title || li.dataset.neoName || 'NASA Image';
+    img.alt = `${fallbackTitle} (NASA Image Library)`;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.referrerPolicy = 'no-referrer';
+    img.src = url;
+
+    const skeleton = li.querySelector('.neo-skel');
+    if (skeleton) {
+      li.replaceChild(img, skeleton);
+    } else {
+      li.insertBefore(img, li.firstChild);
+    }
+
+    if (asset) {
+      const txt = li.children.item(1) as HTMLElement | null;
+      if (txt && !txt.querySelector('.neo-asset-link')) {
+        const wrapper = document.createElement('div');
+        wrapper.style.marginTop = '.2rem';
+        const link = document.createElement('a');
+        link.href = asset;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.className = 'neo-asset-link';
+        link.textContent = 'Asset';
+        wrapper.appendChild(link);
+        txt.appendChild(wrapper);
+      }
+    }
+  };
+
+  const loadThumb = (li: HTMLLIElement, id: string, name: string) => {
+    if (destroyed) {
+      return;
+    }
+    const cached = imageCache.get(id) || imageCache.get(name);
+    if (cached) {
+      replaceThumb(li, cached.url, cached.title, cached.asset);
+      return;
+    }
+    schedule(async () => {
+      if (destroyed) return;
+      try {
+        const pick = await searchFirstImage(name);
+        if (!pick || destroyed) {
+          return;
+        }
+        imageCache.set(id, pick.thumbUrl, pick.title, pick.assetPage);
+        imageCache.set(name, pick.thumbUrl, pick.title, pick.assetPage);
+        replaceThumb(li, pick.thumbUrl, pick.title, pick.assetPage);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn('image load failed', name, error);
+      }
+    });
+  };
+
+  const renderList = (items: NeoFlat[], currentPage: number) => {
+    if (listObserver) {
+      listObserver.disconnect();
+      listObserver = null;
+    }
+
+    listEl.replaceChildren();
+    const startIndex = currentPage * PAGE_SIZE;
+    const slice = items.slice(startIndex, startIndex + PAGE_SIZE);
+
+    if (!slice.length) {
+      const li = document.createElement('li');
+      li.className = 'neo-card neo-card--empty';
+      li.textContent = 'No objects match the current filters.';
+      listEl.appendChild(li);
+      return;
+    }
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      const observer = new IntersectionObserver(
+        entries => {
+          if (destroyed) {
+            return;
+          }
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              const target = entry.target as HTMLLIElement;
+              observer.unobserve(target);
+              const id = target.dataset.neoId || '';
+              const name = target.dataset.neoName || '';
+              if (id || name) {
+                loadThumb(target, id, name);
+              }
+            }
+          }
+        },
+        { root: listEl, rootMargin: '200px' },
+      );
+      listObserver = observer;
+    }
+
+    for (const data of slice) {
+      const li = document.createElement('li');
+      li.className = 'neo-card';
+      li.dataset.neoId = data.id;
+      li.dataset.neoName = data.name;
+
+      const skeleton = document.createElement('div');
+      skeleton.className = 'neo-skel';
+      skeleton.setAttribute('aria-hidden', 'true');
+
+      const textWrap = document.createElement('div');
+      const title = document.createElement('div');
+      title.className = 'neo-title';
+      title.textContent = data.name;
+      const meta = document.createElement('div');
+      meta.className = 'neo-meta';
+      const miss = data.miss_ld != null ? `${data.miss_ld.toFixed(2)} LD` : '—';
+      const vel = data.vel_kps != null ? `${data.vel_kps.toFixed(2)} km/s` : '—';
+      const dia = data.dia_km_max != null ? `${data.dia_km_max.toFixed(2)} km` : '—';
+      meta.textContent = `${data.date} • miss ${miss} • v ${vel} • dia ${dia}${data.is_hazardous ? ' • hazardous' : ''}`;
+
+      textWrap.appendChild(title);
+      textWrap.appendChild(meta);
+
+      li.appendChild(skeleton);
+      li.appendChild(textWrap);
+      listEl.appendChild(li);
+
+      if (listObserver) {
+        listObserver.observe(li);
+      } else {
+        loadThumb(li, data.id, data.name);
+      }
+    }
+  };
+
+  const updateSelectionFromFiltered = () => {
     const next: NeoItem[] = [];
     for (const item of filtered) {
       const neo = neoMap.get(item.id);
       if (neo && neo.orbital_data) {
         next.push(neo);
       }
-      if (next.length >= 50) break;
+      if (next.length >= 50) {
+        break;
+      }
     }
     selectedNeos = next;
     if (neo3dController) {
       neo3dController.setNeos(selectedNeos);
     }
-  }
+  };
 
-  async function load() {
-    loadBtn.disabled = true;
-    listEl.textContent = 'Loading…';
-    timelineEl.textContent = '';
-    histEl.textContent = '';
+  const render = () => {
+    updateSelectionFromFiltered();
+    renderNeoTimeline(timelineEl, filtered);
+    renderNeoHistogram(histEl, filtered);
 
-    const s = startInput.value;
-    const e = endInput.value;
-    const feed = await getNeoFeed({ start_date: s, end_date: e });
-    neoMap = new Map<string, NeoItem>();
-    for (const list of Object.values(feed.near_earth_objects ?? {})) {
-      for (const neo of list ?? []) {
-        neoMap.set(neo.id, neo);
-      }
-    }
-    all = flattenFeed(feed);
-    applyAndRender();
-    if (!neo3dController) {
-      neo3dController = await initNeo3D(() => selectedNeos);
-    }
-    if (neo3dController) {
-      neo3dController.setNeos(selectedNeos);
-    }
-    loadBtn.disabled = false;
-  }
+    renderList(filtered, page);
+    listEl.removeAttribute('aria-busy');
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    pagerInfo.textContent = `Page ${page + 1} / ${totalPages}`;
+    prevBtn.disabled = page <= 0;
+    nextBtn.disabled = page >= totalPages - 1;
+  };
 
-  function applyAndRender() {
+  const applyAndRender = () => {
     const hazardOnly = hazardInput.checked;
     const mode = sortSelect.value;
     filtered = sortItems(applyFilters(all, hazardOnly), mode);
     page = 0;
     render();
-  }
+  };
 
-  function render() {
-    updateSelectionFromFiltered();
-    renderNeoTimeline(timelineEl, filtered);
-    renderNeoHistogram(histEl, filtered);
+  const validateRange = (): { start: string; end: string } | { error: string } => {
+    const startValue = startInput.value;
+    const endValue = endInput.value;
+    if (!startValue || !endValue) {
+      return { error: 'Start and end dates are required.' };
+    }
+    const startDate = new Date(`${startValue}T00:00:00Z`);
+    const endDate = new Date(`${endValue}T00:00:00Z`);
+    if (Number.isNaN(startDate.valueOf()) || Number.isNaN(endDate.valueOf())) {
+      return { error: 'Enter valid start and end dates.' };
+    }
+    if (startDate > endDate) {
+      return { error: 'Start date must be on or before the end date.' };
+    }
+    const diffDays = Math.round((endDate.valueOf() - startDate.valueOf()) / 86_400_000);
+    if (diffDays > 6) {
+      return { error: 'NASA NeoWs only supports seven-day ranges. Choose a shorter window.' };
+    }
+    return { start: startValue, end: endValue };
+  };
 
-    renderList(listEl, filtered, page);
-    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-    pagerInfo.textContent = `Page ${page + 1} / ${totalPages}`;
-    prevBtn.disabled = page <= 0;
-    nextBtn.disabled = page >= totalPages - 1;
-  }
+  const load = async () => {
+    if (destroyed) {
+      return;
+    }
+    const range = validateRange();
+    if ('error' in range) {
+      setStatus(range.error, 'error');
+      return;
+    }
 
-  el<HTMLFormElement>('#neo-controls').addEventListener('submit', ev => {
-    ev.preventDefault();
-    load();
-  });
-  hazardInput.addEventListener('change', applyAndRender);
-  sortSelect.addEventListener('change', applyAndRender);
-  prevBtn.addEventListener('click', () => {
+    const token = ++activeLoadToken;
+    loadBtn.disabled = true;
+    listEl.setAttribute('aria-busy', 'true');
+    listEl.replaceChildren();
+    const loadingLi = document.createElement('li');
+    loadingLi.className = 'neo-card neo-card--loading';
+    loadingLi.textContent = 'Loading NEO feed…';
+    listEl.appendChild(loadingLi);
+    timelineEl.replaceChildren();
+    histEl.replaceChildren();
+    setStatus('Loading near-Earth objects…');
+
+    try {
+      const feed = await getNeoFeed({ start_date: range.start, end_date: range.end });
+      if (destroyed || token !== activeLoadToken) {
+        return;
+      }
+      const nextMap = new Map<string, NeoItem>();
+      for (const list of Object.values(feed.near_earth_objects ?? {})) {
+        for (const neo of list ?? []) {
+          nextMap.set(neo.id, neo);
+        }
+      }
+      neoMap = nextMap;
+      all = flattenFeed(feed);
+      applyAndRender();
+      if (!neo3dController) {
+        neo3dController = await initNeo3D(() => selectedNeos);
+      }
+      if (!destroyed && token === activeLoadToken && neo3dController) {
+        neo3dController.setNeos(selectedNeos);
+      }
+      if (!destroyed && token === activeLoadToken) {
+        setStatus(null);
+      }
+    } catch (err) {
+      if (!destroyed && token === activeLoadToken) {
+        console.error(err);
+        setStatus('Failed to load NEO feed. Restoring previous results.', 'error');
+        render();
+      }
+    } finally {
+      if (!destroyed && token === activeLoadToken) {
+        loadBtn.disabled = false;
+      }
+    }
+  };
+
+  const onFormSubmit = (event: Event) => {
+    event.preventDefault();
+    void load();
+  };
+  const onHazardChange = () => {
+    applyAndRender();
+  };
+  const onSortChange = () => {
+    applyAndRender();
+  };
+  const onPrevClick = () => {
     if (page > 0) {
-      page--;
+      page -= 1;
       render();
     }
-  });
-  nextBtn.addEventListener('click', () => {
+  };
+  const onNextClick = () => {
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     if (page < totalPages - 1) {
-      page++;
+      page += 1;
       render();
     }
-  });
+  };
 
-  load().catch(err => {
-    listEl.textContent = 'Failed to load NEO feed';
-    console.error(err);
-  });
+  controlsForm.addEventListener('submit', onFormSubmit);
+  hazardInput.addEventListener('change', onHazardChange);
+  sortSelect.addEventListener('change', onSortChange);
+  prevBtn.addEventListener('click', onPrevClick);
+  nextBtn.addEventListener('click', onNextClick);
+
+  void load();
+
+  return () => {
+    destroyed = true;
+    clear();
+    listObserver?.disconnect();
+    listObserver = null;
+    controlsForm.removeEventListener('submit', onFormSubmit);
+    hazardInput.removeEventListener('change', onHazardChange);
+    sortSelect.removeEventListener('change', onSortChange);
+    prevBtn.removeEventListener('click', onPrevClick);
+    nextBtn.removeEventListener('click', onNextClick);
+  };
 }

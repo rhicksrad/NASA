@@ -13,6 +13,10 @@ export function renderNeoHistogram(host: HTMLElement, data: NeoFlat[]) {
 
   const vals = data.map(d => d.dia_km_max ?? 0).filter(v => v > 0);
   if (!vals.length) {
+    const empty = document.createElement('p');
+    empty.className = 'neo-chart-empty';
+    empty.textContent = 'No diameter data available.';
+    host.replaceChildren(empty);
     return;
   }
 
@@ -20,8 +24,18 @@ export function renderNeoHistogram(host: HTMLElement, data: NeoFlat[]) {
   const bins = d3.bin().domain(x.domain() as [number, number]).thresholds(20)(vals);
   const y = d3.scaleLinear().domain([0, d3.max(bins, b => b.length)!]).nice().range([innerH, 0]);
 
-  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(6));
-  g.append('g').call(d3.axisLeft(y));
+  const axisColor = 'rgba(226, 232, 240, 0.75)';
+  const gridColor = 'rgba(148, 163, 184, 0.25)';
+
+  const xAxis = g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(6));
+  xAxis.selectAll('text').attr('fill', axisColor);
+  xAxis.selectAll('line').attr('stroke', gridColor);
+  xAxis.selectAll('path').attr('stroke', gridColor);
+
+  const yAxis = g.append('g').call(d3.axisLeft(y));
+  yAxis.selectAll('text').attr('fill', axisColor);
+  yAxis.selectAll('line').attr('stroke', gridColor);
+  yAxis.selectAll('path').attr('stroke', gridColor);
 
   g
     .selectAll('rect')

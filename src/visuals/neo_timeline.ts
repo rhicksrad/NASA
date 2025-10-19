@@ -3,6 +3,13 @@ import type { NeoFlat } from '../utils/neo';
 
 export function renderNeoTimeline(host: HTMLElement, data: NeoFlat[]) {
   host.replaceChildren();
+  if (!data.length) {
+    const empty = document.createElement('p');
+    empty.className = 'neo-chart-empty';
+    empty.textContent = 'No near-Earth objects for the selected range.';
+    host.appendChild(empty);
+    return;
+  }
   const w = host.clientWidth || 640;
   const h = host.clientHeight || 260;
   const m = { t: 16, r: 16, b: 28, l: 42 };
@@ -14,6 +21,10 @@ export function renderNeoTimeline(host: HTMLElement, data: NeoFlat[]) {
   const parse = d3.utcParse('%Y-%m-%d');
   const xDomain = d3.extent(data, d => parse(d.date)!) as [Date, Date] | [undefined, undefined];
   if (!xDomain[0] || !xDomain[1]) {
+    const empty = document.createElement('p');
+    empty.className = 'neo-chart-empty';
+    empty.textContent = 'Timeline data is unavailable.';
+    host.replaceChildren(empty);
     return;
   }
   const x = d3.scaleUtc().domain([xDomain[0], xDomain[1]]).range([0, innerW]);
@@ -33,8 +44,18 @@ export function renderNeoTimeline(host: HTMLElement, data: NeoFlat[]) {
     : [0, 1];
   const size = d3.scaleSqrt().domain(sizeDomain).range([2, 10]);
 
-  g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(6));
-  g.append('g').call(d3.axisLeft(y));
+  const axisColor = 'rgba(226, 232, 240, 0.75)';
+  const gridColor = 'rgba(148, 163, 184, 0.25)';
+
+  const xAxis = g.append('g').attr('transform', `translate(0,${innerH})`).call(d3.axisBottom(x).ticks(6));
+  xAxis.selectAll('text').attr('fill', axisColor);
+  xAxis.selectAll('line').attr('stroke', gridColor);
+  xAxis.selectAll('path').attr('stroke', gridColor);
+
+  const yAxis = g.append('g').call(d3.axisLeft(y));
+  yAxis.selectAll('text').attr('fill', axisColor);
+  yAxis.selectAll('line').attr('stroke', gridColor);
+  yAxis.selectAll('path').attr('stroke', gridColor);
 
   const pts = g.append('g').attr('aria-hidden', 'true');
   pts
