@@ -71,3 +71,23 @@
     opacity: 0.6;
   }
 }
+
+.neo-asset-link:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.7);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo-card {
+    transition: none !important;
+  }
+
+  .neo-card:hover,
+  .neo-card:focus-within {
+    transform: none;
+  }
+
+  .neo-skel {
+    animation: none !important;
+  }
+}

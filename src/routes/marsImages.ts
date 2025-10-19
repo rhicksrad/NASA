@@ -114,6 +114,7 @@ type RenderContext = {
   prevBtn: HTMLButtonElement;
   nextBtn: HTMLButtonElement;
   pageBadge: HTMLSpanElement;
+  lastTrigger: HTMLElement | null;
 };
 
 function renderGrid(context: RenderContext, items: NasaImagesItem[]): void {
@@ -132,9 +133,9 @@ function renderGrid(context: RenderContext, items: NasaImagesItem[]): void {
     const date = formatDate(firstDatum?.date_created);
     const thumb = bestThumb(item);
 
-    const tile = document.createElement('article');
+    const tile = document.createElement('button');
+    tile.type = 'button';
     tile.className = 'mars-tile';
-    tile.tabIndex = 0;
 
     if (thumb) {
       const img = document.createElement('img');
@@ -161,13 +162,7 @@ function renderGrid(context: RenderContext, items: NasaImagesItem[]): void {
 
     tile.appendChild(meta);
 
-    tile.addEventListener('click', () => openModal(context, item));
-    tile.addEventListener('keypress', evt => {
-      if (evt.key === 'Enter' || evt.key === ' ') {
-        evt.preventDefault();
-        openModal(context, item);
-      }
-    });
+    tile.addEventListener('click', () => openModal(context, item, tile));
 
     fragment.appendChild(tile);
   }
@@ -175,7 +170,7 @@ function renderGrid(context: RenderContext, items: NasaImagesItem[]): void {
   context.gridEl.appendChild(fragment);
 }
 
-function openModal(context: RenderContext, item: NasaImagesItem): void {
+function openModal(context: RenderContext, item: NasaImagesItem, trigger: HTMLElement): void {
   const firstDatum = item.data?.[0];
   const title = firstDatum?.title ?? 'Mars image';
   const description = firstDatum?.description ? truncate(firstDatum.description) : 'No description available.';
@@ -183,6 +178,8 @@ function openModal(context: RenderContext, item: NasaImagesItem): void {
     ? `https://images.nasa.gov/details/${encodeURIComponent(firstDatum.nasa_id)}`
     : item.href;
   const displayHref = bestThumb(item);
+
+  context.lastTrigger = trigger;
 
   if (displayHref) {
     context.modalImage.src = displayHref;
@@ -202,6 +199,11 @@ function openModal(context: RenderContext, item: NasaImagesItem): void {
 function closeModal(context: RenderContext): void {
   context.modalOverlay.classList.add('mars-hidden');
   context.modalImage.removeAttribute('src');
+  const trigger = context.lastTrigger;
+  if (trigger) {
+    trigger.focus({ preventScroll: true });
+  }
+  context.lastTrigger = null;
 }
 
 function buildModal(): {
@@ -335,6 +337,8 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
 
   const statusEl = document.createElement('div');
   statusEl.className = 'mars-status';
+  statusEl.setAttribute('role', 'status');
+  statusEl.setAttribute('aria-live', 'polite');
   root.appendChild(statusEl);
 
   const statusMessageEl = document.createElement('span');
@@ -376,6 +380,7 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
     prevBtn,
     nextBtn,
     pageBadge,
+    lastTrigger: null,
   };
 
   const closeModalHandler = (evt: Event) => {

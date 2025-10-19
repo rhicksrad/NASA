@@ -11,7 +11,22 @@
   <body>
     <header class="top-bar">
       <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
-      <nav aria-label="Primary" class="primary-nav">
+      <button
+        class="primary-nav__toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="primary-nav"
+        data-nav-toggle
+      >
+        <span class="primary-nav__icon" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <span>Menu</span>
+        <span class="sr-only">Toggle primary navigation</span>
+      </button>
+      <nav aria-label="Primary" class="primary-nav" id="primary-nav" data-primary-nav>
         <a href="/NASA/#/images/explorer" id="nav-images-explorer">Images Explorer</a>
         <a href="/NASA/#/epic" id="nav-epic">EPIC Earth</a>
         <a href="/NASA/neo3d.html" id="nav-neo3d">NEO3D</a>
@@ -87,6 +102,39 @@
       <article id="md" class="markdown card"></article>
     </main>
 
+    <script>
+      (() => {
+        const toggle = document.querySelector('[data-nav-toggle]');
+        const nav = document.querySelector('[data-primary-nav]');
+        if (!toggle || !nav) return;
+        const setOpen = open => {
+          nav.setAttribute('data-open', open ? 'true' : 'false');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        const handleKeydown = event => {
+          if (event.key === 'Escape') {
+            setOpen(false);
+            toggle.focus();
+          }
+        };
+        toggle.addEventListener('click', () => {
+          const next = nav.getAttribute('data-open') !== 'true';
+          setOpen(next);
+          if (next) {
+            document.addEventListener('keydown', handleKeydown);
+          } else {
+            document.removeEventListener('keydown', handleKeydown);
+          }
+        });
+        nav.addEventListener('click', event => {
+          if (event.target instanceof HTMLAnchorElement) {
+            setOpen(false);
+            document.removeEventListener('keydown', handleKeydown);
+          }
+        });
+        setOpen(false);
+      })();
+    </script>
     <script type="module" src="./assets/storm.js"></script>
   </body>
 </html>
