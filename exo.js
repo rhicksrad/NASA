@@ -576,7 +576,7 @@ function buildExampleButtons() {
   EXAMPLE_PRESETS.forEach((preset) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'example';
+    btn.className = 'btn btn--ghost';
     btn.dataset.example = preset.key;
     btn.textContent = preset.label;
     btn.title = preset.description;

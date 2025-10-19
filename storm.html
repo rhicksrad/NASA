@@ -6,19 +6,22 @@
     <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
     <title>CME Explorer — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="/NASA/styles/tokens.css" />
+    <link rel="stylesheet" href="/NASA/styles/theme.css" />
+    <link rel="stylesheet" href="/NASA/styles/components.css" />
     <link rel="stylesheet" href="./assets/storm.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+    <header class="site-header">
+      <a class="site-brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
       <button
-        class="primary-nav__toggle"
+        class="site-nav__toggle"
         type="button"
         aria-expanded="false"
         aria-controls="primary-nav"
         data-nav-toggle
       >
-        <span class="primary-nav__icon" aria-hidden="true">
+        <span class="site-nav__icon" aria-hidden="true">
           <span></span>
           <span></span>
           <span></span>
@@ -26,7 +29,7 @@
         <span>Menu</span>
         <span class="sr-only">Toggle primary navigation</span>
       </button>
-      <nav aria-label="Primary" class="primary-nav" id="primary-nav" data-primary-nav>
+      <nav aria-label="Primary" class="site-nav" id="primary-nav" data-primary-nav>
         <a href="/NASA/#/images/explorer" id="nav-images-explorer">
           <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
             <rect x="4.5" y="5.5" width="15" height="13" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect>
@@ -84,6 +87,7 @@
     </header>
 
     <main class="page-shell">
+      <div class="main-wrap">
       <section class="controls card">
         <div>
           <h1>CME Explorer</h1>
@@ -92,7 +96,7 @@
         <form id="idForm" class="row">
           <label for="id">Activity ID</label>
           <input id="id" name="id" placeholder="YYYY-MM-DDTHH:MM:SS-CME-001" size="40" autocomplete="off" />
-          <button id="loadBtn" type="submit">Load</button>
+          <button id="loadBtn" type="submit" class="btn btn--primary">Load</button>
         </form>
 
         <section class="examples">
@@ -100,31 +104,31 @@
           <p class="meta">Jump straight to one of NASA's notable DONKI events.</p>
           <ul class="examples-list">
             <li>
-              <button type="button" data-activity-id="2024-05-10T07:12:00-CME-001">
+              <button type="button" class="btn btn--ghost" data-activity-id="2024-05-10T07:12:00-CME-001">
                 <span class="title">2024 May 10 · AR 13664 X3.9 flare halo</span>
                 <span class="description">Bright asymmetrical halo with strong EUV wave and post-eruptive arcades.</span>
               </button>
             </li>
             <li>
-              <button type="button" data-activity-id="2024-05-10T21:28:00-CME-001">
+              <button type="button" class="btn btn--ghost" data-activity-id="2024-05-10T21:28:00-CME-001">
                 <span class="title">2024 May 10 · Long southern filament eruption</span>
                 <span class="description">Narrow, faint CME tied to the sprawling S35 filament near AR 3664.</span>
               </button>
             </li>
             <li>
-              <button type="button" data-activity-id="2021-11-01T02:00:00-CME-001">
+              <button type="button" class="btn btn--ghost" data-activity-id="2021-11-01T02:00:00-CME-001">
                 <span class="title">2021 Nov 1 · AR 2887 M1.5 eruption</span>
                 <span class="description">Earth-facing eruption with dimming, EUV wave, and post-eruptive loops.</span>
               </button>
             </li>
             <li>
-              <button type="button" data-activity-id="2017-09-10T16:09:00-CME-001">
+              <button type="button" class="btn btn--ghost" data-activity-id="2017-09-10T16:09:00-CME-001">
                 <span class="title">2017 Sep 10 · X-class flare storm</span>
                 <span class="description">Fast halo launched with the renowned September 2017 solar storm.</span>
               </button>
             </li>
             <li>
-              <button type="button" data-activity-id="2012-07-23T02:48:00-CME-001">
+              <button type="button" class="btn btn--ghost" data-activity-id="2012-07-23T02:48:00-CME-001">
                 <span class="title">2012 Jul 23 · Carrington-class near miss</span>
                 <span class="description">Legendary farside blast often compared to the 1859 Carrington Event.</span>
               </button>
@@ -139,13 +143,14 @@
             <input id="start" name="start" type="date" required />
             <label for="end">End</label>
             <input id="end" name="end" type="date" required />
-            <button type="submit">Search</button>
+            <button type="submit" class="btn btn--primary">Search</button>
           </form>
           <ul id="results" class="list"></ul>
         </details>
       </section>
 
       <article id="md" class="markdown card"></article>
+      </div>
     </main>
 
     <script>

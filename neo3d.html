@@ -6,18 +6,21 @@
     <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
     <title>NEO 3D — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="/NASA/styles/tokens.css" />
+    <link rel="stylesheet" href="/NASA/styles/theme.css" />
+    <link rel="stylesheet" href="/NASA/styles/components.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+    <header class="site-header">
+      <a class="site-brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
       <button
-        class="primary-nav__toggle"
+        class="site-nav__toggle"
         type="button"
         aria-expanded="false"
         aria-controls="primary-nav"
         data-nav-toggle
       >
-        <span class="primary-nav__icon" aria-hidden="true">
+        <span class="site-nav__icon" aria-hidden="true">
           <span></span>
           <span></span>
           <span></span>
@@ -25,7 +28,7 @@
         <span>Menu</span>
         <span class="sr-only">Toggle primary navigation</span>
       </button>
-      <nav aria-label="Primary" class="primary-nav" id="primary-nav" data-primary-nav>
+      <nav aria-label="Primary" class="site-nav" id="primary-nav" data-primary-nav>
         <a href="/NASA/#/images/explorer" id="nav-images-explorer">
           <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
             <rect x="4.5" y="5.5" width="15" height="13" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect>
@@ -82,63 +85,65 @@
       </nav>
     </header>
     <main>
-      <section id="neo-3d" aria-label="NEO 3D visualization">
-        <div id="neo3d-host" class="neo3d-stage"></div>
-        <div class="neo3d-control-panel">
-          <div class="neo3d-primary-controls">
-            <div class="neo3d-playback">
-              <button id="neo3d-play" type="button">Play</button>
-              <button id="neo3d-pause" type="button" disabled>Pause</button>
-            </div>
-            <label class="neo3d-field">
-              <span class="neo3d-field-label">Speed</span>
-              <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
-              <span id="neo3d-speed-label" class="meta">1 day/s</span>
-            </label>
-            <label class="neo3d-field">
-              <span class="neo3d-field-label">Date range</span>
-              <div class="neo3d-date-range">
-                <input type="datetime-local" id="neo3d-range-start" step="3600" />
-                <input type="datetime-local" id="neo3d-range-end" step="3600" />
+      <section id="neo-3d" class="section--grid" aria-label="NEO 3D visualization">
+        <div class="main-wrap">
+          <div id="neo3d-host" class="neo3d-stage"></div>
+          <div class="neo3d-control-panel">
+            <div class="neo3d-primary-controls">
+              <div class="neo3d-playback">
+                <button id="neo3d-play" type="button" class="btn btn--primary">Play</button>
+                <button id="neo3d-pause" type="button" class="btn btn--ghost" disabled>Pause</button>
               </div>
-            </label>
-            <label class="neo3d-field">
-              <span class="neo3d-field-label">Time scrubber</span>
-              <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
-              <span id="neo3d-time-label" class="meta">—</span>
-            </label>
-          </div>
-          <div class="neo3d-neo-panel">
-            <div class="neo3d-neo-panel-header">
-              <div>
-                <h3>Near-Earth Objects</h3>
-                <p class="meta">Toggle individual NEOs to focus on their orbits.</p>
-              </div>
-              <label class="neo3d-select-all">
-                <input type="checkbox" id="neo3d-toggle-neos" checked />
-                Show all NEOs
+              <label class="neo3d-field">
+                <span class="neo3d-field-label">Speed</span>
+                <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
+                <span id="neo3d-speed-label" class="meta">1 day/s</span>
+              </label>
+              <label class="neo3d-field">
+                <span class="neo3d-field-label">Date range</span>
+                <div class="neo3d-date-range">
+                  <input type="datetime-local" id="neo3d-range-start" step="3600" />
+                  <input type="datetime-local" id="neo3d-range-end" step="3600" />
+                </div>
+              </label>
+              <label class="neo3d-field">
+                <span class="neo3d-field-label">Time scrubber</span>
+                <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
+                <span id="neo3d-time-label" class="meta">—</span>
               </label>
             </div>
-            <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
-            <button id="neo3d-load-more" type="button" class="neo3d-load-more" hidden>Add 50 more</button>
-            <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
-          </div>
-          <section class="neo3d-sbdb-panel">
-            <header>
-              <h3>SBDB Explorer</h3>
-              <p class="meta">Search JPL's Small-Body Database, browse curated collections, and add objects to the scene.</p>
-            </header>
-            <div id="sbdb-explorer-host"></div>
-            <div class="neo3d-sbdb-loaded">
-              <h4>Loaded from SBDB</h4>
-              <p id="sbdb-loaded-empty" class="meta">No SBDB objects added yet.</p>
-              <div id="sbdb-loaded" class="neo3d-sbdb-chips" aria-live="polite"></div>
+            <div class="neo3d-neo-panel">
+              <div class="neo3d-neo-panel-header">
+                <div>
+                  <h3>Near-Earth Objects</h3>
+                  <p class="meta">Toggle individual NEOs to focus on their orbits.</p>
+                </div>
+                <label class="neo3d-select-all">
+                  <input type="checkbox" id="neo3d-toggle-neos" checked />
+                  Show all NEOs
+                </label>
+              </div>
+              <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
+              <button id="neo3d-load-more" type="button" class="btn btn--ghost neo3d-load-more" hidden>Add 50 more</button>
+              <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
             </div>
-          </section>
+            <section class="neo3d-sbdb-panel">
+              <header>
+                <h3>SBDB Explorer</h3>
+                <p class="meta">Search JPL's Small-Body Database, browse curated collections, and add objects to the scene.</p>
+              </header>
+              <div id="sbdb-explorer-host"></div>
+              <div class="neo3d-sbdb-loaded">
+                <h4>Loaded from SBDB</h4>
+                <p id="sbdb-loaded-empty" class="meta">No SBDB objects added yet.</p>
+                <div id="sbdb-loaded" class="neo3d-sbdb-chips" aria-live="polite"></div>
+              </div>
+            </section>
+          </div>
         </div>
       </section>
     </main>
-    <footer>
+    <footer class="site-footer">
       <p>Powered by public NASA datasets and a Cloudflare Worker proxy.</p>
     </footer>
 
