@@ -5,11 +5,51 @@
   </header>
 
   <form id="neo-controls" aria-label="NEO filters">
-    <label>Start <input type="date" id="neo-start" required></label>
-    <label>End <input type="date" id="neo-end" required></label>
-    <label><input type="checkbox" id="neo-hazard"> Hazardous only</label>
-    <label>
-      Sort
+    <label class="neo-field">
+      <span class="neo-field-label">
+        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="M7 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M17 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <rect x="4.5" y="5.5" width="15" height="14" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M4.5 10h15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+        <span>Start</span>
+      </span>
+      <input type="date" id="neo-start" required />
+    </label>
+    <label class="neo-field">
+      <span class="neo-field-label">
+        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="M7 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M17 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <rect x="4.5" y="5.5" width="15" height="14" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M4.5 10h15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+        <span>End</span>
+      </span>
+      <input type="date" id="neo-end" required />
+    </label>
+    <label class="neo-field neo-field--checkbox">
+      <span class="neo-field-label">
+        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="M12 5.5 4.5 18h15L12 5.5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M12 10.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <circle cx="12" cy="16.5" r="0.9" fill="currentColor" />
+        </svg>
+        <span>Hazardous only</span>
+      </span>
+      <input type="checkbox" id="neo-hazard" />
+    </label>
+    <label class="neo-field">
+      <span class="neo-field-label">
+        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="m8 5-3 3 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M5 8h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="m16 19 3-3-3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M13 16h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+        <span>Sort</span>
+      </span>
       <select id="neo-sort">
         <option value="date">Date</option>
         <option value="miss_ld">Miss distance (LD)</option>
@@ -17,7 +57,14 @@
         <option value="dia_km">Diameter (km)</option>
       </select>
     </label>
-    <button id="neo-load" type="submit">Load</button>
+    <button id="neo-load" type="submit">
+      <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+        <path d="M12 5v9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <path d="m8.5 11.5 3.5 3.5 3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        <path d="M5.5 18.5h13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+      </svg>
+      <span>Load</span>
+    </button>
   </form>
 
   <div id="neo-viz-wrap">
@@ -30,31 +77,75 @@
     <div class="neo3d-control-panel">
       <div class="neo3d-primary-controls">
         <div class="neo3d-playback">
-          <button id="neo3d-play" type="button">Play</button>
-          <button id="neo3d-pause" type="button" disabled>Pause</button>
+          <button id="neo3d-play" type="button">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M9.5 7.75v8.5l6.5-4.25-6.5-4.25Z" fill="currentColor" />
+            </svg>
+            <span>Play</span>
+          </button>
+          <button id="neo3d-pause" type="button" disabled>
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M10 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M14 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Pause</span>
+          </button>
         </div>
         <label class="neo3d-field">
-          <span class="neo3d-field-label">Speed</span>
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M20 13a8 8 0 1 0-2.34 5.66" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M15.5 8.5 12 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Speed</span>
+          </span>
           <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
           <span id="neo3d-speed-label" class="meta">1 day/s</span>
         </label>
         <label class="neo3d-field">
-          <span class="neo3d-field-label">Date range</span>
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M7 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M17 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <rect x="4.5" y="5.5" width="15" height="14" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M4.5 10h15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Date range</span>
+          </span>
           <div class="neo3d-date-range">
             <input type="datetime-local" id="neo3d-range-start" step="3600" />
             <input type="datetime-local" id="neo3d-range-end" step="3600" />
           </div>
         </label>
         <label class="neo3d-field">
-          <span class="neo3d-field-label">Offset within range (days)</span>
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M12 8v4.2l2.8 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Offset within range (days)</span>
+          </span>
           <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
           <span id="neo3d-time-label" class="meta">—</span>
         </label>
         <div class="neo3d-field neo3d-toggle">
-          <span class="neo3d-field-label">Visibility</span>
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M12 6.5a5.5 5.5 0 1 1-5.5 5.5A5.5 5.5 0 0 1 12 6.5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M4 12c0-1.5 3.6-3.5 8-3.5s8 2 8 3.5-3.6 3.5-8 3.5-8-2-8-3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Visibility</span>
+          </span>
           <label class="neo3d-toggle-switch">
             <input type="checkbox" id="neo3d-toggle-neos" checked />
-            Show NEOs
+            <span class="neo3d-toggle-label">
+              <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <path d="M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                <circle cx="12" cy="12" r="1.1" fill="currentColor" />
+              </svg>
+              <span>Show NEOs</span>
+            </span>
           </label>
         </div>
       </div>
@@ -64,9 +155,21 @@
   <div id="neo-list-wrap">
     <ul id="neo-list" aria-live="polite"></ul>
     <nav id="neo-pager">
-      <button id="neo-prev" disabled>Prev</button>
+      <button id="neo-prev" disabled>
+        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="M6.5 12h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="m10.5 8-4 4 4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+        <span>Prev</span>
+      </button>
       <span id="neo-page-info"></span>
-      <button id="neo-next" disabled>Next</button>
+      <button id="neo-next" disabled>
+        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="M17.5 12h-11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="m13.5 8 4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+        <span>Next</span>
+      </button>
     </nav>
   </div>
 </section>

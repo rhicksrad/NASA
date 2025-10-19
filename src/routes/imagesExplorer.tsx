@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { imagesSearch, largestAssetUrl, type NasaImageItem, type SearchParams } from '../api/nasaImages';
+import { icon, type IconName } from '../utils/icons';
 import '../styles/imagesExplorer.css';
 
 type Preset = 'apollo' | 'artemis' | 'custom';
@@ -15,6 +16,25 @@ type ExplorerState = {
 };
 
 const HASH_PATH = '#/images/explorer';
+
+function SvgIcon({ name }: { name: IconName }) {
+  return <span className="ui-icon-wrap" dangerouslySetInnerHTML={{ __html: icon(name) }} />;
+}
+
+function IconLabel({ name, text }: { name: IconName; text: string }) {
+  return (
+    <>
+      <SvgIcon name={name} />
+      <span>{text}</span>
+    </>
+  );
+}
+
+const PRESET_ICONS: Record<Preset, IconName> = {
+  apollo: 'sun',
+  artemis: 'ringed',
+  custom: 'sparkle',
+};
 
 function presetToQuery(preset: Preset): string {
   if (preset === 'apollo') return 'Apollo mission';
@@ -265,7 +285,7 @@ export default function ImagesExplorer() {
             }}
             type="button"
           >
-            {current[0].toUpperCase() + current.slice(1)}
+            <IconLabel name={PRESET_ICONS[current]} text={current[0].toUpperCase() + current.slice(1)} />
           </button>
         ))}
       </div>
@@ -308,7 +328,7 @@ export default function ImagesExplorer() {
           placeholder="Keywords (comma-separated)"
         />
         <button className="images-explorer__submit" type="submit">
-          Apply
+          <IconLabel name="search" text="Apply" />
         </button>
       </form>
 
@@ -360,7 +380,7 @@ export default function ImagesExplorer() {
           onClick={() => setPage(current => Math.max(1, current - 1))}
           type="button"
         >
-          Prev
+          <IconLabel name="arrowLeft" text="Prev" />
         </button>
         <span className="images-explorer__page-indicator">Page {page}</span>
         <button
@@ -369,7 +389,7 @@ export default function ImagesExplorer() {
           onClick={() => setPage(current => current + 1)}
           type="button"
         >
-          Next
+          <IconLabel name="arrowRight" text="Next" />
         </button>
       </div>
 
@@ -402,7 +422,7 @@ export default function ImagesExplorer() {
                 ref={closeButtonRef}
                 type="button"
               >
-                Close
+                <IconLabel name="close" text="Close" />
               </button>
             </div>
             <div className="images-explorer__modal-body">

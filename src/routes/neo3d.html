@@ -2,51 +2,114 @@
   <div id="neo3d-host" class="neo3d-stage"></div>
   <div class="neo3d-control-panel">
     <div class="neo3d-primary-controls">
-      <div class="neo3d-playback">
-        <button id="neo3d-play" type="button">Play</button>
-        <button id="neo3d-pause" type="button" disabled>Pause</button>
-      </div>
-      <label class="neo3d-field">
-        <span class="neo3d-field-label">Speed</span>
-        <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
-        <span id="neo3d-speed-label" class="meta">1 day/s</span>
-      </label>
-      <label class="neo3d-field">
-        <span class="neo3d-field-label">Date range</span>
-        <div class="neo3d-date-range">
-          <input type="datetime-local" id="neo3d-range-start" step="3600" />
-          <input type="datetime-local" id="neo3d-range-end" step="3600" />
+        <div class="neo3d-playback">
+          <button id="neo3d-play" type="button">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M9.5 7.75v8.5l6.5-4.25-6.5-4.25Z" fill="currentColor" />
+            </svg>
+            <span>Play</span>
+          </button>
+          <button id="neo3d-pause" type="button" disabled>
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M10 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M14 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Pause</span>
+          </button>
         </div>
-      </label>
-      <label class="neo3d-field">
-        <span class="neo3d-field-label">Time scrubber</span>
-        <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
-        <span id="neo3d-time-label" class="meta">—</span>
-      </label>
-    </div>
+        <label class="neo3d-field">
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M20 13a8 8 0 1 0-2.34 5.66" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M15.5 8.5 12 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Speed</span>
+          </span>
+          <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
+          <span id="neo3d-speed-label" class="meta">1 day/s</span>
+        </label>
+        <label class="neo3d-field">
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M7 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M17 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <rect x="4.5" y="5.5" width="15" height="14" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M4.5 10h15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Date range</span>
+          </span>
+          <div class="neo3d-date-range">
+            <input type="datetime-local" id="neo3d-range-start" step="3600" />
+            <input type="datetime-local" id="neo3d-range-end" step="3600" />
+          </div>
+        </label>
+        <label class="neo3d-field">
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M12 8v4.2l2.8 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Time scrubber</span>
+          </span>
+          <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
+          <span id="neo3d-time-label" class="meta">—</span>
+        </label>
+      </div>
     <div class="neo3d-neo-panel">
       <div class="neo3d-neo-panel-header">
         <div>
-          <h3>Near-Earth Objects</h3>
+          <h3 class="neo3d-heading">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <ellipse cx="12" cy="12" rx="8" ry="5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <circle cx="18" cy="9" r="1.1" fill="currentColor" />
+            </svg>
+            <span>Near-Earth Objects</span>
+          </h3>
           <p class="meta">Toggle individual NEOs to focus on their orbits.</p>
         </div>
         <label class="neo3d-select-all">
           <input type="checkbox" id="neo3d-toggle-neos" checked />
-          Show all NEOs
+          <span class="neo3d-toggle-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <path d="M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <circle cx="12" cy="12" r="1.1" fill="currentColor" />
+            </svg>
+            <span>Show all NEOs</span>
+          </span>
         </label>
       </div>
       <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
-      <button id="neo3d-load-more" type="button" class="neo3d-load-more" hidden>Add 50 more</button>
+      <button id="neo3d-load-more" type="button" class="neo3d-load-more" hidden>
+        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+          <path d="M12 5v14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <path d="M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+        </svg>
+        <span>Add 50 more</span>
+      </button>
       <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
     </div>
     <section class="neo3d-sbdb-panel">
       <header>
-        <h3>SBDB Explorer</h3>
+        <h3 class="neo3d-heading">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="M4.5 7h5l1.5 2h8.5a1.5 1.5 0 0 1 1.5 1.5V17a2 2 0 0 1-2 2h-13A2 2 0 0 1 4 17V8.5A1.5 1.5 0 0 1 5.5 7Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          </svg>
+          <span>SBDB Explorer</span>
+        </h3>
         <p class="meta">Search JPL's Small-Body Database, browse curated collections, and add objects to the scene.</p>
       </header>
       <div id="sbdb-explorer-host"></div>
       <div class="neo3d-sbdb-loaded">
-        <h4>Loaded from SBDB</h4>
+        <h4>
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="M6 5.5 7.25 8 6 10.5 3.5 11.75 6 13l1.25 2.5L8.5 13l2.5-1.25L8.5 10.5 7.25 8 6 5.5Z" fill="currentColor" />
+            <path d="m17.5 5 1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5 1.5-3Z" fill="currentColor" />
+            <path d="m14 15 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z" fill="currentColor" />
+          </svg>
+          <span>Loaded from SBDB</span>
+        </h4>
         <p id="sbdb-loaded-empty" class="meta">No SBDB objects added yet.</p>
         <div id="sbdb-loaded" class="neo3d-sbdb-chips" aria-live="polite"></div>
       </div>

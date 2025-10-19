@@ -10,6 +10,11 @@
   gap: clamp(1.25rem, 3vw, 2rem);
 }
 
+.ui-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
 .images-explorer__heading {
   margin: 0;
   font-size: clamp(1.8rem, 1.2rem + 1.8vw, 2.5rem);

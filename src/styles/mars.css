@@ -26,6 +26,26 @@
   color: rgba(226, 232, 240, 0.85);
 }
 
+.mars-label,
+#mars-root .mars-controls .mars-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.mars-label .ui-icon {
+  width: 1.05em;
+  height: 1.05em;
+}
+
+.mars-modal-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 #mars-root .mars-controls select,
 #mars-root .mars-controls input {
   min-width: 160px;

@@ -8,6 +8,7 @@ import { renderNeoTimeline } from '../visuals/neo_timeline';
 import { renderNeoHistogram } from '../visuals/neo_histogram';
 import { initNeo3D, type Neo3DController } from './neo3d';
 import type { NeoItem } from '../types/nasa';
+import { icon } from '../utils/icons';
 
 const PAGE_SIZE = 20;
 
@@ -142,7 +143,11 @@ export async function initNeoPage(): Promise<() => void> {
       return;
     }
     statusEl.hidden = false;
-    statusEl.textContent = message;
+    const statusIcon = tone === 'error' ? icon('alert', { label: 'Error status' }) : icon('info', { label: 'Status update' });
+    statusEl.innerHTML = statusIcon;
+    const text = document.createElement('span');
+    text.textContent = message;
+    statusEl.appendChild(text);
     statusEl.dataset.tone = tone;
   };
 
@@ -176,7 +181,7 @@ export async function initNeoPage(): Promise<() => void> {
         link.target = '_blank';
         link.rel = 'noopener';
         link.className = 'neo-asset-link';
-        link.textContent = 'Asset';
+        link.innerHTML = `${icon('external', { label: 'Open asset in new tab' })}<span>Asset</span>`;
         wrapper.appendChild(link);
         txt.appendChild(wrapper);
       }

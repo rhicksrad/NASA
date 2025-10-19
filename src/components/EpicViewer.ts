@@ -1,5 +1,6 @@
 /* src/components/EpicViewer.ts */
 import { fetchEpicLatest, fetchEpicByDate, buildEpicImageUrl, extractLatestDate, type EpicItem } from '../api/epic';
+import { icon, type IconName } from '../utils/icons';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -49,6 +50,33 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
   return el;
 }
 
+function createIcon(name: IconName, extraClass?: string): SVGElement {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = icon(name);
+  const svg = tpl.content.firstElementChild;
+  if (!(svg instanceof SVGElement)) {
+    throw new Error(`Failed to render icon: ${name}`);
+  }
+  if (extraClass) {
+    svg.classList.add(extraClass);
+  }
+  return svg;
+}
+
+function makeLabelHeading(text: string, name: IconName): HTMLElement {
+  const heading = document.createElement('span');
+  heading.className = 'epic-label-heading';
+  heading.append(createIcon(name, 'epic-label-icon'));
+  const span = document.createElement('span');
+  span.textContent = text;
+  heading.append(span);
+  return heading;
+}
+
+function buttonContent(label: string, name: IconName): string {
+  return `${icon(name)}<span>${label}</span>`;
+}
+
 export class EpicViewer {
   private host: HTMLElement;
   private imgEl!: HTMLImageElement;
@@ -73,39 +101,39 @@ export class EpicViewer {
   }
 
   private renderShell() {
-    const rangeControls = h(
-      'div',
-      { class: 'epic-range-group' },
-      h(
-        'label',
-        { class: 'epic-label epic-label-stack' },
-        'Start (UTC)',
-        (this.startInput = h('input', { type: 'date', class: 'epic-date' }) as HTMLInputElement),
-      ),
-      h(
-        'label',
-        { class: 'epic-label epic-label-stack' },
-        'End (UTC)',
-        (this.endInput = h('input', { type: 'date', class: 'epic-date' }) as HTMLInputElement),
-      ),
-      (this.loadBtn = h('button', { class: 'epic-btn epic-btn-secondary', type: 'button' }, 'Load Range') as HTMLButtonElement),
-    );
+    const rangeControls = h('div', { class: 'epic-range-group' });
+
+    const startLabel = h('label', { class: 'epic-label epic-label-stack', htmlFor: 'epic-start' }) as HTMLLabelElement;
+    startLabel.append(makeLabelHeading('Start (UTC)', 'calendar'));
+    this.startInput = h('input', { type: 'date', class: 'epic-date', id: 'epic-start' }) as HTMLInputElement;
+    startLabel.append(this.startInput);
+
+    const endLabel = h('label', { class: 'epic-label epic-label-stack', htmlFor: 'epic-end' }) as HTMLLabelElement;
+    endLabel.append(makeLabelHeading('End (UTC)', 'calendar'));
+    this.endInput = h('input', { type: 'date', class: 'epic-date', id: 'epic-end' }) as HTMLInputElement;
+    endLabel.append(this.endInput);
+
+    this.loadBtn = h('button', { class: 'epic-btn epic-btn-secondary', type: 'button' }) as HTMLButtonElement;
+    this.setLoadButtonLabel('Load Range');
+
+    rangeControls.append(startLabel, endLabel, this.loadBtn);
 
     const controls = h(
       'div',
       { class: 'epic-controls' },
       rangeControls,
-      (this.playBtn = h('button', { class: 'epic-btn', type: 'button' }, 'Play') as HTMLButtonElement),
-      h(
-        'label',
-        { class: 'epic-label epic-label-inline' },
-        'Speed:',
-        (this.fpsSel = h(
+      (this.playBtn = h('button', { class: 'epic-btn', type: 'button' }) as HTMLButtonElement),
+      (() => {
+        const label = h('label', { class: 'epic-label epic-label-inline', htmlFor: 'epic-fps' });
+        label.append(makeLabelHeading('Speed', 'speed'));
+        this.fpsSel = h(
           'select',
-          { class: 'epic-fps' },
+          { class: 'epic-fps', id: 'epic-fps' },
           ...[2, 4, 8, 12, 24].map(v => h('option', { value: String(v) }, String(v), ' fps')),
-        ) as HTMLSelectElement),
-      ),
+        ) as HTMLSelectElement;
+        label.append(this.fpsSel);
+        return label;
+      })(),
     );
 
     const timeline = h(
@@ -131,6 +159,7 @@ export class EpicViewer {
     this.host.replaceChildren(wrap);
 
     // Wire events
+    this.refreshPlayButton();
     this.playBtn.onclick = () => this.togglePlay();
     this.loadBtn.onclick = () => this.onRangeSubmit();
     this.slider.oninput = () => this.goTo(Number(this.slider.value));
@@ -192,7 +221,7 @@ export class EpicViewer {
     this.imgEl.src = '';
     this.metaEl.textContent = 'Loading EPIC imagery…';
     this.loadBtn.disabled = true;
-    this.loadBtn.textContent = 'Loading…';
+    this.setLoadButtonLabel('Loading…');
 
     try {
       const collected: EpicItem[] = [];
@@ -225,7 +254,7 @@ export class EpicViewer {
     } finally {
       if (token === this.loadToken) {
         this.loadBtn.disabled = false;
-        this.loadBtn.textContent = 'Load Range';
+        this.setLoadButtonLabel('Load Range');
       }
     }
   }
@@ -278,10 +307,22 @@ export class EpicViewer {
     this.state.playing ? this.stop() : this.play();
   }
 
+  private refreshPlayButton(stateOverride?: boolean) {
+    if (!this.playBtn) return;
+    const playing = stateOverride ?? this.state.playing;
+    const name: IconName = playing ? 'pause' : 'play';
+    this.playBtn.innerHTML = buttonContent(playing ? 'Pause' : 'Play', name);
+  }
+
+  private setLoadButtonLabel(text: string) {
+    if (!this.loadBtn) return;
+    this.loadBtn.innerHTML = buttonContent(text, 'download');
+  }
+
   private play() {
     if (this.state.items.length === 0 || this.playBtn.disabled) return;
     this.state.playing = true;
-    this.playBtn.textContent = 'Pause';
+    this.refreshPlayButton(true);
     const stepMs = 1000 / this.state.fps;
 
     const loop = (ts: number) => {
@@ -298,7 +339,7 @@ export class EpicViewer {
 
   private stop() {
     this.state.playing = false;
-    this.playBtn.textContent = 'Play';
+    this.refreshPlayButton(false);
     if (this.rafId != null) cancelAnimationFrame(this.rafId);
     this.rafId = null;
   }
@@ -355,6 +396,7 @@ export class EpicViewer {
     if (len <= 1) {
       this.stop();
     }
+    this.refreshPlayButton();
   }
 
   private error(msg: string) {
