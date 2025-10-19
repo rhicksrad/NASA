@@ -1,18 +1,17 @@
-@import url("./page-shell.css");
+@import url('./page-shell.css');
 
 main.page-shell {
   width: min(980px, calc(100% - 48px));
 }
 
 .controls.card {
-  display: grid;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--space-3);
   align-items: flex-end;
 }
 
@@ -20,30 +19,29 @@ main.page-shell {
   flex: none;
 }
 
-.row input[type="text"] {
+.row input[type='text'] {
   min-width: min(360px, 100%);
 }
 
-.examples {
-  margin-top: 0.25rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 20px;
-  padding: 0.85rem 1rem 1rem;
+.examples,
+.finder {
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-1);
+  background: linear-gradient(180deg, var(--c-surface-1), var(--c-surface-2));
+  padding: var(--space-4);
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-3);
+  box-shadow: var(--sh-1);
 }
 
 .examples h2 {
   margin: 0;
-  font-size: 1.12rem;
-  color: #f8fafc;
+  font-size: var(--fs-3);
+  color: var(--c-text-1);
 }
 
 .examples .meta {
   margin: 0;
-  color: var(--text-muted);
-  font-size: 0.9rem;
 }
 
 .examples-list {
@@ -51,215 +49,123 @@ main.page-shell {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.6rem;
+  gap: var(--space-2);
 }
 
 .examples-list button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.25rem;
+  display: grid;
+  gap: var(--space-1);
   width: 100%;
-  padding: 0.65rem 0.85rem;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(15, 23, 42, 0.7);
-  color: #e2e8f0;
+  padding: var(--space-3);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-1);
+  background: var(--c-bg-1);
+  color: var(--c-text-1);
   text-align: left;
-  font-size: 0.95rem;
   cursor: pointer;
-  transition: transform 140ms ease, border 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
 .examples-list button:hover,
 .examples-list button:focus-visible {
+  box-shadow: var(--sh-1);
   outline: none;
-  transform: translateY(-1px);
-  border-color: rgba(56, 189, 248, 0.45);
-  background: rgba(20, 31, 52, 0.82);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.45);
-}
-
-.examples-list .title {
-  font-weight: 600;
 }
 
 .examples-list .description {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.finder {
-  margin-top: 0.25rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 20px;
-  padding: 0.75rem 1rem;
-  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+  color: var(--c-muted);
+  font-size: var(--fs-0);
 }
 
 .finder summary {
   cursor: pointer;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--c-text-1);
 }
 
 .finder[open] summary {
-  margin-bottom: 0.75rem;
+  margin-bottom: var(--space-3);
 }
 
 .list {
   list-style: none;
   padding: 0;
-  margin: 0.75rem 0 0;
+  margin: var(--space-3) 0 0;
   display: grid;
-  gap: 0.6rem;
+  gap: var(--space-2);
   max-height: 320px;
   overflow: auto;
 }
 
 .list li {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 16px;
-  padding: 0.65rem 0.8rem;
-  transition: transform 140ms ease, border 140ms ease, background 140ms ease;
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-1);
+  background: var(--c-bg-1);
+  padding: var(--space-3);
 }
 
 .list li:hover,
 .list li:focus-visible {
+  box-shadow: var(--sh-1);
   outline: none;
-  transform: translateY(-1px);
-  border-color: rgba(56, 189, 248, 0.45);
-  background: rgba(20, 31, 52, 0.82);
-}
-
-.list .meta {
-  color: var(--text-muted);
-  font-size: 0.85rem;
 }
 
 .markdown.card {
   margin: 0;
-  padding: clamp(1.25rem, 3vw, 1.75rem);
+  padding: var(--space-4);
   display: grid;
-  gap: 0.65rem;
+  gap: var(--space-2);
   white-space: pre-wrap;
 }
 
 .markdown.card h1,
 .markdown.card h2,
 .markdown.card h3 {
-  margin: 0.6rem 0 0.2rem;
-  line-height: 1.25;
+  margin: var(--space-2) 0 var(--space-1);
 }
 
 .markdown.card h2 {
-  font-size: 1.3rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-  padding-bottom: 0.25rem;
+  font-size: var(--fs-3);
+  border-bottom: 1px solid var(--c-line-2);
+  padding-bottom: var(--space-1);
 }
 
 .markdown.card blockquote {
-  color: #d2dae6;
-  border-left: 3px solid rgba(59, 130, 246, 0.4);
-  margin: 0.4rem 0;
-  padding: 0.3rem 0.8rem;
-  background: rgba(15, 23, 42, 0.65);
-  border-radius: 16px;
+  color: var(--c-text-2);
+  border-left: 3px solid hsl(185 72% 45%);
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--c-surface-1);
 }
 
 .badass {
-  margin-top: 1.2rem;
+  margin-top: var(--space-4);
   display: grid;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .badass-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
+  gap: var(--space-3);
 }
 
 .card-title {
-  margin: 0.2rem 0 0.5rem;
-  font-size: 1.05rem;
-  color: #e0f2fe;
+  margin: var(--space-1) 0;
+  font-size: var(--fs-2);
+  color: var(--c-text-1);
 }
 
 .badges .badges-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .pill {
-  background: rgba(27, 40, 56, 0.85);
-  border: 1px solid rgba(42, 58, 78, 0.9);
-  border-radius: 999px;
-  padding: 0.25rem 0.6rem;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.pill.alt {
-  background: rgba(23, 36, 51, 0.9);
-}
-
-.pill.kp {
-  background: rgba(58, 38, 54, 0.9);
-  border-color: rgba(85, 48, 69, 0.95);
-}
-
-.pill.delta {
-  background: rgba(42, 45, 27, 0.85);
-  border-color: rgba(59, 63, 38, 0.9);
-}
-
-.pill.muted {
-  background: rgba(20, 26, 34, 0.8);
-  border-color: rgba(31, 42, 56, 0.85);
-  color: var(--text-muted);
-}
-
-.subtext {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  margin-top: 0.35rem;
-}
-
-.kp svg,
-.timeline-svg,
-.aurora-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-.metrics {
-  margin-top: 0.35rem;
-  color: #cdd6e3;
-  font-size: 0.9rem;
-}
-
-.media .strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 0.75rem;
-}
-
-.media img {
-  width: 100%;
-  height: 110px;
-  object-fit: cover;
-  border-radius: 12px;
-  border: 1px solid rgba(34, 50, 71, 0.95);
-}
-
-.error {
-  color: #f87171;
-}
-
-.markdown {
-  scroll-margin-top: 64px;
+  background: var(--c-bg-1);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-0);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-0);
 }

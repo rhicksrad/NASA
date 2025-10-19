@@ -1,0 +1,51 @@
+:root { color-scheme: dark; }
+html, body {
+  margin: 0;
+  background: radial-gradient(1200px 600px at 70% -10%, hsl(230 40% 10% / 35%), transparent),
+              linear-gradient(to bottom, var(--c-bg-0), var(--c-bg-1));
+  color: var(--c-text-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-1);
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+.main-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4);
+}
+h1,h2,h3 { letter-spacing: 0.02em; text-transform: none; color: var(--c-text-1); margin: 0 0 var(--space-4); }
+h1 { font-size: var(--fs-5); }
+h2 { font-size: var(--fs-4); color: var(--c-text-1); }
+h3 { font-size: var(--fs-3); color: var(--c-text-2); }
+p,li { color: var(--c-text-2); }
+a { color: var(--c-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Subtle telemetry grid overlay for large sections */
+.section--grid {
+  position: relative;
+  background:
+    linear-gradient(to right, var(--c-line-2) 1px, transparent 1px) 0 0/40px 40px,
+    linear-gradient(to bottom, var(--c-line-2) 1px, transparent 1px) 0 0/40px 40px;
+}
+.section--grid::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(800px 400px at 20% -10%, hsl(230 40% 6% / 50%), transparent),
+    radial-gradient(600px 300px at 120% 20%, hsl(230 40% 6% / 35%), transparent);
+  pointer-events: none;
+}
+
+/* Utility */
+.container { max-width: 1200px; margin: 0 auto; padding: var(--space-8) var(--space-4); }
+.stack > * + * { margin-top: var(--space-4); }
+.inset { box-shadow: inset 0 0 0 1px var(--c-line-1); border-radius: var(--radius-1); }
+
+/* Motion */
+@media (prefers-reduced-motion: no-preference) {
+  .hover-rise { transition: transform .18s ease, box-shadow .18s ease; }
+  .hover-rise:hover { transform: translateY(-2px); box-shadow: var(--sh-1); }
+}

@@ -6,20 +6,23 @@
     <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
     <title>EONET Explorer — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="/NASA/styles/tokens.css" />
+    <link rel="stylesheet" href="/NASA/styles/theme.css" />
+    <link rel="stylesheet" href="/NASA/styles/components.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="./assets/events.css" />
   </head>
   <body>
-    <header class="top-bar">
-      <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+    <header class="site-header">
+      <a class="site-brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
       <button
-        class="primary-nav__toggle"
+        class="site-nav__toggle"
         type="button"
         aria-expanded="false"
         aria-controls="primary-nav"
         data-nav-toggle
       >
-        <span class="primary-nav__icon" aria-hidden="true">
+        <span class="site-nav__icon" aria-hidden="true">
           <span></span>
           <span></span>
           <span></span>
@@ -27,7 +30,7 @@
         <span>Menu</span>
         <span class="sr-only">Toggle primary navigation</span>
       </button>
-      <nav aria-label="Primary" class="primary-nav" id="primary-nav" data-primary-nav>
+      <nav aria-label="Primary" class="site-nav" id="primary-nav" data-primary-nav>
         <a href="/NASA/#/images/explorer" id="nav-images-explorer">
           <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
             <rect x="4.5" y="5.5" width="15" height="13" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect>
@@ -85,52 +88,58 @@
     </header>
 
     <main class="page-shell">
-      <section class="controls card">
-        <div>
-          <h1>EONET Explorer</h1>
-          <p class="meta">Discover active and historical natural events sourced from NASA's EONET catalog.</p>
-        </div>
-        <form id="filters" class="row">
-          <label> Status
-            <select id="status" name="status">
-              <option value="open" selected>Open</option>
-              <option value="closed">Closed</option>
-            </select>
-          </label>
-          <label> Category
-            <select id="category" name="category">
-              <option value="">All</option>
-            </select>
-          </label>
-          <label> Start
-            <input id="start" name="start" type="date" required />
-          </label>
-          <label> End
-            <input id="end" name="end" type="date" required />
-          </label>
-          <button type="submit">Load</button>
-        </form>
-      </section>
+      <div class="main-wrap">
+        <section class="controls card">
+          <div>
+            <h1>EONET Explorer</h1>
+            <p class="meta">Discover active and historical natural events sourced from NASA's EONET catalog.</p>
+          </div>
+          <form id="filters" class="row">
+            <label>
+              Status
+              <select id="status" name="status">
+                <option value="open" selected>Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+            <label>
+              Category
+              <select id="category" name="category">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label>
+              Start
+              <input id="start" name="start" type="date" required />
+            </label>
+            <label>
+              End
+              <input id="end" name="end" type="date" required />
+            </label>
+            <button type="submit" class="btn btn--primary">Load</button>
+          </form>
+        </section>
 
-      <section class="map-panel card">
-        <h2>Live Event Map</h2>
-        <p class="meta">Pins appear as events are loaded. Select one to highlight the location.</p>
-        <div id="map" class="map" aria-label="Map of EONET events"></div>
-        <div id="legend" class="legend"></div>
-      </section>
+        <section class="map-panel card">
+          <h2>Live Event Map</h2>
+          <p class="meta">Pins appear as events are loaded. Select one to highlight the location.</p>
+          <div id="map" class="map" aria-label="Map of EONET events"></div>
+          <div id="legend" class="legend"></div>
+        </section>
 
-      <section class="results-grid">
-        <div class="panel card events">
-          <h2>Events</h2>
-          <p class="meta">Results adapt based on the filters above.</p>
-          <ul id="list" class="list"></ul>
-        </div>
+        <section class="results-grid">
+          <div class="panel card events">
+            <h2>Events</h2>
+            <p class="meta">Results adapt based on the filters above.</p>
+            <ul id="list" class="list"></ul>
+          </div>
 
-        <div class="panel card detail">
-          <h2 id="detailTitle">Event Detail</h2>
-          <article id="detail" class="markdown">Pick an event.</article>
-        </div>
-      </section>
+          <div class="panel card detail">
+            <h2 id="detailTitle">Event Detail</h2>
+            <article id="detail" class="markdown">Pick an event.</article>
+          </div>
+        </section>
+      </div>
     </main>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

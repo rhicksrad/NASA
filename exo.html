@@ -1,4 +1,5 @@
 <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
@@ -7,73 +8,23 @@
   <meta name="color-scheme" content="dark light" />
   <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
   <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
-  <link rel="stylesheet" href="./assets/page-shell.css" />
+  <link rel="stylesheet" href="/NASA/styles/tokens.css" />
+  <link rel="stylesheet" href="/NASA/styles/theme.css" />
+  <link rel="stylesheet" href="/NASA/styles/components.css" />
+  <link rel="stylesheet" href="./assets/exo.css" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <style>
-    :root { --bg:#0b0f14; --fg:#e6edf3; --muted:#9aa4ad; --card:#111821; --accent:#2ea043; --line:#1e2630; }
-    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:14px/1.45 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    body { display:block; }
-    a { color:#58a6ff; text-decoration:none; }
-    .page-header { padding:16px 20px; border-bottom:1px solid var(--line); backdrop-filter:saturate(140%) blur(6px); background:color-mix(in oklab, var(--bg) 85%, transparent); margin-top:16px; position:sticky; top:72px; }
-    h1 { margin:0; font-size:18px; }
-    .wrap { max-width:1100px; margin:0 auto; padding:20px; }
-    .controls { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:10px; margin:16px 0 12px; }
-    .controls label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); }
-    .controls input, .controls select { padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--fg); }
-    .controls .row { grid-column:1 / -1; display:flex; gap:10px; align-items:end; }
-    button { padding:9px 12px; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:8px; cursor:pointer; }
-    button.primary { background:var(--accent); border-color:var(--accent); color:#041208; }
-    button.example { background:transparent; border-style:dashed; border-color:var(--muted); color:var(--fg); font-weight:500; }
-    .cards { display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
-    .card { padding:14px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
-    .card h3 { margin:0 0 8px; font-size:16px; }
-    .stat { font-variant-numeric: tabular-nums; }
-    .table { overflow:auto; border:1px solid var(--line); border-radius:12px; background:var(--card); }
-    table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
-    th, td { padding:8px 10px; border-bottom:1px solid var(--line); white-space:nowrap; }
-    th { text-align:left; color:var(--muted); position:sticky; top:0; background:var(--card); }
-    tr:hover td { background:#0f1620; }
-    tr.selected td { background:#12202f; }
-    .planet-name-btn { color:inherit; background:none; border:none; padding:0; font:inherit; cursor:pointer; text-align:left; }
-    .planet-name-btn:hover, .planet-name-btn:focus-visible { color:#58a6ff; text-decoration:underline; }
-    .toolbar { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin:8px 0; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    .mr-panel { min-height:220px; display:flex; flex-direction:column; gap:12px; align-items:flex-start; justify-content:center; }
-    .mr-placeholder { color:var(--muted); }
-    .mr-visual { display:flex; gap:18px; align-items:center; }
-    .mr-visual svg { width:140px; height:140px; flex:0 0 auto; border-radius:50%; box-shadow:0 0 24px rgba(21,121,255,0.25); }
-    .mr-visual svg.unknown { box-shadow:none; opacity:0.6; }
-    .mr-metrics { display:grid; gap:4px; font-variant-numeric:tabular-nums; }
-    .mr-metrics .label { color:var(--muted); font-size:12px; }
-    .summary-stats { display:grid; gap:4px; }
-    .summary-selected { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
-    .summary-selected h4 { margin:0 0 6px; font-size:14px; color:var(--muted); }
-    .summary-selected dl { display:grid; grid-template-columns:auto auto; gap:6px 16px; margin:0; }
-    .summary-selected dt { color:var(--muted); }
-    .summary-selected dd { margin:0; font-variant-numeric:tabular-nums; }
-    .mr-footnote { font-size:12px; color:var(--muted); }
-    .examples { margin:12px 0 28px; padding:16px; border:1px solid var(--line); border-radius:12px; background:color-mix(in srgb, var(--card) 92%, transparent); display:flex; flex-direction:column; gap:10px; }
-    .examples h2 { margin:0; font-size:16px; }
-    .examples p { margin:0; color:var(--muted); max-width:720px; }
-    .examples-buttons { display:flex; flex-wrap:wrap; gap:10px; }
-    @media (max-width: 920px) {
-      .controls { grid-template-columns: repeat(2, minmax(0,1fr)); }
-      .cards { grid-template-columns: 1fr; }
-      .examples-buttons { flex-direction:column; align-items:stretch; }
-    }
-  </style>
 </head>
 <body>
-  <header class="top-bar">
-    <a class="brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+  <header class="site-header">
+    <a class="site-brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
     <button
-      class="primary-nav__toggle"
+      class="site-nav__toggle"
       type="button"
       aria-expanded="false"
       aria-controls="primary-nav"
       data-nav-toggle
     >
-      <span class="primary-nav__icon" aria-hidden="true">
+      <span class="site-nav__icon" aria-hidden="true">
         <span></span>
         <span></span>
         <span></span>
@@ -81,7 +32,7 @@
       <span>Menu</span>
       <span class="sr-only">Toggle primary navigation</span>
     </button>
-      <nav aria-label="Primary" class="primary-nav" id="primary-nav" data-primary-nav>
+      <nav aria-label="Primary" class="site-nav" id="primary-nav" data-primary-nav>
         <a href="/NASA/#/images/explorer" id="nav-images-explorer">
           <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
             <rect x="4.5" y="5.5" width="15" height="13" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect>
@@ -138,15 +89,16 @@
       </nav>
   </header>
 
-  <div class="page-header">
-    <div class="wrap">
+  <section class="page-header section--grid">
+    <div class="main-wrap">
       <h1>Exoplanet Explorer</h1>
     </div>
-  </div>
+  </section>
 
-  <main class="wrap">
-    <section aria-label="filters">
-      <div class="controls" id="controls">
+  <main class="page-shell">
+    <div class="main-wrap">
+    <section class="card exo-controls" aria-label="filters">
+      <div class="exo-control-grid" id="controls">
         <label>Discovery facility
           <select id="facility">
             <option value="">Any</option>
@@ -171,30 +123,28 @@
         <label>Teq max (°F)
           <input id="tMax" type="number" step="1" placeholder="86" />
         </label>
-        <div class="row">
-          <div class="toolbar" style="margin-left:auto">
-            <button id="btnFetch" class="primary">Run query</button>
-            <button id="btnShare">Copy link</button>
-            <button id="btnCSV">Export CSV</button>
-            <span id="status" class="mono" style="color:var(--muted)"></span>
+        <div class="exo-toolbar">
+            <button id="btnFetch" class="btn btn--primary">Run query</button>
+            <button id="btnShare" class="btn btn--ghost">Copy link</button>
+            <button id="btnCSV" class="btn btn--ghost">Export CSV</button>
+            <span id="status" class="mono"></span>
           </div>
-        </div>
       </div>
     </section>
 
-    <section class="examples" aria-label="examples">
+    <section class="card exo-examples" aria-label="examples">
       <h2>Try a curated example</h2>
       <p>New to exoplanets? These presets highlight interesting subsets of NASA Exoplanet Archive data.</p>
-      <div class="examples-buttons" id="exampleButtons" role="group" aria-label="Curated exoplanet samples"></div>
+      <div class="exo-example-buttons" id="exampleButtons" role="group" aria-label="Curated exoplanet samples"></div>
     </section>
 
-    <section class="cards">
+    <section class="exo-cards">
       <div class="card">
         <h3>Mass–Radius</h3>
         <div id="mrViz" class="mr-panel" aria-live="polite">
           <p class="mr-placeholder">Select a planet below to view its mass–radius profile.</p>
         </div>
-        <div class="mr-footnote">Size in Earth radii, mass in Earth masses. Log scales where appropriate. Hover for details.</div>
+        <p class="mr-footnote">Size in Earth radii, mass in Earth masses. Log scales where appropriate. Hover for details.</p>
       </div>
       <div class="card">
         <h3>Summary</h3>
@@ -207,18 +157,18 @@
           </div>
           <div class="summary-selected" id="selectedSummary">
             <h4>Planet details</h4>
-            <p style="margin:0; color:var(--muted);">Choose a planet from the table to see its host, orbit, and climate.</p>
+            <p>Choose a planet from the table to see its host, orbit, and climate.</p>
           </div>
         </div>
-        <details style="margin-top:10px">
+        <details class="exo-adql">
           <summary class="mono">ADQL</summary>
-          <pre id="adql" class="mono" style="white-space:pre-wrap; overflow:auto; background:#0f1620; padding:8px; border-radius:8px;"></pre>
+          <pre id="adql" class="exo-adql-code mono"></pre>
         </details>
       </div>
     </section>
 
-    <section style="margin-top:16px">
-      <div class="toolbar">
+    <section class="exo-table-section">
+      <div class="exo-toolbar">
         <span class="mono" id="hint">Use the filters above or start with a preset.</span>
       </div>
       <div class="table" id="tblWrap">
@@ -240,6 +190,7 @@
         </table>
       </div>
     </section>
+    </div>
   </main>
 
   <script>

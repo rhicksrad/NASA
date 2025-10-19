@@ -1,0 +1,39 @@
+:root {
+  /* Neutral deep-space surfaces */
+  --c-bg-0: hsl(230 50% 5%);
+  --c-bg-1: hsl(230 42% 8%);
+  --c-surface-1: hsl(230 38% 12%);
+  --c-surface-2: hsl(230 34% 16%);
+  /* Text */
+  --c-text-1: hsl(220 60% 96%);
+  --c-text-2: hsl(220 20% 75%);
+  --c-muted:  hsl(220 10% 60%);
+  /* Accents */
+  --c-accent: hsl(185 72% 45%);   /* oxygen teal */
+  --c-warn:   hsl(16 100% 57%);   /* solar orange */
+  --c-info:   hsl(258 100% 70%);  /* ion violet */
+  /* Borders & gridlines */
+  --c-line-1: hsl(230 25% 24% / 60%);
+  --c-line-2: hsl(230 20% 18% / 60%);
+  /* Shadows */
+  --sh-1: 0 0 0 1px hsl(230 40% 3% / 60%), 0 6px 18px hsl(230 80% 2% / 70%);
+  /* Sizing */
+  --radius-0: 2px;     /* square, instrumentation feel */
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  /* Typography */
+  --font-sans: ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, Apple Color Emoji, Segoe UI Emoji;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --fs-0: clamp(12px, 0.78vw, 13px);  /* micro */
+  --fs-1: clamp(14px, 0.9vw, 15px);   /* body */
+  --fs-2: clamp(16px, 1.0vw, 17px);   /* body+ */
+  --fs-3: clamp(18px, 1.2vw, 20px);   /* section title */
+  --fs-4: clamp(22px, 1.8vw, 28px);   /* page title */
+  --fs-5: clamp(28px, 3vw, 40px);     /* hero */
+}
