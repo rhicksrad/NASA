@@ -1,9 +1,75 @@
+This is a significant upgrade to the standard "NASA visualization" style icon. It retains the 64x64 favicon size but adds professional branding colors (NASA "Meatball" Blue #0B3D91 and Red #FC3D21), depth via gradients, and proper layering to create a 3D effect where the orbit actually circles *around* the sphere.
+
+```svg
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title id="title">NASA visualization favicon</title>
-  <desc id="desc">Stylized NASA sphere with orbital swoosh</desc>
-  <rect width="64" height="64" fill="#0B3D91" rx="12" ry="12" />
-  <circle cx="32" cy="28" r="18" fill="#FFFFFF" opacity="0.9" />
-  <path d="M8 40c8 4 16 6 24 6s16-2 24-6" fill="none" stroke="#D9E3F0" stroke-width="4" stroke-linecap="round" />
-  <path d="M14 36c6-6 12-9 18-9s12 3 18 9" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" opacity="0.55" />
-  <circle cx="40" cy="24" r="3" fill="#0B3D91" />
+  <title id="title">NASA Visualization Icon</title>
+  <desc id="desc">A detailed, stylized icon featuring a blue planet, a red aeronautics vector, and an orbital path.</desc>
+  <defs>
+    <!-- Deep space background gradient -->
+    <linearGradient id="spaceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0B3D91"/>
+      <stop offset="100%" stop-color="#06255B"/>
+    </linearGradient>
+    
+    <!-- Planet sphere gradient for 3D effect -->
+    <radialGradient id="planetGrad" cx="35%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#4D89F0"/>
+      <stop offset="50%" stop-color="#0B3D91"/>
+      <stop offset="100%" stop-color="#001A4D"/>
+    </radialGradient>
+    
+    <!-- Red Vector gradient for dynamism -->
+    <linearGradient id="vectorGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#FC3D21"/>
+      <stop offset="100%" stop-color="#D92D15"/>
+    </linearGradient>
+
+    <!-- Orbit path filter for a subtle glow -->
+    <filter id="orbitGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Main Container Base -->
+  <rect width="64" height="64" rx="14" fill="url(#spaceGrad)" stroke="#092C6B" stroke-width="1"/>
+
+  <!-- Distant Stars (Subtle texture) -->
+  <g opacity="0.4" fill="#FFFFFF">
+    <circle cx="12" cy="14" r="1"/>
+    <circle cx="50" cy="10" r="0.8"/>
+    <circle cx="56" cy="52" r="1"/>
+    <circle cx="8" cy="50" r="0.6"/>
+    <circle cx="30" cy="8" r="0.5"/>
+  </g>
+
+  <!-- Orbital Ring (Back Section) - Drawn first to be behind the planet -->
+  <path d="M 46 20 C 54 26, 56 38, 48 46" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.3" stroke-linecap="round"/>
+
+  <!-- Central Planet Sphere -->
+  <circle cx="32" cy="32" r="20" fill="url(#planetGrad)">
+     <!-- Subtle Rim Light on top left -->
+     <animate attributeName="r" values="20;20.5;20" dur="5s" repeatCount="indefinite" />
+  </circle>
+  
+  <!-- Atmosphere/Glow Effect on Planet -->
+  <circle cx="32" cy="32" r="19.5" fill="none" stroke="#4D89F0" stroke-width="1" opacity="0.3"/>
+
+  <!-- Red Aeronautics "Vector" Swoosh -->
+  <!-- This shape mimics the red chevron wing in the official logo -->
+  <path d="M 10 36 Q 28 42 44 28 L 46 32 Q 28 52 8 42 Z" fill="url(#vectorGrad)"/>
+
+  <!-- Orbital Ring (Front Section) -->
+  <!-- Creates the 3D illusion by crossing IN FRONT of the planet -->
+  <g filter="url(#orbitGlow)">
+    <path d="M 48 46 C 34 58, 14 52, 12 36 C 11 28, 16 22, 24 18" 
+          fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.95"/>
+    <!-- The "Satellite" object on the orbit -->
+    <circle cx="24" cy="18" r="3" fill="#FFFFFF"/>
+  </g>
+
 </svg>
+```
