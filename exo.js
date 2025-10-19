@@ -22,7 +22,8 @@ const statusEl = el('status');
 const adqlEl   = el('adql');
 const rowsEl   = el('rows');
 const hintEl   = el('hint');
-const exampleButtons = Array.from(document.querySelectorAll('[data-example]'));
+const examplesWrap = el('exampleButtons');
+let exampleButtons = [];
 
 const sumCount = el('sumCount');
 const sumR = el('sumR');
@@ -35,20 +36,102 @@ let currentRows = [];
 let selectedPlanetName = '';
 let activeExampleDesc = '';
 
-const EXAMPLE_FILTERS = {
-  temperate: {
-    filters: { facility: 'TESS', yearMin: 2018, rMin: 0.8, rMax: 1.8, tMin: 180, tMax: 320 },
-    description: 'Example: temperate TESS candidates in the super-Earth range.'
+const EXAMPLE_PRESETS = [
+  {
+    key: 'lavaWorlds',
+    label: 'Lava worlds',
+    filters: { facility: '', yearMin: 2000, rMin: 0.4, rMax: 1.5, tMin: 900, tMax: '' },
+    description: 'Curated sample: tidally roasted worlds with magma oceans and vaporized rock skies.'
   },
-  hotJupiter: {
-    filters: { facility: '', yearMin: 2000, rMin: 8, rMax: '', tMin: 800, tMax: '' },
-    description: 'Example: very large, hot worlds often called “hot Jupiters”.'
+  {
+    key: 'airlessDwarfs',
+    label: 'Airless dwarfs',
+    filters: { facility: '', yearMin: 1995, rMin: '', rMax: 0.5, tMin: '', tMax: 1200 },
+    description: 'Curated sample: tiny, likely airless bodies dominated by bare rock surfaces.'
   },
-  keplerHabZone: {
-    filters: { facility: 'Kepler', yearMin: 2009, rMin: 0.7, rMax: 1.6, tMin: 150, tMax: 300 },
-    description: 'Example: Kepler discoveries near the classical habitable zone.'
+  {
+    key: 'temperateTerrestrials',
+    label: 'Temperate terrestrials',
+    filters: { facility: '', yearMin: 2009, rMin: 0.7, rMax: 1.5, tMin: 240, tMax: 330 },
+    description: 'Curated sample: Earth-sized planets receiving clement stellar irradiation.'
+  },
+  {
+    key: 'rockyTerrestrials',
+    label: 'Rocky terrestrials',
+    filters: { facility: '', yearMin: 1995, rMin: 0.5, rMax: 1.3, tMin: 120, tMax: 750 },
+    description: 'Curated sample: compact rocky worlds similar in scale to the inner Solar System.'
+  },
+  {
+    key: 'megaEarths',
+    label: 'Mega-Earths',
+    filters: { facility: '', yearMin: 2005, rMin: 1.4, rMax: 2, tMin: '', tMax: 600 },
+    description: 'Curated sample: massive terrestrial giants with extreme surface gravity.'
+  },
+  {
+    key: 'hotSuperEarths',
+    label: 'Hot super-Earths',
+    filters: { facility: '', yearMin: 2005, rMin: 1, rMax: 2, tMin: 800, tMax: '' },
+    description: 'Curated sample: volatile-rich super-Earths orbiting scorchingly close to their stars.'
+  },
+  {
+    key: 'superEarths',
+    label: 'Super-Earths',
+    filters: { facility: '', yearMin: 2009, rMin: 1, rMax: 2, tMin: 200, tMax: 700 },
+    description: 'Curated sample: larger-than-Earth worlds with substantial atmospheres.'
+  },
+  {
+    key: 'hotSubNeptunes',
+    label: 'Hot sub-Neptunes',
+    filters: { facility: '', yearMin: 2000, rMin: 2, rMax: 4, tMin: 800, tMax: '' },
+    description: 'Curated sample: volatile sub-Neptunes puffed up by intense stellar heating.'
+  },
+  {
+    key: 'coldSubNeptunes',
+    label: 'Cold sub-Neptunes',
+    filters: { facility: '', yearMin: 1995, rMin: 1.5, rMax: 4, tMin: '', tMax: 200 },
+    description: 'Curated sample: intermediate worlds orbiting beyond the snow line.'
+  },
+  {
+    key: 'temperateSubNeptunes',
+    label: 'Temperate sub-Neptunes',
+    filters: { facility: '', yearMin: 2009, rMin: 1.5, rMax: 4, tMin: 200, tMax: 650 },
+    description: 'Curated sample: sub-Neptunes with moderate climates and thick envelopes.'
+  },
+  {
+    key: 'warmNeptunes',
+    label: 'Warm Neptunes',
+    filters: { facility: '', yearMin: 2000, rMin: 3.5, rMax: 6, tMin: 700, tMax: '' },
+    description: 'Curated sample: ice giant analogues broiling enough to drive fierce winds.'
+  },
+  {
+    key: 'neptuneLikes',
+    label: 'Neptune-like worlds',
+    filters: { facility: '', yearMin: 1995, rMin: 3.5, rMax: 6, tMin: 200, tMax: 650 },
+    description: 'Curated sample: classic ice giants with deep hydrogen-helium atmospheres.'
+  },
+  {
+    key: 'ultraHotJupiters',
+    label: 'Ultra-hot Jupiters',
+    filters: { facility: '', yearMin: 2000, rMin: 6, rMax: '', tMin: 1200, tMax: '' },
+    description: 'Curated sample: gas giants skimming their stars with iron-vapor skies.'
+  },
+  {
+    key: 'coldGasGiants',
+    label: 'Cold gas giants',
+    filters: { facility: '', yearMin: 1995, rMin: 6, rMax: '', tMin: '', tMax: 350 },
+    description: 'Curated sample: distant gas giants bathed in muted sunlight and ammonia clouds.'
+  },
+  {
+    key: 'gasGiants',
+    label: 'Gas giants',
+    filters: { facility: '', yearMin: 1995, rMin: 6, rMax: '', tMin: 350, tMax: 1200 },
+    description: 'Curated sample: Jupiter and Saturn analogues with massive hydrogen envelopes.'
   }
-};
+];
+
+const EXAMPLE_FILTERS = Object.fromEntries(EXAMPLE_PRESETS.map((preset) => [preset.key, preset]));
+
+buildExampleButtons();
 
 initFromURL();
 wire();
@@ -232,7 +315,6 @@ function wire() {
     const key = btn.dataset.example;
     const preset = EXAMPLE_FILTERS[key];
     if (!preset) return;
-    btn.title = preset.description;
     btn.addEventListener('click', () => {
       setState(preset.filters, { clear: true });
       activeExampleDesc = preset.description;
@@ -466,6 +548,22 @@ function syncURL() {
   for (const [k,v] of Object.entries(s)) if (v != null && v !== '') q.set(k, v);
   const url = `${location.pathname}?${q.toString()}`;
   history.replaceState(null, '', url);
+}
+
+function buildExampleButtons() {
+  if (!examplesWrap) return;
+  examplesWrap.innerHTML = '';
+  exampleButtons = [];
+  EXAMPLE_PRESETS.forEach((preset) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'example';
+    btn.dataset.example = preset.key;
+    btn.textContent = preset.label;
+    btn.title = preset.description;
+    examplesWrap.appendChild(btn);
+    exampleButtons.push(btn);
+  });
 }
 
 function setStatus(t) { statusEl.textContent = t || ''; }
