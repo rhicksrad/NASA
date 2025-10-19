@@ -1,5 +1,6 @@
 // src/components/MarsGallery.ts
 import { getMarsPhotos, type MarsPhoto, type RoverName } from '../api/mars';
+import { icon } from '../utils/icons';
 
 type Mode = 'earth' | 'sol';
 
@@ -35,7 +36,7 @@ export class MarsGallery {
   private renderShell() {
     this.host.innerHTML = `
       <div class="mars-toolbar" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:12px;">
-        <label>Rover
+        <label><span class="mars-label">${icon('mars')}<span>Rover</span></span>
           <select id="mg-rover">
             <option value="curiosity">Curiosity</option>
             <option value="perseverance">Perseverance</option>
@@ -44,29 +45,29 @@ export class MarsGallery {
           </select>
         </label>
 
-        <label>Mode
+        <label><span class="mars-label">${icon('speed')}<span>Mode</span></span>
           <select id="mg-mode">
             <option value="earth">Earth Date</option>
             <option value="sol">Sol</option>
           </select>
         </label>
 
-        <label id="mg-earth-wrap">Earth Date
+        <label id="mg-earth-wrap"><span class="mars-label">${icon('calendar')}<span>Earth Date</span></span>
           <input id="mg-earth" type="date" value="${this.state.earthDate}" />
         </label>
 
-        <label id="mg-sol-wrap" style="display:none;">Sol
+        <label id="mg-sol-wrap" style="display:none;"><span class="mars-label">${icon('sun')}<span>Sol</span></span>
           <input id="mg-sol" type="number" min="0" max="4000" step="1" value="${this.state.sol}" />
         </label>
 
-        <label>Camera
+        <label><span class="mars-label">${icon('camera')}<span>Camera</span></span>
           <select id="mg-camera">
             <option value="">(any)</option>
           </select>
         </label>
 
-        <button id="mg-search">Search</button>
-        <button id="mg-random" title="Pick a fun date/sol">Surprise me</button>
+        <button id="mg-search">${icon('search')}<span>Search</span></button>
+        <button id="mg-random" title="Pick a fun date/sol">${icon('sparkle')}<span>Surprise me</span></button>
 
         <span id="mg-status" style="margin-left:auto; font-size:12px; opacity:0.8;"></span>
       </div>
@@ -74,9 +75,9 @@ export class MarsGallery {
       <div id="mg-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px;"></div>
 
       <div class="mars-pager" style="display:flex; gap:8px; justify-content:center; margin:16px 0;">
-        <button id="mg-prev">Prev</button>
+        <button id="mg-prev">${icon('arrowLeft')}<span>Prev</span></button>
         <span id="mg-page"></span>
-        <button id="mg-next">Next</button>
+        <button id="mg-next">${icon('arrowRight')}<span>Next</span></button>
       </div>
 
       <dialog id="mg-modal" style="max-width:min(92vw,1200px);">
@@ -84,8 +85,8 @@ export class MarsGallery {
           <img id="mg-full" alt="Mars" style="max-width:100%; height:auto;"/>
           <div id="mg-meta" style="font-size:14px; opacity:0.9;"></div>
           <div style="display:flex; gap:8px; justify-content:flex-end;">
-            <a id="mg-open" href="#" target="_blank" rel="noopener">Open original</a>
-            <button id="mg-close">Close</button>
+            <a id="mg-open" href="#" target="_blank" rel="noopener" class="mars-modal-link">${icon('external')}<span>Open original</span></a>
+            <button id="mg-close">${icon('close')}<span>Close</span></button>
           </div>
         </div>
       </dialog>

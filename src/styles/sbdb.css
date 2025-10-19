@@ -15,6 +15,14 @@
   box-shadow: 0 16px 32px rgba(2, 6, 23, 0.45);
 }
 
+.sbdb-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.9);
+}
+
 .sbdb-toolbar input {
   min-width: min(460px, 100%);
   max-width: 520px;
@@ -79,8 +87,13 @@
   color: rgba(226, 232, 240, 0.92);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  justify-content: flex-start;
+  gap: 0.65rem;
+}
+
+.sbdb-collection summary .ui-icon {
+  width: 1.05em;
+  height: 1.05em;
 }
 
 .sbdb-collection summary:focus-visible {
@@ -140,6 +153,9 @@
   background: rgba(15, 23, 42, 0.75);
   color: #e2e8f0;
   transition: transform 140ms ease, box-shadow 140ms ease, border 140ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .sbdb-collection-load:hover,
@@ -196,6 +212,9 @@
 .sbdb-table button.add {
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .sbdb-typeahead {

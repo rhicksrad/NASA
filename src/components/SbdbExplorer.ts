@@ -6,6 +6,7 @@ import {
   type SbdbSuggestResult,
 } from '../api/sbdb';
 import collections from '../assets/sbdb/collections.json';
+import { icon } from '../utils/icons';
 import { SbdbTypeahead } from './SbdbTypeahead';
 
 type SortKey = 'diam' | 'H';
@@ -37,14 +38,26 @@ export class SbdbExplorer {
     this.root.innerHTML = `
       <div class="sbdb-explorer">
         <div class="sbdb-toolbar">
-          <label>Search SBDB:</label>
+          <label class="sbdb-label" for="sbdb-q">
+            ${icon('search')}
+            <span>Search SBDB</span>
+          </label>
           <input id="sbdb-q" placeholder="e.g. 433 Eros, 101955 Bennu, 1P/Halley" />
-          <button id="sbdb-add-exact">Add</button>
+          <button id="sbdb-add-exact" type="button">
+            ${icon('plus')}
+            <span>Add</span>
+          </button>
           <span class="sbdb-hint">Examples: open a collection below for curated SBDB picks.</span>
         </div>
         <div class="sbdb-controls">
-          <button data-sort="diam" class="on">Sort by Diameter</button>
-          <button data-sort="H">Sort by H (brightest first)</button>
+          <button data-sort="diam" class="on" type="button">
+            ${icon('sort')}
+            <span>Sort by Diameter</span>
+          </button>
+          <button data-sort="H" type="button">
+            ${icon('sort')}
+            <span>Sort by H (brightest first)</span>
+          </button>
         </div>
         <div class="sbdb-collections"></div>
         <div class="sbdb-notice" role="status" aria-live="polite"></div>
@@ -148,7 +161,10 @@ export class SbdbExplorer {
       details.className = 'sbdb-collection';
 
       const summary = document.createElement('summary');
-      summary.textContent = `${title} (${members.length})`;
+      summary.innerHTML = icon('collection');
+      const summaryLabel = document.createElement('span');
+      summaryLabel.textContent = `${title} (${members.length})`;
+      summary.appendChild(summaryLabel);
       details.appendChild(summary);
 
       const body = document.createElement('div');
@@ -160,7 +176,7 @@ export class SbdbExplorer {
       const loadAll = document.createElement('button');
       loadAll.type = 'button';
       loadAll.className = 'sbdb-collection-load';
-      loadAll.textContent = `Load all ${members.length}`;
+      loadAll.innerHTML = `${icon('collection')}<span>Load all ${members.length}</span>`;
       loadAll.addEventListener('click', async () => {
         this.setNotice(`Loading ${title}…`);
         this.rows = await resolveMany(members);
@@ -186,7 +202,7 @@ export class SbdbExplorer {
         const add = document.createElement('button');
         add.type = 'button';
         add.className = 'sbdb-collection-add';
-        add.textContent = 'Add';
+        add.innerHTML = `${icon('plus')}<span>Add</span>`;
         add.addEventListener('click', () => {
           window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail: id }));
         });
@@ -236,7 +252,7 @@ export class SbdbExplorer {
       const actionCell = document.createElement('td');
       const button = document.createElement('button');
       button.className = 'add';
-      button.textContent = 'Add';
+      button.innerHTML = `${icon('plus')}<span>Add</span>`;
       button.addEventListener('click', () => {
         const detail = row.id?.trim() ? row.id : row.name;
         window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail }));

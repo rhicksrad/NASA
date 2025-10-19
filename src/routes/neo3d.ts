@@ -12,6 +12,7 @@ import { SbdbExplorer } from '../components/SbdbExplorer';
 import { propagateConic, type ConicElements } from '../orbits';
 import { type Keplerian } from '../utils/orbit';
 import '../styles/sbdb.css';
+import { icon, type IconName } from '../utils/icons';
 
 const DEG2RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;
@@ -772,6 +773,11 @@ export async function initNeo3D(
 
   updateSbdbLoadedState();
 
+  const setLoadMoreContent = (text: string, iconName: IconName, iconLabel: string) => {
+    if (!neoLoadMore) return;
+    neoLoadMore.innerHTML = `${icon(iconName, { label: iconLabel })}<span>${text}</span>`;
+  };
+
   const updateLoadMoreState = () => {
     if (!neoLoadMore) return;
     const remaining = getRemainingNeos();
@@ -785,15 +791,15 @@ export async function initNeo3D(
     }
     if (loadMoreInFlight) {
       neoLoadMore.disabled = true;
-      neoLoadMore.textContent = 'Loading…';
+      setLoadMoreContent('Loading…', 'orbit', 'Loading more NEOs');
       return;
     }
     neoLoadMore.disabled = false;
     if (hasLocal) {
       const nextCount = Math.min(NEO_BATCH_SIZE, remaining);
-      neoLoadMore.textContent = `Add ${nextCount} more`;
+      setLoadMoreContent(`Add ${nextCount} more`, 'plus', 'Add more NEOs to the scene');
     } else {
-      neoLoadMore.textContent = `Add ${NEO_BATCH_SIZE} more`;
+      setLoadMoreContent(`Add ${NEO_BATCH_SIZE} more`, 'plus', 'Request additional NEOs');
     }
   };
 

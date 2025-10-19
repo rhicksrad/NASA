@@ -45,12 +45,20 @@
   color: #38bdf8;
   text-decoration: none;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .neo-asset-link:hover,
 .neo-asset-link:focus-visible {
   color: #f8fafc;
   text-decoration: underline;
+}
+
+.neo-asset-link .ui-icon {
+  width: 1rem;
+  height: 1rem;
 }
 
 .neo-skel {
