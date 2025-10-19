@@ -1,13 +1,56 @@
 {
   "Famous": [
-    "433 Eros", "162173 Ryugu (1999 JU3)", "101955 Bennu (1999 RQ36)",
-    "99942 Apophis (2004 MN4)", "1P/Halley", "67P/Churyumov-Gerasimenko",
-    "C/2025 N1 (ATLAS)"
+    "1P/Halley",
+    "2P/Encke",
+    "4 Vesta",
+    "1 Ceres",
+    "433 Eros",
+    "1036 Ganymed (A924 UB)",
+    "25143 Itokawa (1998 SF36)",
+    "101955 Bennu (1999 RQ36)",
+    "162173 Ryugu (1999 JU3)",
+    "99942 Apophis (2004 MN4)",
+    "3200 Phaethon (1983 TB)",
+    "4P/Faye",
+    "67P/Churyumov-Gerasimenko",
+    "9P/Tempel 1",
+    "C/1995 O1 (Hale-Bopp)",
+    "C/2020 F3 (NEOWISE)",
+    "1I/'Oumuamua",
+    "2I/Borisov",
+    "C/2025 N1 (ATLAS)",
+    "10P/Tempel 2",
+    "81P/Wild 2",
+    "7P/Pons-Winnecke",
+    "3 Juno",
+    "52 Europa",
+    "145 Adeona"
   ],
-  "Largest NEAs (sample)": [
-    "433 Eros", "1036 Ganymed (A924 UB)", "3552 Don Quixote (1983 SA)"
-  ],
-  "PHAs (sample)": [
-    "99942 Apophis (2004 MN4)", "3200 Phaethon (1983 TB)"
+  "Search Samples": [
+    "2000 SG344",
+    "2010 TK7",
+    "2015 TB145",
+    "3122 Florence (1981 ET3)",
+    "3753 Cruithne (1986 TO)",
+    "4179 Toutatis (1989 AC)",
+    "1862 Apollo (1932 HA)",
+    "3361 Orpheus (1982 HR)",
+    "6489 Golevka (1991 JX)",
+    "85990 1999 JV6",
+    "163693 Atira (2003 CP20)",
+    "276049 2002 CE26",
+    "312053 2007 PP10",
+    "153814 2001 WN5",
+    "29075 1950 DA",
+    "1620 Geographos (1951 RA)",
+    "4660 Nereus (1982 DB)",
+    "60558 Echeclus (2000 EC98)",
+    "99907 1989 VA",
+    "7335 (1989 JA)",
+    "7088 Ishtar (1992 AA)",
+    "1566 Icarus (1949 MA)",
+    "16960 1998 QS52",
+    "138971 2001 CB21",
+    "5604 1992 FE"
   ]
 }

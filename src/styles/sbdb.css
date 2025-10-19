@@ -60,17 +60,99 @@
 }
 
 .sbdb-collections {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  display: grid;
+  gap: clamp(0.75rem, 2vw, 1rem);
 }
 
-.sbdb-collections button {
-  padding: 0.45rem 0.95rem;
+.sbdb-collection {
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.6);
+  overflow: hidden;
+}
+
+.sbdb-collection summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sbdb-collection summary:focus-visible {
+  outline: 2px solid rgba(56, 189, 248, 0.7);
+  outline-offset: 2px;
+}
+
+.sbdb-collection summary::marker,
+.sbdb-collection summary::-webkit-details-marker {
+  display: none;
+}
+
+.sbdb-collection[open] summary {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.sbdb-collection-body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 0.85rem 0.85rem;
+}
+
+.sbdb-collection-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sbdb-collection-items {
+  display: grid;
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sbdb-collection-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  background: rgba(8, 13, 31, 0.75);
+}
+
+.sbdb-collection-item span {
+  color: rgba(226, 232, 240, 0.88);
+  font-size: 0.95rem;
+}
+
+.sbdb-collection-load,
+.sbdb-collection-add {
+  padding: 0.4rem 0.95rem;
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.75);
   color: #e2e8f0;
+  transition: transform 140ms ease, box-shadow 140ms ease, border 140ms ease;
+}
+
+.sbdb-collection-load:hover,
+.sbdb-collection-load:focus-visible,
+.sbdb-collection-add:hover,
+.sbdb-collection-add:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 12px 24px rgba(59, 130, 246, 0.25);
+}
+
+.sbdb-collection-load {
+  align-self: flex-end;
 }
 
 .sbdb-notice {
