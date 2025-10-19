@@ -119,11 +119,11 @@
         <label>Radius max (Re)
           <input id="rMax" type="number" step="0.01" min="0" placeholder="2.5" />
         </label>
-        <label>Teq min (K)
-          <input id="tMin" type="number" step="1" min="0" placeholder="180" />
+        <label>Teq min (°F)
+          <input id="tMin" type="number" step="1" placeholder="-136" />
         </label>
-        <label>Teq max (K)
-          <input id="tMax" type="number" step="1" min="0" placeholder="303" />
+        <label>Teq max (°F)
+          <input id="tMax" type="number" step="1" placeholder="86" />
         </label>
         <div class="row">
           <div class="toolbar" style="margin-left:auto">
@@ -156,7 +156,7 @@
           <div class="summary-stats">
             <div>Total planets: <span class="stat" id="sumCount">0</span></div>
             <div>Median radius (Re): <span class="stat" id="sumR">–</span></div>
-            <div>Median Teq (K): <span class="stat" id="sumT">–</span></div>
+            <div>Median Teq (°F): <span class="stat" id="sumT">–</span></div>
             <div>With masses: <span class="stat" id="sumMass">0</span></div>
           </div>
           <div class="summary-selected" id="selectedSummary">
@@ -183,7 +183,7 @@
               <th>Star name</th>
               <th>Size vs Earth (radius)</th>
               <th>Mass vs Earth</th>
-              <th>Temperature (K)</th>
+              <th>Temperature (°F)</th>
               <th>Orbit time (days)</th>
               <th>Right ascension</th>
               <th>Declination</th>
