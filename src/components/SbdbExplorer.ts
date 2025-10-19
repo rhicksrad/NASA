@@ -40,7 +40,7 @@ export class SbdbExplorer {
           <label>Search SBDB:</label>
           <input id="sbdb-q" placeholder="e.g. 433 Eros, 101955 Bennu, 1P/Halley" />
           <button id="sbdb-add-exact">Add</button>
-          <span class="sbdb-hint">Examples: 433 Eros • 101955 Bennu • 99942 Apophis • C/2025 N1 (ATLAS)</span>
+          <span class="sbdb-hint">Examples: open a collection below for curated SBDB picks.</span>
         </div>
         <div class="sbdb-controls">
           <button data-sort="diam" class="on">Sort by Diameter</button>
@@ -143,17 +143,61 @@ export class SbdbExplorer {
     if (!wrap) return;
     wrap.innerHTML = '';
     Object.entries(collections).forEach(([title, ids]) => {
-      const btn = document.createElement('button');
-      btn.textContent = `View: ${title}`;
-      btn.addEventListener('click', async () => {
+      const members = ids as string[];
+      const details = document.createElement('details');
+      details.className = 'sbdb-collection';
+
+      const summary = document.createElement('summary');
+      summary.textContent = `${title} (${members.length})`;
+      details.appendChild(summary);
+
+      const body = document.createElement('div');
+      body.className = 'sbdb-collection-body';
+
+      const actions = document.createElement('div');
+      actions.className = 'sbdb-collection-actions';
+
+      const loadAll = document.createElement('button');
+      loadAll.type = 'button';
+      loadAll.className = 'sbdb-collection-load';
+      loadAll.textContent = `Load all ${members.length}`;
+      loadAll.addEventListener('click', async () => {
         this.setNotice(`Loading ${title}…`);
-        this.rows = await resolveMany(ids as string[]);
+        this.rows = await resolveMany(members);
         this.renderRows();
         const count = this.rows.length;
         const suffix = count === 1 ? 'object' : 'objects';
         this.setNotice(`${count} ${suffix} from "${title}"`);
       });
-      wrap.appendChild(btn);
+      actions.appendChild(loadAll);
+      body.appendChild(actions);
+
+      const list = document.createElement('ul');
+      list.className = 'sbdb-collection-items';
+
+      members.forEach((id) => {
+        const item = document.createElement('li');
+        item.className = 'sbdb-collection-item';
+
+        const label = document.createElement('span');
+        label.textContent = id;
+        item.appendChild(label);
+
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'sbdb-collection-add';
+        add.textContent = 'Add';
+        add.addEventListener('click', () => {
+          window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail: id }));
+        });
+        item.appendChild(add);
+
+        list.appendChild(item);
+      });
+
+      body.appendChild(list);
+      details.appendChild(body);
+      wrap.appendChild(details);
     });
   }
 
