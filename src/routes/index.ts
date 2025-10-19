@@ -1,5 +1,6 @@
 import { mountMarsPage } from './marsImages';
 import { initImagesExplorerPage } from './imagesExplorer';
+import { mountAboutPage } from './about';
 import mountEpic from './epic';
 
 type RouteHandler = (host: HTMLElement) => void | (() => void);
@@ -13,11 +14,13 @@ export function initRouter() {
   const marsLink = document.querySelector<HTMLAnchorElement>('#nav-mars');
   const imagesExplorerLink = document.querySelector<HTMLAnchorElement>('#nav-images-explorer');
   const epicLink = document.querySelector<HTMLAnchorElement>('#nav-epic');
+  const aboutLink = document.querySelector<HTMLAnchorElement>('#nav-about');
   const homeHtml = host.innerHTML;
 
   const routes: Record<string, RouteHandler> = {
     '/mars': container => mountMarsPage(container),
     '/images/explorer': container => initImagesExplorerPage(container),
+    '/about': container => mountAboutPage(container),
     '/epic': container => {
       const host = document.createElement('div');
       host.id = 'epic-host';
@@ -63,6 +66,13 @@ export function initRouter() {
         epicLink.setAttribute('aria-current', 'page');
       } else {
         epicLink.removeAttribute('aria-current');
+      }
+    }
+    if (aboutLink) {
+      if (pathname === '/about') {
+        aboutLink.setAttribute('aria-current', 'page');
+      } else {
+        aboutLink.removeAttribute('aria-current');
       }
     }
   };
