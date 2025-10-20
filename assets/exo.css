@@ -154,6 +154,40 @@ main.page-shell .main-wrap {
   overflow: hidden;
 }
 
+.sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-btn::after {
+  content: '↕';
+  margin-left: 0.4em;
+  font-size: 0.8em;
+  color: var(--c-muted);
+}
+
+th[data-sort-dir="asc"] .sort-btn::after {
+  content: '▲';
+  color: var(--c-text-2);
+}
+
+th[data-sort-dir="desc"] .sort-btn::after {
+  content: '▼';
+  color: var(--c-text-2);
+}
+
+.sort-btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
 #hint {
   font-family: var(--font-mono);
   color: var(--c-muted);
