@@ -577,14 +577,27 @@ export class Neo3D {
     }
     if (!this.glyphSvg || !this.glyphLayer) return;
 
-    const { host } = this.options;
-    const width = host.clientWidth || 0;
-    const height = host.clientHeight || 0;
+    const canvasRect = this.renderer.domElement.getBoundingClientRect();
+    const hostRect = this.options.host.getBoundingClientRect();
+    const width = canvasRect.width || this.options.host.clientWidth || 0;
+    const height = canvasRect.height || this.options.host.clientHeight || 0;
     if (width <= 0 || height <= 0) return;
 
     this.glyphSvg.style.display = 'block';
     this.glyphSvg.setAttribute('aria-hidden', 'false');
+    this.glyphSvg.setAttribute('width', `${width}`);
+    this.glyphSvg.setAttribute('height', `${height}`);
     this.glyphSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+    const offsetX = canvasRect.left - hostRect.left;
+    const offsetY = canvasRect.top - hostRect.top;
+    this.glyphSvg.style.left = `${offsetX}px`;
+    this.glyphSvg.style.top = `${offsetY}px`;
+    this.glyphSvg.style.width = `${width}px`;
+    this.glyphSvg.style.height = `${height}px`;
+    this.glyphSvg.style.right = 'auto';
+    this.glyphSvg.style.bottom = 'auto';
+    this.glyphLayer.removeAttribute('transform');
 
     const cameraDistance = this.camera.position.distanceTo(this.controls.target);
     const zoom = THREE.MathUtils.clamp((SCALE * 0.35) / Math.max(cameraDistance, 0.001), 0.35, 4);
@@ -866,16 +879,20 @@ function ensureGlyphSvg(host: HTMLElement): SVGSVGElement {
   svg.setAttribute('data-role', 'neo-glyph-overlay');
   svg.setAttribute('aria-hidden', 'true');
   svg.setAttribute('focusable', 'false');
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', '100%');
+  svg.setAttribute('width', '0');
+  svg.setAttribute('height', '0');
+  svg.setAttribute('preserveAspectRatio', 'none');
   const width = host.clientWidth || 1;
   const height = host.clientHeight || 1;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   Object.assign(svg.style, {
     position: 'absolute',
-    inset: '0',
-    width: '100%',
-    height: '100%',
+    left: '0',
+    top: '0',
+    width: '0',
+    height: '0',
+    right: 'auto',
+    bottom: 'auto',
     pointerEvents: 'none',
     zIndex: '2',
   });
@@ -1267,7 +1284,7 @@ function renderGlyphsTick({
     group.style.display = 'inline';
     group.setAttribute('tabindex', '0');
     group.setAttribute('aria-hidden', 'false');
-    group.setAttribute('transform', `translate(${screenX.toFixed(1)} ${screenY.toFixed(1)})`);
+    group.setAttribute('transform', `translate(${screenX.toFixed(1)},${screenY.toFixed(1)})`);
 
     const size = pxFromH(datum.absMag, zoom, datum.diameterKm);
     const scale = size / 10;
