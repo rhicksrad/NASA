@@ -36,18 +36,21 @@ interface PlanetConfig {
   name: string;
   color: number;
   radius?: number;
+  diameterKm?: number;
+  absMag?: number;
+  kindHint?: string;
 }
 
 const PLANET_CONFIG: PlanetConfig[] = [
-  { spk: 199, name: 'Mercury', color: 0x9ca3af, radius: 0.022 },
-  { spk: 299, name: 'Venus', color: 0xf59e0b, radius: 0.028 },
-  { spk: 399, name: 'Earth', color: 0x3b82f6, radius: 0.03 },
-  { spk: 499, name: 'Mars', color: 0xef4444, radius: 0.025 },
-  { spk: 599, name: 'Jupiter', color: 0xfbbf24, radius: 0.045 },
-  { spk: 699, name: 'Saturn', color: 0xfcd34d, radius: 0.04 },
-  { spk: 799, name: 'Uranus', color: 0x60a5fa, radius: 0.035 },
-  { spk: 899, name: 'Neptune', color: 0x818cf8, radius: 0.034 },
-  { spk: 999, name: 'Pluto', color: 0xe5e7eb, radius: 0.018 },
+  { spk: 199, name: 'Mercury', color: 0x9ca3af, radius: 0.022, diameterKm: 4879 },
+  { spk: 299, name: 'Venus', color: 0xf59e0b, radius: 0.028, diameterKm: 12104 },
+  { spk: 399, name: 'Earth', color: 0x3b82f6, radius: 0.03, diameterKm: 12756 },
+  { spk: 499, name: 'Mars', color: 0xef4444, radius: 0.025, diameterKm: 6792 },
+  { spk: 599, name: 'Jupiter', color: 0xfbbf24, radius: 0.045, diameterKm: 139820 },
+  { spk: 699, name: 'Saturn', color: 0xfcd34d, radius: 0.04, diameterKm: 116460 },
+  { spk: 799, name: 'Uranus', color: 0x60a5fa, radius: 0.035, diameterKm: 50724 },
+  { spk: 899, name: 'Neptune', color: 0x818cf8, radius: 0.034, diameterKm: 49244 },
+  { spk: 999, name: 'Pluto', color: 0xe5e7eb, radius: 0.018, diameterKm: 2376 },
 ];
 
 const isFinite3 = (v: readonly number[]): boolean => v.length === 3 && v.every(Number.isFinite);
@@ -164,12 +167,32 @@ function createNeoCandidate(neo: NeoItem): NeoCandidate | null {
   };
 
   const displayName = getNeoDisplayName(neo);
+  const diameterMin = neo.estimated_diameter?.kilometers?.estimated_diameter_min;
+  const diameterMax = neo.estimated_diameter?.kilometers?.estimated_diameter_max;
+  let diameterKm: number | undefined;
+  if (typeof diameterMin === 'number' && typeof diameterMax === 'number') {
+    const avg = (diameterMin + diameterMax) / 2;
+    if (Number.isFinite(avg) && avg > 0) {
+      diameterKm = avg;
+    }
+  }
+
+  const orbitClass = neo.orbital_data?.orbit_class;
   const spec: SmallBodySpec = {
+    id:
+      (typeof neo.id === 'string' && neo.id.trim()) ||
+      (typeof neo.neo_reference_id === 'string' && neo.neo_reference_id.trim()) ||
+      undefined,
     name: displayName,
     label: displayName,
     color,
     els,
     orbit,
+    absMag: typeof neo.absolute_magnitude_h === 'number' ? neo.absolute_magnitude_h : undefined,
+    diameterKm,
+    bodyType: orbitClass?.orbit_class_type,
+    orbitClass: orbitClass?.orbit_class_description,
+    kindHint: isCometLike(neo) ? 'comet' : undefined,
   };
 
   const keys = new Set<string>();
@@ -200,10 +223,6 @@ function createNeoCandidate(neo: NeoItem): NeoCandidate | null {
     nameKey,
     allowWeakName: isCometLike(neo),
   };
-}
-
-function hexColor(color: number): string {
-  return `#${color.toString(16).padStart(6, '0')}`;
 }
 
 function orbitColorFromEccentricity(e: number | undefined): string {
@@ -383,6 +402,9 @@ class PlanetManager {
       color: config.color,
       radius: config.radius,
       orbitRadius: ephemeris.orbitRadius(),
+      diameterKm: config.diameterKm,
+      absMag: config.absMag,
+      kindHint: config.kindHint,
       getPosition: (date: Date) => ephemeris.getPosition(date),
     }));
   }
@@ -1243,13 +1265,20 @@ export async function initNeo3D(
         epochJD,
       };
 
+      const entryId = `sbdb:${(sbdbCounter += 1)}`;
       const spec: SmallBodySpec = {
+        id: entryId,
         name: label,
         label,
         color,
         els: keplerEls,
         sample,
         orbit: { color, segments, spanDays },
+        absMag: typeof row?.H === 'number' ? row.H : undefined,
+        diameterKm: typeof row?.estDiameterKm === 'number' ? row.estDiameterKm : undefined,
+        bodyType: row?.type,
+        orbitClass: row?.orbitClass,
+        kindHint: row?.type,
       };
 
       const normalizedKeys = candidateKeys.length > 0 ? candidateKeys : [key];
@@ -1272,7 +1301,6 @@ export async function initNeo3D(
         metaParts.push(row.type);
       }
 
-      const entryId = `sbdb:${sbdbCounter += 1}`;
       const primaryKey =
         (row?.id && aliasSet.has(normalizeEntryKey(row.id)) ? normalizeEntryKey(row.id) : null) ??
         (aliasSet.has(normalizeEntryKey(label)) ? normalizeEntryKey(label) : null) ??
