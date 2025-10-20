@@ -450,6 +450,29 @@ section#neo-3d {
   font-size: var(--fs-2);
   color: var(--c-text-1);
 }
+.neo3d-legend {
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.neo3d-legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+.neo3d-legend .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-0);
+}
+.neo3d-legend-icon {
+  width: 18px;
+  height: 18px;
+  color: currentColor;
+}
 
 .neo3d-empty {
   padding: var(--space-3);

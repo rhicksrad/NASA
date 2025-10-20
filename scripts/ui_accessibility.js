@@ -33,13 +33,19 @@
       btn.addEventListener('click', ()=>{
         const on = document.body.classList.toggle('compact');
         btn.setAttribute('aria-pressed', on?'true':'false');
-        try { localStorage.setItem('ui:density', on ? 'compact' : 'regular'); } catch(e){}
+        try {
+          localStorage.setItem('ui:density', on ? 'compact' : 'regular');
+        } catch (_error) {
+          // ignore storage failures
+        }
       });
       header.appendChild(btn);
       try {
         const pref = localStorage.getItem('ui:density');
         if (pref === 'compact') document.body.classList.add('compact');
-      } catch(e){}
+      } catch (_error) {
+        // ignore storage failures
+      }
     }
   });
 })();
