@@ -86,7 +86,6 @@ a:hover { text-decoration: underline; }
 
 /* === BEGIN PHASE2: DENSITY === */
 :root { --space-y: var(--space-4); }
-.compact :is(.card, .main-wrap, .table th, .table td) { --space-y: var(--space-2); }
 .card { padding: var(--space-y); }
 .table th, .table td { padding: calc(var(--space-y) - 4px) var(--space-3); }
 /* === END PHASE2: DENSITY === */
