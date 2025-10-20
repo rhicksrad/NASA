@@ -9,6 +9,7 @@ export default defineConfig({
       input: {
         index: 'index.html',
         neo3d: 'neo3d.html',
+        sat3d: 'sat3d.html',
         storm: 'storm.html',
         events: 'events.html',
         exo: 'exo.html',
