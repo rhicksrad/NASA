@@ -191,10 +191,80 @@ function createPlanetMesh(color: number, radius = 0.02): THREE.Mesh {
   return new THREE.Mesh(geometry, material);
 }
 
-function createBodyMesh(color: number): THREE.Mesh {
-  const geometry = new THREE.SphereGeometry(0.008 * SIZE_MULTIPLIER * SCALE, 16, 12);
-  const material = new THREE.MeshStandardMaterial({ color, metalness: 0.15, roughness: 0.4 });
-  return new THREE.Mesh(geometry, material);
+function inferSmallBodyShape(spec: SmallBodySpec): 'comet' | 'asteroid' {
+  const hint = [spec.kindHint, spec.bodyType, spec.orbitClass]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (hint.includes('comet')) return 'comet';
+  return 'asteroid';
+}
+
+function createAsteroidGeometry(size: number): THREE.BufferGeometry {
+  const geometry = new THREE.IcosahedronGeometry(size * 0.9, 1);
+  const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const vertex = new THREE.Vector3();
+  for (let i = 0; i < positions.count; i += 1) {
+    vertex.fromBufferAttribute(positions, i);
+    const wobble =
+      1 +
+      0.18 *
+        (Math.sin(vertex.x * 8.3) + Math.sin(vertex.y * 11.7) + Math.sin(vertex.z * 9.9)) /
+          3;
+    vertex.multiplyScalar(wobble);
+    vertex.y *= 0.9;
+    positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
+  }
+  positions.needsUpdate = true;
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createCometGeometry(size: number): THREE.BufferGeometry {
+  const geometry = new THREE.IcosahedronGeometry(size * 0.7, 2);
+  const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
+  const vertex = new THREE.Vector3();
+  for (let i = 0; i < positions.count; i += 1) {
+    vertex.fromBufferAttribute(positions, i);
+    const tailFactor = THREE.MathUtils.clamp(vertex.z / (size * 0.7), -1.2, 1.2);
+    const taper = 1 - Math.max(0, tailFactor) * 0.25;
+    const stretch = 1 + Math.max(0, tailFactor) * 1.6;
+    vertex.x *= taper * 0.85;
+    vertex.y *= taper * 0.85;
+    vertex.z *= stretch;
+    positions.setXYZ(i, vertex.x, vertex.y, vertex.z);
+  }
+  positions.needsUpdate = true;
+  geometry.translate(0, 0, -size * 0.18);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function createBodyMesh(spec: SmallBodySpec): THREE.Mesh {
+  const size = 0.008 * SIZE_MULTIPLIER * SCALE;
+  const shape = inferSmallBodyShape(spec);
+  const geometry =
+    shape === 'comet' ? createCometGeometry(size) : createAsteroidGeometry(size * 0.95);
+
+  const materialOptions: THREE.MeshStandardMaterialParameters = {
+    color: spec.color,
+    metalness: shape === 'comet' ? 0.05 : 0.25,
+    roughness: shape === 'comet' ? 0.75 : 0.45,
+  };
+
+  if (shape === 'asteroid') {
+    materialOptions.flatShading = true;
+  } else {
+    const emissive = new THREE.Color(spec.color).multiplyScalar(0.15);
+    materialOptions.emissive = emissive;
+    materialOptions.emissiveIntensity = 0.35;
+  }
+
+  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial(materialOptions));
+  if (shape === 'comet') {
+    mesh.rotation.x = Math.PI / 2;
+  }
+  return mesh;
 }
 
 function buildCirclePolyline(radiusAU: number, color: number, segments = 256): THREE.Line {
@@ -394,7 +464,7 @@ export class Neo3D {
 
   addSmallBodies(bodies: SmallBodySpec[]): void {
     for (const spec of bodies) {
-      const mesh = createBodyMesh(spec.color);
+      const mesh = createBodyMesh(spec);
       mesh.visible = false;
       mesh.userData.hoverLabel = spec.label ?? spec.name;
       this.scene.add(mesh);
