@@ -4,7 +4,18 @@ import { imagesSearch, largestAssetUrl, type NasaImageItem, type SearchParams } 
 import { icon, type IconName } from '../utils/icons';
 import '../styles/imagesExplorer.css';
 
-type Preset = 'apollo' | 'artemis' | 'custom';
+type Preset =
+  | 'mercury'
+  | 'gemini'
+  | 'apollo'
+  | 'skylab'
+  | 'voyager'
+  | 'shuttle'
+  | 'hubble'
+  | 'iss'
+  | 'curiosity'
+  | 'artemis'
+  | 'custom';
 
 type ExplorerState = {
   preset: Preset;
@@ -30,16 +41,43 @@ function IconLabel({ name, text }: { name: IconName; text: string }) {
   );
 }
 
-const PRESET_ICONS: Record<Preset, IconName> = {
-  apollo: 'sun',
-  artemis: 'ringed',
-  custom: 'sparkle',
+const PRESET_ORDER: Preset[] = [
+  'mercury',
+  'gemini',
+  'apollo',
+  'skylab',
+  'voyager',
+  'shuttle',
+  'hubble',
+  'iss',
+  'curiosity',
+  'artemis',
+  'custom',
+];
+
+const PRESET_METADATA: Record<
+  Preset,
+  {
+    label: string;
+    icon: IconName;
+    query: string;
+  }
+> = {
+  mercury: { label: 'Mercury', icon: 'sun', query: 'Project Mercury mission' },
+  gemini: { label: 'Gemini', icon: 'orbit', query: 'Gemini mission' },
+  apollo: { label: 'Apollo', icon: 'sun', query: 'Apollo mission' },
+  skylab: { label: 'Skylab', icon: 'earth', query: 'Skylab mission' },
+  voyager: { label: 'Voyager', icon: 'orbit', query: 'Voyager mission' },
+  shuttle: { label: 'Space Shuttle', icon: 'collection', query: 'Space Shuttle mission' },
+  hubble: { label: 'Hubble', icon: 'camera', query: 'Hubble Space Telescope mission' },
+  iss: { label: 'ISS', icon: 'earth', query: 'International Space Station mission' },
+  curiosity: { label: 'Curiosity', icon: 'mars', query: 'Curiosity rover mission' },
+  artemis: { label: 'Artemis', icon: 'ringed', query: 'Artemis mission' },
+  custom: { label: 'Custom', icon: 'sparkle', query: '' },
 };
 
 function presetToQuery(preset: Preset): string {
-  if (preset === 'apollo') return 'Apollo mission';
-  if (preset === 'artemis') return 'Artemis mission';
-  return '';
+  return PRESET_METADATA[preset]?.query ?? '';
 }
 
 function parseHashState(): ExplorerState {
@@ -47,7 +85,7 @@ function parseHashState(): ExplorerState {
   const match = hash.match(/^#\/?images\/explorer(?:\?(.*))?$/i);
   const params = new URLSearchParams(match?.[1] ?? '');
   const presetRaw = params.get('preset');
-  const preset = presetRaw === 'apollo' || presetRaw === 'artemis' || presetRaw === 'custom' ? presetRaw : 'apollo';
+  const preset = PRESET_ORDER.includes(presetRaw as Preset) ? (presetRaw as Preset) : 'apollo';
   const q = params.get('q') ?? presetToQuery(preset);
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1);
   const ys = params.get('year_start');
@@ -273,7 +311,7 @@ export default function ImagesExplorer() {
       <h1 className="images-explorer__heading">Mission Image Explorer</h1>
 
       <div className="images-explorer__presets">
-        {(['apollo', 'artemis', 'custom'] as Preset[]).map(current => (
+        {PRESET_ORDER.map(current => (
           <button
             key={current}
             className={`images-explorer__preset${preset === current ? ' is-active' : ''}`}
@@ -285,7 +323,7 @@ export default function ImagesExplorer() {
             }}
             type="button"
           >
-            <IconLabel name={PRESET_ICONS[current]} text={current[0].toUpperCase() + current.slice(1)} />
+            <IconLabel name={PRESET_METADATA[current].icon} text={PRESET_METADATA[current].label} />
           </button>
         ))}
       </div>
