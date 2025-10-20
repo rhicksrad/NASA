@@ -4,6 +4,7 @@ import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
 
 const SCALE = 120;
 const SIZE_MULTIPLIER = 2;
+const SMALL_BODY_SCALE = 3;
 const DAY_MS = 86_400_000;
 const TWO_PI = Math.PI * 2;
 
@@ -61,6 +62,7 @@ interface RenderBody {
   mesh: THREE.Mesh;
   orbitLine?: THREE.Line;
   lastPos?: [number, number, number] | null;
+  shape: 'comet' | 'asteroid';
 }
 
 interface PlanetNode {
@@ -241,7 +243,8 @@ function createCometGeometry(size: number): THREE.BufferGeometry {
 }
 
 function createBodyMesh(spec: SmallBodySpec): THREE.Mesh {
-  const size = 0.008 * SIZE_MULTIPLIER * SCALE;
+  const baseSize = 0.008 * SIZE_MULTIPLIER * SCALE;
+  const size = baseSize * SMALL_BODY_SCALE;
   const shape = inferSmallBodyShape(spec);
   const geometry =
     shape === 'comet' ? createCometGeometry(size) : createAsteroidGeometry(size * 0.95);
@@ -263,7 +266,10 @@ function createBodyMesh(spec: SmallBodySpec): THREE.Mesh {
   const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial(materialOptions));
   if (shape === 'comet') {
     mesh.rotation.x = Math.PI / 2;
+    mesh.userData.tailAxis = new THREE.Vector3(0, 0, 1);
+    mesh.userData.baseQuaternion = mesh.quaternion.clone();
   }
+  mesh.userData.shape = shape;
   return mesh;
 }
 
@@ -321,6 +327,10 @@ export class Neo3D {
   private hoveredMesh: THREE.Mesh | null = null;
   private projected = new THREE.Vector3();
   private pointerViewport = { x: 0, y: 0 };
+  private cometVelocity = new THREE.Vector3();
+  private cometTailAxis = new THREE.Vector3();
+  private cometAdjust = new THREE.Quaternion();
+  private cometBase = new THREE.Quaternion();
 
   constructor(private readonly options: Neo3DOptions) {
     const { host } = options;
@@ -486,7 +496,8 @@ export class Neo3D {
         }
       }
 
-      this.bodies.push({ spec, mesh, orbitLine });
+      const shape = (mesh.userData.shape as 'comet' | 'asteroid') ?? 'asteroid';
+      this.bodies.push({ spec, mesh, orbitLine, shape });
     }
 
     this.refreshInteractiveMeshes();
@@ -574,13 +585,14 @@ export class Neo3D {
       }
 
       let pos: [number, number, number] | null = null;
+      let sampleState: OrbitSample | null = null;
       if (body.spec.els) {
         const propagated = propagate(body.spec.els, jd);
         if (isFiniteVec3(propagated)) pos = [propagated[0], propagated[1], propagated[2]];
       }
       if (!pos && body.spec.sample) {
-        const state = body.spec.sample(now);
-        if (state && isFiniteVec3(state.posAU)) pos = state.posAU;
+        sampleState = body.spec.sample(now);
+        if (sampleState && isFiniteVec3(sampleState.posAU)) pos = sampleState.posAU;
       }
 
       if (!pos) {
@@ -592,6 +604,12 @@ export class Neo3D {
 
       body.mesh.visible = true;
       body.mesh.position.copy(toScene(pos));
+      if (body.shape === 'comet') {
+        const velocity = this.deriveCometVelocity(body, now, jd, sampleState);
+        if (velocity) {
+          this.orientCometTail(body.mesh, velocity);
+        }
+      }
       if (body.orbitLine) body.orbitLine.visible = true;
       body.lastPos = [pos[0], pos[1], pos[2]];
     }
@@ -603,6 +621,82 @@ export class Neo3D {
     if (this.options.onDateChange) {
       this.options.onDateChange(now);
     }
+  }
+
+  private deriveCometVelocity(
+    body: RenderBody,
+    now: Date,
+    jd: number,
+    sampleState: OrbitSample | null,
+  ): [number, number, number] | null {
+    const deltaDays = 1 / 2880; // ~30 seconds
+    if (body.spec.els) {
+      const next = propagate(body.spec.els, jd + deltaDays);
+      const prev = propagate(body.spec.els, jd - deltaDays);
+      if (isFiniteVec3(next) && isFiniteVec3(prev)) {
+        const scale = 1 / (2 * deltaDays);
+        return [
+          (next[0] - prev[0]) * scale,
+          (next[1] - prev[1]) * scale,
+          (next[2] - prev[2]) * scale,
+        ];
+      }
+      return null;
+    }
+
+    if (body.spec.sample) {
+      if (sampleState?.velAUPerDay && isFiniteVec3(sampleState.velAUPerDay)) {
+        return [
+          sampleState.velAUPerDay[0],
+          sampleState.velAUPerDay[1],
+          sampleState.velAUPerDay[2],
+        ];
+      }
+
+      const deltaMs = 30_000;
+      const offset = deltaMs / 2;
+      const prevState = body.spec.sample(new Date(now.getTime() - offset));
+      const nextState = body.spec.sample(new Date(now.getTime() + offset));
+      if (
+        prevState &&
+        nextState &&
+        isFiniteVec3(prevState.posAU) &&
+        isFiniteVec3(nextState.posAU)
+      ) {
+        const deltaSampleDays = (offset * 2) / DAY_MS;
+        const scale = 1 / (2 * deltaSampleDays);
+        return [
+          (nextState.posAU[0] - prevState.posAU[0]) * scale,
+          (nextState.posAU[1] - prevState.posAU[1]) * scale,
+          (nextState.posAU[2] - prevState.posAU[2]) * scale,
+        ];
+      }
+    }
+
+    return null;
+  }
+
+  private orientCometTail(mesh: THREE.Mesh, velocity: readonly number[]): void {
+    if (!Number.isFinite(velocity[0]) || !Number.isFinite(velocity[1]) || !Number.isFinite(velocity[2])) {
+      return;
+    }
+
+    const baseQuaternion = mesh.userData.baseQuaternion as THREE.Quaternion | undefined;
+    const tailAxis = mesh.userData.tailAxis as THREE.Vector3 | undefined;
+    if (!baseQuaternion || !tailAxis) {
+      return;
+    }
+
+    this.cometVelocity.set(velocity[0], velocity[2], velocity[1]);
+    if (this.cometVelocity.lengthSq() < 1e-12) {
+      return;
+    }
+    this.cometVelocity.normalize().negate();
+
+    this.cometTailAxis.copy(tailAxis).applyQuaternion(baseQuaternion);
+    this.cometAdjust.setFromUnitVectors(this.cometTailAxis, this.cometVelocity);
+    this.cometBase.copy(baseQuaternion);
+    mesh.quaternion.copy(this.cometAdjust.multiply(this.cometBase));
   }
 
   private onResize(): void {
