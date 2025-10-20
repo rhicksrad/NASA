@@ -84,16 +84,27 @@ function parseHashState(): ExplorerState {
   const hash = window.location.hash ?? '';
   const match = hash.match(/^#\/?images\/explorer(?:\?(.*))?$/i);
   const params = new URLSearchParams(match?.[1] ?? '');
+  const qParam = params.get('q');
   const presetRaw = params.get('preset');
-  const preset = PRESET_ORDER.includes(presetRaw as Preset) ? (presetRaw as Preset) : 'apollo';
-  const q = params.get('q') ?? presetToQuery(preset);
+  let preset: Preset;
+  if (presetRaw && PRESET_ORDER.includes(presetRaw as Preset)) {
+    preset = presetRaw as Preset;
+  } else if (qParam) {
+    const matchedPreset = (Object.keys(PRESET_METADATA) as Preset[]).find(
+      key => PRESET_METADATA[key].query === qParam
+    );
+    preset = matchedPreset ?? 'custom';
+  } else {
+    preset = 'custom';
+  }
+  const q = qParam ?? '';
   const page = Math.max(1, Number(params.get('page') ?? '1') || 1);
   const ys = params.get('year_start');
   const ye = params.get('year_end');
   const kw = params.getAll('keywords').filter(Boolean);
   return {
     preset,
-    q: q || presetToQuery(preset),
+    q,
     page,
     ys: ys ? Number(ys) : undefined,
     ye: ye ? Number(ye) : undefined,
