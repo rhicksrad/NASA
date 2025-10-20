@@ -346,7 +346,7 @@ export class Neo3D {
     this.renderer.domElement.style.height = '100%';
     this.renderer.domElement.style.visibility = 'visible';
 
-    this.camera = new THREE.PerspectiveCamera(52, width / height, 0.01, 2000 * SCALE);
+    this.camera = new THREE.PerspectiveCamera(52, width / height, 0.005, 6000 * SCALE);
     this.camera.position.set(6 * SCALE, 6 * SCALE, 10 * SCALE);
     this.camera.lookAt(0, 0, 0);
 
@@ -357,8 +357,8 @@ export class Neo3D {
     this.controls.dampingFactor = 0.08;
     this.controls.zoomToCursor = true;
     this.controls.maxPolarAngle = 0.98 * (Math.PI / 2);
-    this.controls.minDistance = 0.05 * SCALE;
-    this.controls.maxDistance = 40 * SCALE;
+    this.controls.minDistance = 0.0025 * SCALE;
+    this.controls.maxDistance = 600 * SCALE;
     this.controls.target.set(0, 0, 0);
     this.controls.update();
 
