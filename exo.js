@@ -33,13 +33,44 @@ const sumDistLy = el('sumDistLy');
 const mrViz = el('mrViz');
 const selectedSummary = el('selectedSummary');
 
+const sortButtons = Array.from(document.querySelectorAll('[data-sort-key]'));
+
+const SORT_COLUMNS = {
+  name: { key: 'name', type: 'string' },
+  host: { key: 'host', type: 'string' },
+  rade: { key: 'rade', type: 'number' },
+  masse: { key: 'masse', type: 'number' },
+  eqt: { key: 'eqt', type: 'number' },
+  period: { key: 'period', type: 'number' },
+  distanceLy: { key: 'distanceLy', type: 'number' },
+  ra: { key: 'ra', type: 'number' },
+  dec: { key: 'dec', type: 'number' },
+  year: { key: 'year', type: 'number' }
+};
+
 let currentRows = [];
+let baseRows = [];
+let sortState = { key: null, dir: 'asc' };
 let selectedPlanetName = '';
 let activeExampleDesc = '';
 
+sortButtons.forEach((btn) => {
+  const th = btn.closest('th');
+  if (th) {
+    th.dataset.sortDir = 'none';
+    th.setAttribute('aria-sort', 'none');
+  }
+  btn.addEventListener('click', () => {
+    const key = btn.dataset.sortKey;
+    if (key) handleSort(key);
+  });
+});
+
+updateSortUI();
+
 const LY_PER_PARSEC = 3.261563777;
 const AU_PER_PARSEC = 206264.806;
-const KM_PER_PARSEC = 3.0856775814913673e13;
+const KM_PER_PARSEC = Number('3.0856775814913673e13');
 
 const EXAMPLE_PRESETS = [{
     key: 'lavaWorlds',
@@ -147,7 +178,7 @@ async function run() {
   const adql =
     `SELECT TOP 1000 pl_name, hostname,
 AVG(pl_rade) AS rade,
-MIN(pl_masse) AS masse,
+MIN(COALESCE(pl_bmasse, pl_masse)) AS masse,
 MIN(pl_eqt)   AS eqt,
 MIN(pl_orbper) AS period,
 MIN(sy_dist) AS distance_pc,
@@ -181,7 +212,7 @@ ORDER BY eqt`;
   const hintText = activeExampleDesc ? `${filtersDesc} • ${activeExampleDesc}` : filtersDesc;
   hintEl.textContent = hintText;
 
-  renderTable(rows);
+  setTableRows(rows);
   renderSummary(rows);
   if (!rows.length) {
     selectPlanet(null);
@@ -216,7 +247,16 @@ function normalizeRows(out) {
     .filter(r => r.name && r.host);
 }
 
-function renderTable(rows) {
+function setTableRows(rows, { preserveSort = true } = {}) {
+  baseRows = Array.isArray(rows) ? rows.slice() : [];
+  if (!preserveSort) {
+    sortState = { key: null, dir: 'asc' };
+  }
+  applySortAndRender();
+}
+
+function applySortAndRender() {
+  const rows = sortState.key ? sortRows(baseRows) : baseRows.slice();
   currentRows = rows;
   rowsEl.innerHTML = rows.map((r, i) => `
 <tr data-index="${i}" tabindex="0">
@@ -232,6 +272,58 @@ function renderTable(rows) {
 <td>${esc(r.year ?? '')}</td>
 </tr>
 `).join('');
+  updateSortUI();
+  applySelection();
+}
+
+function sortRows(rows) {
+  const column = SORT_COLUMNS[sortState.key];
+  if (!column) return rows.slice();
+  const direction = sortState.dir === 'desc' ? -1 : 1;
+  const { key, type } = column;
+  return rows.slice().sort((a, b) => compareValues(a[key], b[key], type, direction));
+}
+
+function compareValues(aVal, bVal, type, direction) {
+  const isString = type === 'string';
+  const aValid = isString ? (typeof aVal === 'string' && aVal.trim() !== '') : Number.isFinite(aVal);
+  const bValid = isString ? (typeof bVal === 'string' && bVal.trim() !== '') : Number.isFinite(bVal);
+  if (!aValid && !bValid) return 0;
+  if (!aValid) return 1;
+  if (!bValid) return -1;
+  if (isString) {
+    const cmp = aVal.localeCompare(bVal, undefined, { sensitivity: 'base' });
+    if (cmp !== 0) return cmp * direction;
+    return aVal.localeCompare(bVal) * direction;
+  }
+  const diff = aVal - bVal;
+  if (diff === 0) return 0;
+  return diff > 0 ? direction : -direction;
+}
+
+function handleSort(key) {
+  if (!SORT_COLUMNS[key]) return;
+  if (sortState.key === key) {
+    sortState = { key, dir: sortState.dir === 'asc' ? 'desc' : 'asc' };
+  } else {
+    sortState = { key, dir: 'asc' };
+  }
+  applySortAndRender();
+}
+
+function updateSortUI() {
+  sortButtons.forEach((btn) => {
+    const th = btn.closest('th');
+    if (!th) return;
+    if (sortState.key === btn.dataset.sortKey) {
+      const dir = sortState.dir;
+      th.dataset.sortDir = dir;
+      th.setAttribute('aria-sort', dir === 'asc' ? 'ascending' : 'descending');
+    } else {
+      th.dataset.sortDir = 'none';
+      th.setAttribute('aria-sort', 'none');
+    }
+  });
 }
 
 function renderSummary(rows) {
