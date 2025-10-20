@@ -489,6 +489,7 @@ section#neo-3d {
   display: grid;
   gap: var(--space-2);
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
 .neo3d-neo-panel,
 .neo3d-sbdb-panel {
   display: grid;
