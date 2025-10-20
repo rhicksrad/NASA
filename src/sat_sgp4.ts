@@ -1,9 +1,4 @@
-import {
-  eciToGeodetic,
-  gstime,
-  propagate,
-  twoline2satrec,
-} from 'https://cdn.jsdelivr.net/npm/satellite.js@5.0.1/dist/satellite.esm.js';
+import { eciToGeodetic, gstime, propagate, twoline2satrec } from 'satellite.js';
 
 export type SatRec = ReturnType<typeof twoline2satrec>;
 
@@ -26,7 +21,7 @@ export function tleToSatrec(line1: string, line2: string): SatRec {
 
 export function propEciKm(satrec: SatRec, date: Date): PropagationResult | null {
   const result = propagate(satrec, date);
-  if (!result.position || !result.velocity) {
+  if (!result || !result.position || !result.velocity) {
     return null;
   }
   const { x, y, z } = result.position;

@@ -5,6 +5,7 @@ const JPL_SSD_BASE = 'https://ssd-api.jpl.nasa.gov';
 const EONET_BASE = 'https://eonet.gsfc.nasa.gov/api/v3';
 const EXOPLANET_ARCHIVE_BASE = 'https://exoplanetarchive.ipac.caltech.edu';
 const EXOPLANET_TAP_PATH = '/TAP/sync';
+const TLE_API_BASE = 'https://tle.ivanstanojevic.me/api/tle';
 const DEMO_KEY = 'DEMO_KEY';
 
 let NASA_API = '';
@@ -233,6 +234,25 @@ function buildEventMarkdown(event) {
   return lines.join('\n');
 }
 
+async function fetchTle(upstream, origin) {
+  const headers = { ...secHeaders(), ...corsHeaders(origin) };
+  try {
+    const resp = await fetch(upstream.toString(), { cf: { cacheEverything: true, cacheTtl: 300 } });
+    const text = await resp.text();
+    headers['Content-Type'] = resp.headers.get('content-type') || 'application/json; charset=utf-8';
+    if (resp.ok) {
+      headers['Cache-Control'] = 'public, max-age=120, s-maxage=300, stale-while-revalidate=3600';
+    }
+    return new Response(text, { status: resp.status, headers });
+  } catch (error) {
+    headers['Content-Type'] = 'application/json; charset=utf-8';
+    return new Response(
+      JSON.stringify({ error: 'TLE fetch failed', url: upstream.toString() }),
+      { status: 502, headers },
+    );
+  }
+}
+
 async function proxyEonet(path, url, origin) {
   const target = new URL(path, EONET_BASE);
   for (const [key, value] of url.searchParams.entries()) {
@@ -330,6 +350,31 @@ async function handleRequest(request) {
       usingDemoKey: key.length === 0,
     };
     return new Response(JSON.stringify(info), { status: 200, headers });
+  }
+
+  if (url.pathname === '/tle/search') {
+    const query = (url.searchParams.get('q') || '').trim();
+    if (!query) {
+      return jsonResponse({ member: [] }, 200, origin, {
+        'Cache-Control': 'public, max-age=60, s-maxage=120',
+      });
+    }
+    const upstream = new URL(TLE_API_BASE);
+    upstream.searchParams.set('search', query);
+    const limit = url.searchParams.get('limit');
+    if (limit) upstream.searchParams.set('limit', limit);
+    const page = url.searchParams.get('page');
+    if (page) upstream.searchParams.set('page', page);
+    return fetchTle(upstream, origin);
+  }
+
+  if (url.pathname.startsWith('/tle/')) {
+    const idPart = url.pathname.slice('/tle/'.length);
+    if (!idPart) {
+      return jsonResponse({ error: 'Missing satellite id' }, 400, origin);
+    }
+    const upstream = new URL(`${encodeURIComponent(idPart)}`, `${TLE_API_BASE}/`);
+    return fetchTle(upstream, origin);
   }
 
   if (url.pathname === '/exo/tap') {

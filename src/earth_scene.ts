@@ -1,5 +1,5 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/controls/OrbitControls.js';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EARTH_RADIUS_KM } from './sat_sgp4';
 
 export const KM_TO_UNITS = 0.001;
@@ -32,8 +32,8 @@ interface TrailRecord {
   colorArray: Float32Array;
 }
 
-const DAY_TEXTURE = 'https://cdn.jsdelivr.net/gh/raphaellnd/planet-textures@main/8k_earth_daymap.jpg';
-const NIGHT_TEXTURE = 'https://cdn.jsdelivr.net/gh/raphaellnd/planet-textures@main/8k_earth_nightmap.jpg';
+const DAY_TEXTURE = 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg';
+const NIGHT_TEXTURE = 'https://threejs.org/examples/textures/planets/earth_lights_2048.png';
 
 const ATMOSPHERE_VERTEX = /* glsl */ `
   varying vec3 vNormal;
