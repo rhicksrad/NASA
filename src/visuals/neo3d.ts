@@ -304,74 +304,99 @@ const paintVenus: PlanetTexturePainter = (ctx, width, height, base, rand) => {
   scatterBlotches(ctx, width, height, 800, [3, 18], darkenHex(base, 0.25), 0.08, rand);
 };
 
-function drawLandmass(
+type EarthSplinePoint = { x: number; y: number; cpx?: number; cpy?: number };
+
+type EarthContinentConfig = {
+  center: { x: number; y: number };
+  scale: number;
+  aspect?: number;
+  rotation?: number;
+  fillStops: { offset: number; color: string }[];
+  fillAlpha?: number;
+  coastline?: string;
+  coastlineAlpha?: number;
+  coastlineWidth?: number;
+  points: EarthSplinePoint[];
+  decorate?: (
+    ctx: CanvasRenderingContext2D,
+    rand: () => number,
+    scaleX: number,
+    scaleY: number,
+  ) => void;
+};
+
+const EARTH_BASE_RADIUS = 256;
+
+function createEarthPath(points: EarthSplinePoint[]): Path2D {
+  const path = new Path2D();
+  if (!points.length) return path;
+
+  const [{ x: startX, y: startY }] = points;
+  path.moveTo(startX, startY);
+  for (let i = 1; i < points.length; i += 1) {
+    const { x, y, cpx, cpy } = points[i];
+    if (cpx != null && cpy != null) {
+      path.quadraticCurveTo(cpx, cpy, x, y);
+    } else {
+      path.lineTo(x, y);
+    }
+  }
+  path.closePath();
+  return path;
+}
+
+function drawEarthContinent(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  rand: () => number,
-  scale: number,
-  color: string,
+  globalRand: () => number,
+  config: EarthContinentConfig,
 ): void {
-  const cx = width * (0.2 + rand() * 0.6);
-  const cy = height * (0.2 + rand() * 0.6);
-  const points = 10 + Math.floor(rand() * 8);
-  const rotation = (rand() - 0.5) * Math.PI * 1.8;
-  const yScale = 0.65 + rand() * 0.5;
+  if (!config.points.length) return;
 
-  const vertices: { x: number; y: number; cpx: number; cpy: number }[] = [];
-  for (let i = 0; i <= points; i += 1) {
-    const angle = (i / points) * Math.PI * 2;
-    const radius = 100 + rand() * 120;
-    const x = Math.cos(angle) * radius * (0.5 + rand() * 0.7);
-    const y = Math.sin(angle) * radius * (0.5 + rand() * 0.7);
-    const cpx = x * 0.85 + (rand() - 0.5) * 20;
-    const cpy = y * 0.85 + (rand() - 0.5) * 20;
-    vertices.push({ x, y, cpx, cpy });
-  }
+  const path = createEarthPath(config.points);
+  const centerX = width * config.center.x;
+  const centerY = height * config.center.y;
+  const baseSize = Math.min(width, height);
+  const scaleX = (baseSize / (EARTH_BASE_RADIUS * 2)) * config.scale;
+  const scaleY = scaleX * (config.aspect ?? 1);
+  const rotation = config.rotation ?? 0;
+  const extent = EARTH_BASE_RADIUS * Math.max(scaleX, scaleY);
+  const detailSeed = globalRand() * 1000 + config.center.x * 100 + config.center.y * 100;
 
-  const detailPoints = Array.from({ length: 50 }, () => ({
-    x: (rand() - 0.5) * 200,
-    y: (rand() - 0.5) * 200,
-    color: rand() > 0.5 ? 'rgba(0, 100, 0, 0.3)' : 'rgba(139, 69, 19, 0.3)',
-  }));
-
-  const extent = 240 * scale;
-  wrapXPositions(width, cx, extent, (wrappedX) => {
+  wrapXPositions(width, centerX, extent, (wrappedX) => {
+    const localRand = createSeededRandom(detailSeed);
     ctx.save();
-    ctx.translate(wrappedX, cy);
-    ctx.rotate(rotation);
-    ctx.scale(scale, scale * yScale);
+    ctx.translate(wrappedX, centerY);
+    if (rotation !== 0) ctx.rotate(rotation);
+    ctx.scale(scaleX, scaleY);
 
-    ctx.beginPath();
-    vertices.forEach((vertex, index) => {
-      const { x, y, cpx, cpy } = vertex;
-      if (index === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.quadraticCurveTo(cpx, cpy, x, y);
-      }
-    });
-    ctx.closePath();
+    const gradient = ctx.createLinearGradient(-220, -220, 200, 240);
+    config.fillStops.forEach(({ offset, color }) => gradient.addColorStop(offset, color));
+    ctx.fillStyle = gradient;
+    ctx.globalAlpha = config.fillAlpha ?? 0.98;
+    ctx.fill(path);
+    ctx.globalAlpha = 1;
 
-    ctx.fillStyle = color;
-    ctx.globalAlpha = 0.95;
-    ctx.fill();
+    if (config.decorate) {
+      ctx.save();
+      ctx.clip(path);
+      config.decorate(ctx, localRand, scaleX, scaleY);
+      ctx.restore();
+    }
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 10;
-    ctx.globalAlpha = 0.7;
-    ctx.stroke();
-
-    ctx.globalAlpha = 0.3;
-    detailPoints.forEach((point) => {
-      ctx.fillStyle = point.color;
-      ctx.fillRect(point.x, point.y, 3, 3);
-    });
+    if (config.coastline) {
+      ctx.strokeStyle = config.coastline;
+      ctx.lineWidth = (config.coastlineWidth ?? 8) / Math.max(scaleX, scaleY);
+      ctx.globalAlpha = config.coastlineAlpha ?? 0.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke(path);
+      ctx.globalAlpha = 1;
+    }
 
     ctx.restore();
   });
-
-  ctx.globalAlpha = 1;
 }
 
 const paintEarth: PlanetTexturePainter = (ctx, width, height, base, rand) => {
@@ -386,26 +411,337 @@ const paintEarth: PlanetTexturePainter = (ctx, width, height, base, rand) => {
   // Ocean depth variation
   scatterBlotches(ctx, width, height, 500, [20, 80], '#082f5c', 0.2, rand);
 
-  // Continents with varied terrain
-  const landColors = ['#22c55e', '#16a34a', '#166534', '#84cc16', '#65a30d'];
-  for (let i = 0; i < 7; i += 1) {
-    const color = landColors[Math.floor(rand() * landColors.length)];
-    drawLandmass(ctx, width, height, rand, 0.5 + rand() * 0.6, color);
-  }
+  const eurasiaPoints: EarthSplinePoint[] = [
+    { x: -220, y: -60 },
+    { x: -160, y: -170, cpx: -260, cpy: -130 },
+    { x: -40, y: -210, cpx: -140, cpy: -220 },
+    { x: 120, y: -190, cpx: 20, cpy: -220 },
+    { x: 210, y: -120, cpx: 200, cpy: -190 },
+    { x: 220, y: -10, cpx: 240, cpy: -70 },
+    { x: 170, y: 70, cpx: 220, cpy: 40 },
+    { x: 110, y: 120, cpx: 150, cpy: 110 },
+    { x: 60, y: 170, cpx: 100, cpy: 150 },
+    { x: 10, y: 210, cpx: 40, cpy: 200 },
+    { x: -40, y: 190, cpx: -10, cpy: 210 },
+    { x: -70, y: 130, cpx: -90, cpy: 170 },
+    { x: -120, y: 60, cpx: -130, cpy: 110 },
+    { x: -160, y: 20, cpx: -150, cpy: 40 },
+    { x: -200, y: 10, cpx: -190, cpy: 0 },
+    { x: -230, y: -20, cpx: -220, cpy: 0 },
+    { x: -220, y: -60, cpx: -240, cpy: -40 },
+  ];
 
-  // Mountain ranges (dark patches on land)
-  scatterBlotches(ctx, width, height, 300, [5, 25], '#4a5568', 0.3, rand);
+  const northAmericaPoints: EarthSplinePoint[] = [
+    { x: -250, y: -60 },
+    { x: -220, y: -160, cpx: -280, cpy: -150 },
+    { x: -120, y: -210, cpx: -200, cpy: -220 },
+    { x: -40, y: -180, cpx: -70, cpy: -215 },
+    { x: -10, y: -120, cpx: 0, cpy: -170 },
+    { x: -20, y: -40, cpx: 10, cpy: -80 },
+    { x: -80, y: 0, cpx: -40, cpy: -5 },
+    { x: -140, y: 20, cpx: -120, cpy: 30 },
+    { x: -200, y: 80, cpx: -170, cpy: 60 },
+    { x: -240, y: 40, cpx: -230, cpy: 80 },
+    { x: -250, y: -60, cpx: -260, cpy: 0 },
+  ];
+
+  const southAmericaPoints: EarthSplinePoint[] = [
+    { x: -140, y: 20 },
+    { x: -110, y: 70, cpx: -130, cpy: 40 },
+    { x: -70, y: 150, cpx: -90, cpy: 100 },
+    { x: -80, y: 220, cpx: -40, cpy: 200 },
+    { x: -120, y: 250, cpx: -100, cpy: 250 },
+    { x: -150, y: 190, cpx: -150, cpy: 240 },
+    { x: -170, y: 110, cpx: -170, cpy: 160 },
+    { x: -160, y: 50, cpx: -180, cpy: 80 },
+    { x: -140, y: 20, cpx: -160, cpy: 30 },
+  ];
+
+  const australiaPoints: EarthSplinePoint[] = [
+    { x: 60, y: 170 },
+    { x: 120, y: 160, cpx: 80, cpy: 150 },
+    { x: 150, y: 200, cpx: 150, cpy: 170 },
+    { x: 110, y: 240, cpx: 160, cpy: 240 },
+    { x: 60, y: 230, cpx: 90, cpy: 240 },
+    { x: 30, y: 200, cpx: 40, cpy: 220 },
+    { x: 40, y: 180, cpx: 30, cpy: 190 },
+    { x: 60, y: 170, cpx: 50, cpy: 170 },
+  ];
+
+  const greenlandPoints: EarthSplinePoint[] = [
+    { x: -200, y: -120 },
+    { x: -180, y: -180, cpx: -220, cpy: -160 },
+    { x: -120, y: -210, cpx: -160, cpy: -220 },
+    { x: -80, y: -170, cpx: -90, cpy: -210 },
+    { x: -90, y: -120, cpx: -60, cpy: -140 },
+    { x: -140, y: -80, cpx: -120, cpy: -90 },
+    { x: -200, y: -120, cpx: -170, cpy: -80 },
+  ];
+
+  const earthContinents: EarthContinentConfig[] = [
+    {
+      center: { x: 0.66, y: 0.48 },
+      scale: 0.48,
+      aspect: 0.9,
+      rotation: 0.08,
+      fillStops: [
+        { offset: 0, color: '#14532d' },
+        { offset: 0.4, color: '#1f9d55' },
+        { offset: 1, color: '#0f7654' },
+      ],
+      coastline: 'rgba(241, 245, 249, 0.75)',
+      coastlineAlpha: 0.32,
+      coastlineWidth: 18,
+      points: eurasiaPoints,
+      decorate: (localCtx, detailRand) => {
+        localCtx.globalAlpha = 0.32;
+        localCtx.fillStyle = 'rgba(253, 224, 71, 0.8)';
+        localCtx.beginPath();
+        localCtx.ellipse(-20, 70, 110, 55, -0.2, 0, Math.PI * 2);
+        localCtx.fill();
+
+        localCtx.beginPath();
+        localCtx.ellipse(50, 45, 65, 38, 0.45, 0, Math.PI * 2);
+        localCtx.fill();
+
+        localCtx.globalAlpha = 0.26;
+        const steppe = localCtx.createLinearGradient(-140, -40, 140, 50);
+        steppe.addColorStop(0, 'rgba(101, 163, 13, 0.6)');
+        steppe.addColorStop(1, 'rgba(13, 148, 136, 0.1)');
+        localCtx.fillStyle = steppe;
+        localCtx.fillRect(-230, -120, 430, 220);
+
+        localCtx.globalAlpha = 0.28;
+        localCtx.fillStyle = 'rgba(22, 101, 52, 0.75)';
+        for (let i = 0; i < 120; i += 1) {
+          const px = -150 + detailRand() * 320;
+          const py = -60 + detailRand() * 220;
+          const rx = 5 + detailRand() * 16;
+          const ry = rx * (0.5 + detailRand() * 0.5);
+          localCtx.beginPath();
+          localCtx.ellipse(px, py, rx, ry, detailRand() * Math.PI, 0, Math.PI * 2);
+          localCtx.fill();
+        }
+
+        localCtx.globalAlpha = 0.55;
+        localCtx.strokeStyle = 'rgba(148, 163, 184, 0.75)';
+        localCtx.lineWidth = 5;
+        localCtx.lineJoin = 'round';
+        localCtx.beginPath();
+        localCtx.moveTo(-70, -20);
+        localCtx.lineTo(10, -40);
+        localCtx.lineTo(70, -15);
+        localCtx.lineTo(120, -5);
+        localCtx.stroke();
+
+        localCtx.beginPath();
+        localCtx.moveTo(30, 0);
+        localCtx.lineTo(90, 20);
+        localCtx.lineTo(140, 10);
+        localCtx.stroke();
+
+        localCtx.globalAlpha = 0.18;
+        localCtx.fillStyle = 'rgba(34, 197, 94, 0.65)';
+        localCtx.beginPath();
+        localCtx.ellipse(-80, 160, 70, 50, 0.1, 0, Math.PI * 2);
+        localCtx.fill();
+
+        localCtx.globalAlpha = 1;
+      },
+    },
+    {
+      center: { x: 0.3, y: 0.42 },
+      scale: 0.4,
+      aspect: 1.02,
+      rotation: -0.12,
+      fillStops: [
+        { offset: 0, color: '#14532d' },
+        { offset: 0.5, color: '#15803d' },
+        { offset: 1, color: '#166534' },
+      ],
+      coastline: 'rgba(241, 245, 249, 0.7)',
+      coastlineAlpha: 0.35,
+      coastlineWidth: 16,
+      points: northAmericaPoints,
+      decorate: (localCtx, detailRand) => {
+        localCtx.globalAlpha = 0.3;
+        localCtx.fillStyle = 'rgba(21, 128, 61, 0.85)';
+        for (let i = 0; i < 90; i += 1) {
+          const px = -200 + detailRand() * 200;
+          const py = -80 + detailRand() * 140;
+          const rx = 5 + detailRand() * 18;
+          const ry = rx * (0.45 + detailRand() * 0.4);
+          localCtx.beginPath();
+          localCtx.ellipse(px, py, rx, ry, detailRand() * Math.PI, 0, Math.PI * 2);
+          localCtx.fill();
+        }
+
+        localCtx.globalAlpha = 0.38;
+        localCtx.fillStyle = 'rgba(250, 204, 21, 0.6)';
+        localCtx.beginPath();
+        localCtx.ellipse(-70, 30, 60, 30, -0.3, 0, Math.PI * 2);
+        localCtx.fill();
+
+        localCtx.globalAlpha = 0.22;
+        const plains = localCtx.createLinearGradient(-160, -10, -20, 80);
+        plains.addColorStop(0, 'rgba(74, 222, 128, 0.8)');
+        plains.addColorStop(1, 'rgba(21, 128, 61, 0.1)');
+        localCtx.fillStyle = plains;
+        localCtx.fillRect(-210, -20, 220, 140);
+
+        localCtx.globalAlpha = 0.5;
+        localCtx.strokeStyle = 'rgba(148, 163, 184, 0.8)';
+        localCtx.lineWidth = 5;
+        localCtx.beginPath();
+        localCtx.moveTo(-150, -40);
+        localCtx.lineTo(-90, -20);
+        localCtx.lineTo(-40, 10);
+        localCtx.lineTo(-10, 30);
+        localCtx.stroke();
+
+        localCtx.globalAlpha = 1;
+      },
+    },
+    {
+      center: { x: 0.36, y: 0.66 },
+      scale: 0.32,
+      aspect: 1.05,
+      rotation: -0.05,
+      fillStops: [
+        { offset: 0, color: '#14532d' },
+        { offset: 0.45, color: '#1a9a4f' },
+        { offset: 1, color: '#0f7a4b' },
+      ],
+      coastline: 'rgba(241, 245, 249, 0.7)',
+      coastlineAlpha: 0.3,
+      coastlineWidth: 12,
+      points: southAmericaPoints,
+      decorate: (localCtx, detailRand) => {
+        localCtx.globalAlpha = 0.34;
+        localCtx.fillStyle = 'rgba(4, 120, 87, 0.8)';
+        localCtx.beginPath();
+        localCtx.ellipse(-110, 120, 80, 70, -0.1, 0, Math.PI * 2);
+        localCtx.fill();
+
+        localCtx.globalAlpha = 0.45;
+        localCtx.strokeStyle = 'rgba(148, 163, 184, 0.85)';
+        localCtx.lineWidth = 4;
+        localCtx.beginPath();
+        localCtx.moveTo(-150, 30);
+        localCtx.lineTo(-160, 90);
+        localCtx.lineTo(-150, 150);
+        localCtx.lineTo(-130, 210);
+        localCtx.stroke();
+
+        localCtx.globalAlpha = 0.28;
+        localCtx.fillStyle = 'rgba(34, 197, 94, 0.7)';
+        for (let i = 0; i < 60; i += 1) {
+          const px = -140 + detailRand() * 100;
+          const py = 80 + detailRand() * 120;
+          const rx = 5 + detailRand() * 14;
+          const ry = rx * (0.5 + detailRand() * 0.4);
+          localCtx.beginPath();
+          localCtx.ellipse(px, py, rx, ry, detailRand() * Math.PI, 0, Math.PI * 2);
+          localCtx.fill();
+        }
+
+        localCtx.globalAlpha = 1;
+      },
+    },
+    {
+      center: { x: 0.75, y: 0.7 },
+      scale: 0.24,
+      aspect: 0.88,
+      rotation: 0.22,
+      fillStops: [
+        { offset: 0, color: '#166534' },
+        { offset: 0.5, color: '#22c55e' },
+        { offset: 1, color: '#854d0e' },
+      ],
+      coastline: 'rgba(241, 245, 249, 0.6)',
+      coastlineAlpha: 0.32,
+      coastlineWidth: 10,
+      points: australiaPoints,
+      decorate: (localCtx) => {
+        localCtx.globalAlpha = 0.45;
+        localCtx.fillStyle = 'rgba(234, 179, 8, 0.65)';
+        localCtx.beginPath();
+        localCtx.ellipse(60, 200, 70, 45, -0.15, 0, Math.PI * 2);
+        localCtx.fill();
+
+        localCtx.globalAlpha = 0.28;
+        localCtx.fillStyle = 'rgba(34, 197, 94, 0.6)';
+        localCtx.beginPath();
+        localCtx.ellipse(30, 170, 50, 30, 0.25, 0, Math.PI * 2);
+        localCtx.fill();
+
+        localCtx.globalAlpha = 1;
+      },
+    },
+    {
+      center: { x: 0.34, y: 0.24 },
+      scale: 0.18,
+      aspect: 1.1,
+      rotation: -0.18,
+      fillStops: [
+        { offset: 0, color: '#e2f1ff' },
+        { offset: 0.7, color: '#bae6fd' },
+        { offset: 1, color: '#93c5fd' },
+      ],
+      coastline: 'rgba(241, 245, 249, 0.9)',
+      coastlineAlpha: 0.5,
+      coastlineWidth: 9,
+      points: greenlandPoints,
+      decorate: (localCtx) => {
+        localCtx.globalAlpha = 0.35;
+        localCtx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+        localCtx.beginPath();
+        localCtx.ellipse(-140, -140, 70, 40, -0.2, 0, Math.PI * 2);
+        localCtx.fill();
+        localCtx.globalAlpha = 1;
+      },
+    },
+  ];
+
+  earthContinents.forEach((continent) => drawEarthContinent(ctx, width, height, rand, continent));
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'overlay';
+  const equatorialGlow = ctx.createLinearGradient(0, height * 0.45, 0, height * 0.55);
+  equatorialGlow.addColorStop(0, 'rgba(255, 255, 255, 0)');
+  equatorialGlow.addColorStop(0.5, 'rgba(255, 255, 255, 0.18)');
+  equatorialGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = equatorialGlow;
+  ctx.fillRect(0, height * 0.3, width, height * 0.4);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const specular = ctx.createRadialGradient(
+    width * 0.7,
+    height * 0.35,
+    width * 0.05,
+    width * 0.7,
+    height * 0.35,
+    width * 0.5,
+  );
+  specular.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+  specular.addColorStop(0.6, 'rgba(255, 255, 255, 0.12)');
+  specular.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = specular;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
 
   // Multi-layer realistic clouds
   ctx.save();
   for (let layer = 0; layer < 3; layer += 1) {
-    ctx.globalAlpha = 0.25 + layer * 0.15;
-    for (let i = 0; i < 180; i += 1) {
+    ctx.globalAlpha = 0.22 + layer * 0.14;
+    for (let i = 0; i < 160; i += 1) {
       const x = rand() * width;
       const y = rand() * height;
       const radiusX = width * (0.025 + rand() * 0.08);
       const radiusY = radiusX * (0.35 + rand() * 0.45);
-      
+
       const cloud = ctx.createRadialGradient(x, y, radiusX * 0.1, x, y, radiusX);
       cloud.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
       cloud.addColorStop(0.6, 'rgba(255, 255, 255, 0.7)');
@@ -415,6 +751,47 @@ const paintEarth: PlanetTexturePainter = (ctx, width, height, base, rand) => {
       ctx.ellipse(x, y, radiusX, radiusY, rand() * Math.PI, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.4;
+  for (let band = 0; band < 5; band += 1) {
+    const latitude = height * (0.25 + band * 0.15);
+    const thickness = height * (0.05 + rand() * 0.02);
+    const bandGradient = ctx.createLinearGradient(0, latitude - thickness, 0, latitude + thickness);
+    bandGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+    bandGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.65)');
+    bandGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = bandGradient;
+    ctx.beginPath();
+    ctx.ellipse(width * 0.5, latitude, width * (0.48 + rand() * 0.08), thickness, rand() * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < 6; i += 1) {
+    const centerX = width * (0.2 + rand() * 0.6);
+    const centerY = height * (0.25 + rand() * 0.5);
+    const maxRadius = width * (0.035 + rand() * 0.035);
+    ctx.beginPath();
+    for (let angle = 0; angle <= Math.PI * 3.5; angle += 0.25) {
+      const radius = (angle / (Math.PI * 3.5)) * maxRadius;
+      const px = centerX + Math.cos(angle) * radius;
+      const py = centerY + Math.sin(angle) * radius * 0.7;
+      if (angle === 0) {
+        ctx.moveTo(px, py);
+      } else {
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = width * 0.004;
+    ctx.stroke();
   }
   ctx.restore();
 
