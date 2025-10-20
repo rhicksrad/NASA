@@ -514,11 +514,10 @@ body.neo3d-fullscreen #neo-3d > .main-wrap {
 }
 
 body.neo3d-fullscreen #neo3d-host {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  flex: 1 1 auto;
   width: 100%;
-  height: 100%;
-  z-index: 1;
+  min-height: clamp(420px, 75vh, 900px);
 }
 
 body.neo3d-fullscreen .neo3d-stage {
@@ -527,22 +526,28 @@ body.neo3d-fullscreen .neo3d-stage {
   border-radius: 0;
 }
 
+body.neo3d-fullscreen #neo-3d > .main-wrap {
+  gap: var(--space-6);
+}
+
 body.neo3d-fullscreen .neo3d-control-panel {
-  position: absolute;
-  top: var(--space-6);
-  right: var(--space-6);
-  width: min(420px, calc(100% - 2 * var(--space-6)));
-  max-height: calc(100% - 2 * var(--space-6));
-  overflow-y: auto;
+  position: relative;
+  top: auto;
+  right: auto;
+  width: min(420px, 100%);
+  max-height: none;
+  overflow: visible;
   padding: var(--space-5);
   border-radius: var(--radius-1);
   border: 1px solid var(--c-line-1);
   background: linear-gradient(180deg, hsl(230 36% 20% / 0.92), hsl(230 36% 12% / 0.92));
-  box-shadow: 0 24px 70px hsl(230 80% 5% / 0.75);
+  box-shadow: 0 24px 70px hsl(230 80% 5% / 0.55);
   backdrop-filter: blur(14px);
   display: grid;
   gap: var(--space-5);
-  z-index: 2;
+  z-index: auto;
+  align-self: flex-end;
+  margin: var(--space-6) var(--space-6) 0;
 }
 
 body.neo3d-fullscreen .neo3d-control-panel > * {
@@ -563,8 +568,7 @@ body.neo3d-fullscreen .neo3d-legend {
   }
 
   body.neo3d-fullscreen #neo3d-host {
-    position: relative;
-    height: min(75vh, 720px);
+    min-height: min(75vh, 720px);
   }
 
   body.neo3d-fullscreen .neo3d-stage {
@@ -573,15 +577,12 @@ body.neo3d-fullscreen .neo3d-legend {
   }
 
   body.neo3d-fullscreen .neo3d-control-panel {
-    position: relative;
-    top: auto;
-    right: auto;
-    width: auto;
-    max-height: none;
-    margin: var(--space-6) var(--space-4) 0;
+    width: 100%;
+    margin: var(--space-5) var(--space-4) 0;
     padding: var(--space-5) var(--space-4);
     box-shadow: none;
     backdrop-filter: none;
+    align-self: stretch;
   }
 }
 
