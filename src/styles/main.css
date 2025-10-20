@@ -299,18 +299,26 @@ section#neo-3d {
 
 .neo3d-control-panel {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-4);
   align-items: start;
+  grid-template-areas:
+    "controls"
+    "neos"
+    "sbdb";
 }
 
 @media (min-width: 960px) {
   .neo3d-control-panel {
-    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    grid-template-areas:
+      "controls sbdb"
+      "neos sbdb";
   }
 }
 
 
 .neo3d-primary-controls {
+  grid-area: controls;
   display: grid;
   gap: var(--space-3);
   align-content: start;
@@ -481,17 +489,24 @@ section#neo-3d {
   display: grid;
   gap: var(--space-2);
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-}
-
 .neo3d-neo-panel,
 .neo3d-sbdb-panel {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
   border: 1px solid var(--c-line-1);
   border-radius: var(--radius-1);
   background: linear-gradient(180deg, var(--c-surface-1), var(--c-surface-2));
   padding: var(--space-3);
   box-shadow: var(--sh-1);
+}
+
+.neo3d-neo-panel {
+  grid-area: neos;
+  gap: var(--space-2);
+}
+
+.neo3d-sbdb-panel {
+  grid-area: sbdb;
 }
 
 .neo3d-neo-panel-header {
@@ -519,14 +534,14 @@ section#neo-3d {
 
 .neo3d-neo-list {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
 .neo3d-neo-item {
   border: 1px solid var(--c-line-1);
   border-radius: var(--radius-1);
   background: linear-gradient(180deg, hsl(230 32% 14%), hsl(230 28% 12%));
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   display: grid;
   gap: var(--space-2);
 }
@@ -535,12 +550,17 @@ section#neo-3d {
   box-shadow: var(--sh-1);
 }
 
+.neo3d-neo-entry {
+  display: grid;
+  gap: var(--space-1);
+}
+
 .neo3d-neo-name {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-2);
-  font-size: var(--fs-2);
+  font-size: var(--fs-1);
   color: var(--c-text-1);
 }
 
@@ -561,7 +581,7 @@ section#neo-3d {
 .neo3d-neo-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--fs-0);
   color: var(--c-muted);
@@ -569,6 +589,7 @@ section#neo-3d {
 
 .neo3d-neo-hazard {
   color: var(--c-warn);
+  font-size: var(--fs-0);
   font-weight: 600;
 }
 

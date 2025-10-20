@@ -1156,6 +1156,7 @@ export async function initNeo3D(
     item.setAttribute('role', 'listitem');
 
     const label = document.createElement('label');
+    label.className = 'neo3d-neo-entry';
 
     const nameRow = document.createElement('span');
     nameRow.className = 'neo3d-neo-name';

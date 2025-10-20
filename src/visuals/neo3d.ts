@@ -1239,6 +1239,9 @@ export class Neo3D {
     const height = host.clientHeight || 520;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(width, height, false);
     this.renderer.setClearColor(0x020412, 1);
@@ -1269,14 +1272,17 @@ export class Neo3D {
     const sunLight = new THREE.PointLight(0xfff5c0, 3.2, 0, 2);
     sunLight.position.set(0, 0, 0);
     
-    const sun = new THREE.Mesh(
-      new THREE.SphereGeometry(0.06 * SIZE_MULTIPLIER * SCALE, 48, 32),
-      new THREE.MeshBasicMaterial({ 
-        color: 0xfff1a8,
-        emissive: 0xffdd66,
-        emissiveIntensity: 1.2
-      }),
-    );
+    const sunMaterial = new THREE.MeshStandardMaterial({
+      color: 0xfff1a8,
+      emissive: 0xffdd66,
+      emissiveIntensity: 1.4,
+      roughness: 0.35,
+      metalness: 0.1,
+      toneMapped: false,
+    });
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(0.06 * SIZE_MULTIPLIER * SCALE, 48, 32), sunMaterial);
+    sun.castShadow = false;
+    sun.receiveShadow = false;
     
     this.scene.add(ambient, sunLight, sun, createGridRing());
 
