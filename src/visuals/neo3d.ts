@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { jdFromDate, propagate, type Keplerian } from '../utils/orbit';
+import {
+  jdFromDate,
+  propagate,
+  prepareKeplerian,
+  type Keplerian,
+  type PreparedKeplerian,
+} from '../utils/orbit';
 
 const SCALE = 120;
 const SIZE_MULTIPLIER = 2;
@@ -65,6 +71,7 @@ interface RenderBody {
   orbitLine?: THREE.Line;
   lastPos?: [number, number, number] | null;
   shape: 'comet' | 'asteroid';
+  propagator?: PreparedKeplerian;
 }
 
 interface PlanetNode {
@@ -732,16 +739,22 @@ function ellipsePoint(els: Keplerian, nu: number): [number, number, number] | nu
   return rotatePerifocal(els, xp, yp);
 }
 
-function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): Float32Array {
+function buildOrbitPoints(
+  els: Keplerian,
+  segments: number,
+  spanDays?: number,
+  prepared?: PreparedKeplerian,
+): Float32Array {
   const key = orbitKey(els, segments, spanDays);
   const cached = orbitCache.get(key);
   if (cached) return cached;
 
   const points: number[] = [];
   if (els.e < 1) {
+    const ellipsePosition = prepared?.positionAtTrueAnomaly;
     for (let i = 0; i <= segments; i += 1) {
       const nu = (i / segments) * TWO_PI;
-      const pos = ellipsePoint(els, nu);
+      const pos = ellipsePosition ? ellipsePosition(nu) : ellipsePoint(els, nu);
       if (!pos || !isFiniteVec3(pos)) continue;
       const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
@@ -749,9 +762,10 @@ function buildOrbitPoints(els: Keplerian, segments: number, spanDays?: number): 
   } else {
     const span = spanDays ?? 2600;
     const half = span / 2;
+    const propagateOrbit = prepared?.propagate;
     for (let i = 0; i <= segments; i += 1) {
       const offset = -half + (span * i) / segments;
-      const pos = propagate(els, els.epochJD + offset);
+      const pos = propagateOrbit?.(els.epochJD + offset) ?? propagate(els, els.epochJD + offset);
       if (!isFiniteVec3(pos)) continue;
       const [x, y, z] = pos;
       points.push(x * SCALE, z * SCALE, y * SCALE);
@@ -1116,12 +1130,14 @@ export class Neo3D {
       mesh.userData.hoverLabel = spec.label ?? spec.name;
       this.scene.add(mesh);
 
+      const propagator = spec.els ? prepareKeplerian(spec.els) : undefined;
+
       let orbitLine: THREE.Line | undefined;
       if (spec.orbit) {
         const segments = Math.max(64, spec.orbit.segments ?? 512);
         let points: Float32Array | null = null;
         if (spec.els) {
-          points = buildOrbitPoints(spec.els, segments, spec.orbit.spanDays);
+          points = buildOrbitPoints(spec.els, segments, spec.orbit.spanDays, propagator);
         } else if (spec.sample) {
           points = buildSampleOrbitPoints(spec, segments, spec.orbit.spanDays, this.simMs);
         }
@@ -1134,7 +1150,7 @@ export class Neo3D {
       }
 
       const shape = (mesh.userData.shape as 'comet' | 'asteroid') ?? 'asteroid';
-      this.bodies.push({ spec, mesh, orbitLine, shape });
+      this.bodies.push({ spec, mesh, orbitLine, shape, propagator });
     }
 
     this.refreshInteractiveMeshes();
@@ -1235,9 +1251,16 @@ export class Neo3D {
 
       let pos: [number, number, number] | null = null;
       let sampleState: OrbitSample | null = null;
-      if (body.spec.els) {
+      if (body.propagator) {
+        const propagated = body.propagator.propagate(jd);
+        if (propagated && isFiniteVec3(propagated)) {
+          pos = [propagated[0], propagated[1], propagated[2]];
+        }
+      } else if (body.spec.els) {
         const propagated = propagate(body.spec.els, jd);
-        if (isFiniteVec3(propagated)) pos = [propagated[0], propagated[1], propagated[2]];
+        if (isFiniteVec3(propagated)) {
+          pos = [propagated[0], propagated[1], propagated[2]];
+        }
       }
       if (!pos && body.spec.sample) {
         sampleState = body.spec.sample(now);
@@ -1279,6 +1302,19 @@ export class Neo3D {
     sampleState: OrbitSample | null,
   ): [number, number, number] | null {
     const deltaDays = 1 / 2880; // ~30 seconds
+    if (body.propagator) {
+      const next = body.propagator.propagate(jd + deltaDays);
+      const prev = body.propagator.propagate(jd - deltaDays);
+      if (next && prev && isFiniteVec3(next) && isFiniteVec3(prev)) {
+        const scale = 1 / (2 * deltaDays);
+        return [
+          (next[0] - prev[0]) * scale,
+          (next[1] - prev[1]) * scale,
+          (next[2] - prev[2]) * scale,
+        ];
+      }
+      return null;
+    }
     if (body.spec.els) {
       const next = propagate(body.spec.els, jd + deltaDays);
       const prev = propagate(body.spec.els, jd - deltaDays);
