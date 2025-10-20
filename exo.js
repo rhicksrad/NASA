@@ -29,12 +29,17 @@ const sumCount = el('sumCount');
 const sumR = el('sumR');
 const sumT = el('sumT');
 const sumMass = el('sumMass');
+const sumDistLy = el('sumDistLy');
 const mrViz = el('mrViz');
 const selectedSummary = el('selectedSummary');
 
 let currentRows = [];
 let selectedPlanetName = '';
 let activeExampleDesc = '';
+
+const LY_PER_PARSEC = 3.261563777;
+const AU_PER_PARSEC = 206264.806;
+const KM_PER_PARSEC = 3.0856775814913673e13;
 
 const EXAMPLE_PRESETS = [{
     key: 'lavaWorlds',
@@ -145,6 +150,7 @@ AVG(pl_rade) AS rade,
 MIN(pl_masse) AS masse,
 MIN(pl_eqt)   AS eqt,
 MIN(pl_orbper) AS period,
+MIN(sy_dist) AS distance_pc,
 MIN(ra) AS ra, MIN(dec) AS dec,
 MIN(disc_year) AS disc_year
 FROM ps
@@ -188,17 +194,25 @@ ORDER BY eqt`;
 function normalizeRows(out) {
   const list = Array.isArray(out?.data) ? out.data : (Array.isArray(out?.rows) ? out.rows : out);
   return (list || [])
-    .map(r => ({
-      name: r.pl_name,
-      host: r.hostname,
-      rade: num(r.rade ?? r.pl_rade),
-      masse: num(r.masse ?? r.pl_masse),
-      eqt: num(r.eqt ?? r.pl_eqt),
-      period: num(r.period ?? r.pl_orbper),
-      ra: num(r.ra),
-      dec: num(r.dec),
-      year: r.disc_year ?? r.discyear ?? null
-    }))
+    .map(r => {
+      const distancePc = num(r.distance_pc ?? r.sy_dist);
+      const distance = convertDistance(distancePc);
+      return {
+        name: r.pl_name,
+        host: r.hostname,
+        rade: num(r.rade ?? r.pl_rade),
+        masse: num(r.masse ?? r.pl_masse),
+        eqt: num(r.eqt ?? r.pl_eqt),
+        period: num(r.period ?? r.pl_orbper),
+        distancePc,
+        distanceLy: distance?.ly ?? null,
+        distanceAu: distance?.au ?? null,
+        distanceKm: distance?.km ?? null,
+        ra: num(r.ra),
+        dec: num(r.dec),
+        year: r.disc_year ?? r.discyear ?? null
+      };
+    })
     .filter(r => r.name && r.host);
 }
 
@@ -212,6 +226,7 @@ function renderTable(rows) {
 <td>${fmt(r.masse)}</td>
 <td>${fmtTemperature(r.eqt)}</td>
 <td>${fmt(r.period)}</td>
+<td>${fmtDistanceLyOrDash(r.distanceLy)}</td>
 <td>${fmt(r.ra, 3)}</td>
 <td>${fmt(r.dec, 3)}</td>
 <td>${esc(r.year ?? '')}</td>
@@ -224,10 +239,12 @@ function renderSummary(rows) {
   const R = rows.map(r => r.rade).filter(x => Number.isFinite(x));
   const T = rows.map(r => r.eqt).filter(x => Number.isFinite(x));
   const M = rows.map(r => r.masse).filter(x => Number.isFinite(x));
+  const D = rows.map(r => r.distanceLy).filter(x => Number.isFinite(x));
   sumR.textContent = median(R)?.toFixed(2) ?? '–';
   const medianKelvin = median(T);
   sumT.textContent = medianKelvin == null ? '–' : fmtTemperature(medianKelvin, 0);
   sumMass.textContent = M.length;
+  sumDistLy.textContent = D.length ? fmtDistanceLyOrDash(median(D)) : '–';
 }
 
 function whereClause(q) {
@@ -309,7 +326,7 @@ function wire() {
   });
   btnCSV.addEventListener('click', async () => {
     const rows = Array.from(rowsEl.querySelectorAll('tr')).map(tr => Array.from(tr.children).map(td => td.textContent));
-    const header = ['pl_name', 'hostname', 'pl_rade', 'pl_masse', 'pl_eqt_f', 'pl_orbper', 'ra', 'dec', 'disc_year'];
+    const header = ['pl_name', 'hostname', 'pl_rade', 'pl_masse', 'pl_eqt_f', 'pl_orbper', 'distance_ly', 'ra', 'dec', 'disc_year'];
     const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
@@ -423,6 +440,7 @@ function renderPlanetSummary(planet) {
 <dt>Discovery year</dt><dd>${esc(planet.year ?? '—')}</dd>
 <dt>Orbit period (days)</dt><dd>${fmtOrDash(planet.period)}</dd>
 <dt>Equilibrium temp (°F)</dt><dd>${fmtTemperatureOrDash(planet.eqt, 0)}</dd>
+<dt>Distance (ly)</dt><dd>${esc(describeDistanceDetail(planet))}</dd>
 <dt>Right ascension</dt><dd>${fmtOrDash(planet.ra, 3)}</dd>
 <dt>Declination</dt><dd>${fmtOrDash(planet.dec, 3)}</dd>
 </dl>
@@ -561,6 +579,13 @@ function describePlanetType(planet) {
   };
 }
 
+function describeDistanceDetail(planet) {
+  if (!planet || !Number.isFinite(planet.distanceLy)) return '—';
+  const ly = fmtDistanceLy(planet.distanceLy);
+  const pc = Number.isFinite(planet.distancePc) ? fmt(planet.distancePc, 2) : '';
+  return pc ? `${ly} ly (${pc} pc)` : `${ly} ly`;
+}
+
 function syncURL() {
   const q = new URLSearchParams();
   const s = getState();
@@ -596,6 +621,20 @@ function fmtTemperature(kelvin, d = 0) {
   return f == null ? '' : Number(f).toFixed(d);
 }
 
+function fmtDistanceLy(value) {
+  if (!Number.isFinite(value)) return '';
+  if (value >= 1000) return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  if (value >= 100) {
+    return value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  }
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDistanceLyOrDash(value, placeholder = '–') {
+  const text = fmtDistanceLy(value);
+  return text === '' ? placeholder : text;
+}
+
 function fmtOrDash(x, d = 2, placeholder = '–') {
   const out = fmt(x, d);
   return out === '' ? placeholder : out;
@@ -613,6 +652,16 @@ function median(arr) {
   const a = arr.slice().sort((x, y) => x - y);
   const i = Math.floor(a.length / 2);
   return a.length % 2 ? a[i] : (a[i - 1] + a[i]) / 2;
+}
+
+function convertDistance(pc) {
+  if (!Number.isFinite(pc)) return null;
+  return {
+    pc,
+    ly: pc * LY_PER_PARSEC,
+    au: pc * AU_PER_PARSEC,
+    km: pc * KM_PER_PARSEC,
+  };
 }
 
 function kelvinToFahrenheit(kelvin) {
