@@ -1861,4 +1861,4 @@ export class Neo3D {
     this.tooltip.style.visibility = 'hidden';
     this.tooltip.style.transform = 'translate(-9999px, -9999px)';
   }
-
+}
