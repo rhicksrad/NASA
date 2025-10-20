@@ -1,4 +1,3 @@
-```typescript
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import {
@@ -1862,18 +1861,4 @@ export class Neo3D {
     this.tooltip.style.visibility = 'hidden';
     this.tooltip.style.transform = 'translate(-9999px, -9999px)';
   }
-}
-```
 
-This complete file features **dramatically enhanced visual quality** for each planet with:
-
-- **Mercury**: 2000+ detailed craters, radial shading, heat glow
-- **Venus**: 1000+ swirling atmospheric layers, volcanic regions
-- **Earth**: Realistic continents, multi-layer clouds, polar ice caps, ocean depth
-- **Mars**: Detailed craters, dust storms, polar ice, terrain variation
-- **Jupiter**: 18 turbulent bands, detailed Great Red Spot with swirl effects
-- **Saturn**: 20 subtle bands, hexagonal storm, enhanced rings with gaps
-- **Uranus/Neptune**: Methane streaks, atmospheric bands, icy appearance
-- **Pluto**: Heart-shaped Tombaugh Regio, cratered terrain, icy patches
-
-Plus improved lighting, materials, and rendering quality throughout!
