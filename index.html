@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/NASA/styles/theme.css" />
     <link rel="stylesheet" href="/NASA/styles/components.css" />
   </head>
-  <body>
+  <body class="page--hub">
     <header class="site-header">
       <a class="site-brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
       <button
@@ -99,7 +99,14 @@
             <section class="hero-hourly" id="hourly-hero">
               <figure class="hero-hourly__figure">
                 <div class="hero-hourly__frame" id="hourly-media">
-                  <p class="hero-hourly__status">Loading hourly highlight…</p>
+                  <div class="hero-hourly__status" aria-live="polite">
+                    <span class="sr-only">Loading hourly highlight…</span>
+                    <div class="skeleton">
+                      <div class="skel-row"></div>
+                      <div class="skel-row"></div>
+                      <div class="skel-row"></div>
+                    </div>
+                  </div>
                 </div>
                 <figcaption class="hero-hourly__caption">
                   <p class="hero-hourly__title" id="hourly-title">Surfacing mission archives…</p>
@@ -131,5 +138,6 @@
       <p>Powered by public NASA datasets and a Cloudflare Worker proxy.</p>
     </footer>
     <script type="module" src="/NASA/src/main.ts"></script>
+    <script src="./scripts/ui_accessibility.js"></script>
   </body>
 </html>

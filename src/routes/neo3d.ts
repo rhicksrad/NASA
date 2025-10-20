@@ -206,6 +206,12 @@ function hexColor(color: number): string {
   return `#${color.toString(16).padStart(6, '0')}`;
 }
 
+function orbitColorFromEccentricity(e: number | undefined): string {
+  const ecc = typeof e === 'number' && Number.isFinite(e) ? Math.max(0, e) : Number.NaN;
+  const hue = Number.isFinite(ecc) ? 160 + Math.min(60, ecc * 120) : 185;
+  return `hsl(${hue} 70% 50%)`;
+}
+
 function formatNeoSize(neo: NeoItem): string | null {
   const km = neo.estimated_diameter?.kilometers;
   if (!km) return null;
@@ -1014,7 +1020,15 @@ export async function initNeo3D(
 
     const colorDot = document.createElement('span');
     colorDot.className = 'neo3d-neo-color';
-    colorDot.style.background = hexColor(spec.color ?? 0x22d3ee);
+    const eccentricity = spec.els && typeof spec.els.e === 'number' ? spec.els.e : undefined;
+    const orbitColor = orbitColorFromEccentricity(eccentricity);
+    if (typeof eccentricity === 'number' && Number.isFinite(eccentricity)) {
+      item.dataset.e = eccentricity.toString();
+    }
+    item.style.setProperty('--orbit-c', orbitColor);
+    label.style.setProperty('--orbit-c', orbitColor);
+    colorDot.style.setProperty('--orbit-c', orbitColor);
+    colorDot.style.background = 'var(--orbit-c)';
 
     nameRow.appendChild(checkbox);
     nameRow.appendChild(colorDot);
@@ -1295,12 +1309,13 @@ export async function initNeo3D(
       refreshNeoUi();
 
       let chip: HTMLSpanElement | null = null;
+      const sbdbOrbitColor = orbitColorFromEccentricity(conic.e);
       if (sbdbLoaded) {
         chip = document.createElement('span');
         chip.className = 'sbdb-chip';
         chip.dataset.key = entryInfo.primaryKey;
-        const swatch = `#${color.toString(16).padStart(6, '0')}`;
-        chip.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${swatch}"></span><span>${label}</span><button aria-label="Remove">×</button>`;
+        chip.style.setProperty('--orbit-c', sbdbOrbitColor);
+        chip.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--orbit-c)"></span><span>${label}</span><button aria-label="Remove">×</button>`;
         const removeBtn = chip.querySelector('button');
         removeBtn?.addEventListener('click', () => {
           removeEntry(entryId);

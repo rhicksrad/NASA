@@ -79,7 +79,53 @@
   padding: var(--space-6) var(--space-4);
 }
 
+/* === BEGIN PHASE2: INPUT RANGE === */
+.input-range {
+  -webkit-appearance: none; width: 100%; height: 2px;
+  background: var(--c-line-2); border-radius: var(--radius-0);
+}
+.input-range::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 18px; border-radius: var(--radius-0);
+  background: linear-gradient(to bottom, hsl(0 0% 100% / .9), hsl(0 0% 100% / .6));
+  border: 1px solid var(--c-line-1);
+  box-shadow: var(--sh-1);
+}
+.input-range::-moz-range-thumb {
+  width: 12px; height: 18px; border: 1px solid var(--c-line-1);
+  background: linear-gradient(to bottom, hsl(0 0% 100% / .9), hsl(0 0% 100% / .6));
+  border-radius: var(--radius-0);
+}
+.input-range:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 4px; }
+/* === END PHASE2: INPUT RANGE === */
+
+/* === BEGIN PHASE2: NAV BEZEL === */
+.site-nav a[aria-current="page"]{
+  position: relative; background: var(--c-surface-1); border-color: var(--c-line-1);
+}
+.site-nav a[aria-current="page"]::after{
+  content:""; position:absolute; left:8px; right:8px; bottom:-1px; height:2px;
+  background: conic-gradient(from 180deg, var(--c-accent), var(--c-accent) 40%, transparent 40%);
+}
+/* === END PHASE2: NAV BEZEL === */
+
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+/* === BEGIN PHASE2: ORBIT COLORS === */
+.orbit { stroke: var(--orbit-c, hsl(185 60% 45%)); stroke-width: 1; opacity: .85; }
+.orbit--highlight { stroke-width: 2; opacity: 1; filter: drop-shadow(0 0 2px hsl(0 0% 0% / .6)); }
+.orbit-label { fill: var(--orbit-c, var(--c-text-2)); font: 600 12px var(--font-sans); }
+/* === END PHASE2: ORBIT COLORS === */
+
+/* === BEGIN PHASE2: SKELETON === */
+.skeleton {
+  background: linear-gradient(90deg, var(--c-surface-2), var(--c-surface-1), var(--c-surface-2));
+  background-size: 200% 100%; border: 1px solid var(--c-line-2);
+  padding: var(--space-3); border-radius: var(--radius-0);
+  animation: sk 1.2s linear infinite;
+}
+@keyframes sk { to { background-position: -200% 0; } }
+.skel-row { height: 14px; margin: 10px 0; border-radius: var(--radius-0); background: var(--c-surface-2); }
+/* === END PHASE2: SKELETON === */

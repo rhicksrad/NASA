@@ -37,3 +37,13 @@
   --fs-4: clamp(22px, 1.8vw, 28px);   /* page title */
   --fs-5: clamp(28px, 3vw, 40px);     /* hero */
 }
+
+/* === BEGIN PHASE2: PAGE ACCENTS === */
+:root {
+  --c-accent: hsl(185 72% 45%);
+  --c-accent-neo: hsl(185 72% 45%);   /* NEO cyan-teal */
+  --c-accent-epic: hsl(258 100% 70%); /* EPIC ion violet */
+  --c-accent-cme:  hsl(16 100% 57%);  /* CME solar orange */
+  --c-accent-exo:  hsl(200 95% 60%);  /* Exoplanet cerulean */
+}
+/* === END PHASE2: PAGE ACCENTS === */

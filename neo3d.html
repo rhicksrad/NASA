@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="/NASA/styles/theme.css" />
     <link rel="stylesheet" href="/NASA/styles/components.css" />
   </head>
-  <body>
+  <body class="page--explorer theme-neo">
     <header class="site-header">
       <a class="site-brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
       <button
@@ -96,7 +96,7 @@
               </div>
               <label class="neo3d-field">
                 <span class="neo3d-field-label">Speed</span>
-                <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
+                <input class="input-range" type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
                 <span id="neo3d-speed-label" class="meta">1 day/s</span>
               </label>
               <label class="neo3d-field">
@@ -108,7 +108,7 @@
               </label>
               <label class="neo3d-field">
                 <span class="neo3d-field-label">Time scrubber</span>
-                <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
+                <input class="input-range" type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
                 <span id="neo3d-time-label" class="meta">—</span>
               </label>
             </div>
@@ -123,7 +123,14 @@
                   Show all NEOs
                 </label>
               </div>
-              <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
+              <div id="neo3d-neo-summary" class="meta" aria-live="polite">
+                <span class="sr-only">Loading NEOs…</span>
+                <div class="skeleton">
+                  <div class="skel-row"></div>
+                  <div class="skel-row"></div>
+                  <div class="skel-row"></div>
+                </div>
+              </div>
               <button id="neo3d-load-more" type="button" class="btn btn--ghost neo3d-load-more" hidden>Add 50 more</button>
               <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
             </div>
@@ -182,5 +189,6 @@
       })();
     </script>
     <script type="module" src="/NASA/src/pages/neo3d_page.ts"></script>
+    <script src="./scripts/ui_accessibility.js"></script>
   </body>
 </html>
