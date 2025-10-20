@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Satellite 3D</title>
+    <link rel="stylesheet" href="./styles/sat3d.css" />
+  </head>
+  <body>
+    <div id="canvas-holder"></div>
+    <div id="ui">
+      <h1>Satellite 3D</h1>
+      <div id="search-row">
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Search satellites (e.g., ISS)"
+          autocomplete="off"
+        />
+        <button id="search-btn" type="button">Search</button>
+        <button id="sample-btn" type="button">Load Sample (Top ISS + debris)</button>
+      </div>
+      <div id="search-results" aria-live="polite"></div>
+      <div id="controls">
+        <button id="play-btn" type="button">Pause</button>
+        <select id="speed-select">
+          <option value="0.25">0.25×</option>
+          <option value="1" selected>1×</option>
+          <option value="4">4×</option>
+          <option value="16">16×</option>
+          <option value="64">64×</option>
+        </select>
+        <button id="now-btn" type="button">Now</button>
+        <div id="time-readout">--</div>
+      </div>
+      <div id="toggles">
+        <label class="checkbox"><input id="trail-toggle" type="checkbox" /> Trails</label>
+        <label class="checkbox"><input id="labels-toggle" type="checkbox" checked /> Labels near camera</label>
+      </div>
+      <div id="render-status"></div>
+    </div>
+    <div id="info">
+      <h2>No satellite selected</h2>
+      <p>Click a satellite to view telemetry.</p>
+    </div>
+    <div class="toast-container" id="toast-container"></div>
+    <script type="module">
+      import './src/sat3d_main.ts';
+    </script>
+  </body>
+</html>
