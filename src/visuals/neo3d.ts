@@ -114,6 +114,21 @@ function darkenHex(color: THREE.Color, amount: number): string {
   return colorToHex(color.clone().lerp(BLACK, THREE.MathUtils.clamp(amount, 0, 1)));
 }
 
+function wrapXPositions(
+  width: number,
+  centerX: number,
+  radius: number,
+  draw: (wrappedX: number) => void,
+): void {
+  const bounds = Math.max(radius, 0);
+  const offsets = [-width, 0, width];
+  for (const offset of offsets) {
+    const xPos = centerX + offset;
+    if (xPos + bounds < 0 || xPos - bounds > width) continue;
+    draw(xPos);
+  }
+}
+
 function hashString(value: string): number {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -162,14 +177,19 @@ function scatterBlotches(
     const radius = radiusRange[0] + rand() * (radiusRange[1] - radiusRange[0]);
     const x = rand() * width;
     const y = rand() * height;
-    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(0.7, color);
-    gradient.addColorStop(1, `${color}00`);
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.ellipse(x, y, radius, radius * (0.75 + rand() * 0.35), rand() * Math.PI, 0, Math.PI * 2);
-    ctx.fill();
+    const angle = rand() * Math.PI;
+    const eccentricity = 0.75 + rand() * 0.35;
+    const wrapRadius = radius * (1 + eccentricity);
+    wrapXPositions(width, x, wrapRadius, (wrappedX) => {
+      const gradient = ctx.createRadialGradient(wrappedX, y, 0, wrappedX, y, radius);
+      gradient.addColorStop(0, color);
+      gradient.addColorStop(0.7, color);
+      gradient.addColorStop(1, `${color}00`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.ellipse(wrappedX, y, radius, radius * eccentricity, angle, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
   ctx.restore();
 }
@@ -295,50 +315,62 @@ function drawLandmass(
   const cx = width * (0.2 + rand() * 0.6);
   const cy = height * (0.2 + rand() * 0.6);
   const points = 10 + Math.floor(rand() * 8);
-  
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate((rand() - 0.5) * Math.PI * 1.8);
-  ctx.scale(scale, scale * (0.65 + rand() * 0.5));
-  
-  ctx.beginPath();
+  const rotation = (rand() - 0.5) * Math.PI * 1.8;
+  const yScale = 0.65 + rand() * 0.5;
+
+  const vertices: { x: number; y: number; cpx: number; cpy: number }[] = [];
   for (let i = 0; i <= points; i += 1) {
     const angle = (i / points) * Math.PI * 2;
     const radius = 100 + rand() * 120;
     const x = Math.cos(angle) * radius * (0.5 + rand() * 0.7);
     const y = Math.sin(angle) * radius * (0.5 + rand() * 0.7);
-    
-    if (i === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      const cpx = x * 0.85 + (rand() - 0.5) * 20;
-      const cpy = y * 0.85 + (rand() - 0.5) * 20;
-      ctx.quadraticCurveTo(cpx, cpy, x, y);
-    }
+    const cpx = x * 0.85 + (rand() - 0.5) * 20;
+    const cpy = y * 0.85 + (rand() - 0.5) * 20;
+    vertices.push({ x, y, cpx, cpy });
   }
-  ctx.closePath();
-  
-  // Land fill with texture
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.95;
-  ctx.fill();
-  
-  // Coastal highlight
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-  ctx.lineWidth = 10;
-  ctx.globalAlpha = 0.7;
-  ctx.stroke();
-  
-  // Interior texture
-  ctx.globalAlpha = 0.3;
-  for (let i = 0; i < 50; i++) {
-    const px = (rand() - 0.5) * 200;
-    const py = (rand() - 0.5) * 200;
-    ctx.fillStyle = rand() > 0.5 ? 'rgba(0, 100, 0, 0.3)' : 'rgba(139, 69, 19, 0.3)';
-    ctx.fillRect(px, py, 3, 3);
-  }
-  
-  ctx.restore();
+
+  const detailPoints = Array.from({ length: 50 }, () => ({
+    x: (rand() - 0.5) * 200,
+    y: (rand() - 0.5) * 200,
+    color: rand() > 0.5 ? 'rgba(0, 100, 0, 0.3)' : 'rgba(139, 69, 19, 0.3)',
+  }));
+
+  const extent = 240 * scale;
+  wrapXPositions(width, cx, extent, (wrappedX) => {
+    ctx.save();
+    ctx.translate(wrappedX, cy);
+    ctx.rotate(rotation);
+    ctx.scale(scale, scale * yScale);
+
+    ctx.beginPath();
+    vertices.forEach((vertex, index) => {
+      const { x, y, cpx, cpy } = vertex;
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.quadraticCurveTo(cpx, cpy, x, y);
+      }
+    });
+    ctx.closePath();
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.95;
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 10;
+    ctx.globalAlpha = 0.7;
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.3;
+    detailPoints.forEach((point) => {
+      ctx.fillStyle = point.color;
+      ctx.fillRect(point.x, point.y, 3, 3);
+    });
+
+    ctx.restore();
+  });
+
   ctx.globalAlpha = 1;
 }
 
@@ -725,41 +757,56 @@ function applyPlanetHighlights(
   base: THREE.Color,
 ): void {
   ctx.save();
-  
-  // Specular highlight (sun reflection)
-  ctx.globalCompositeOperation = 'lighter';
-  const highlight = ctx.createRadialGradient(
-    width * 0.22,
-    height * 0.28,
-    width * 0.02,
-    width * 0.35,
-    height * 0.38,
-    width * 0.7,
-  );
-  highlight.addColorStop(0, lightenHex(base, 0.55));
-  highlight.addColorStop(0.25, lightenHex(base, 0.35));
-  highlight.addColorStop(0.6, lightenHex(base, 0.15));
-  highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = highlight;
+
+  // Multiple specular glints that wrap around the planet
+  ctx.globalCompositeOperation = 'screen';
+  ctx.globalAlpha = 0.32;
+  const glintRadius = width * 0.45;
+  const glintInner = width * 0.04;
+  const glintCenters = [0.18, 0.48, 0.78, 1.08];
+  glintCenters.forEach((frac, index) => {
+    const hx = width * frac;
+    const hy = height * (0.26 + (index % 2) * 0.14);
+    wrapXPositions(width, hx, glintRadius, (wrappedX) => {
+      const highlight = ctx.createRadialGradient(wrappedX, hy, glintInner, wrappedX, hy, glintRadius);
+      highlight.addColorStop(0, lightenHex(base, 0.55));
+      highlight.addColorStop(0.3, lightenHex(base, 0.35));
+      highlight.addColorStop(0.7, lightenHex(base, 0.12));
+      highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = highlight;
+      ctx.fillRect(wrappedX - glintRadius, hy - glintRadius, glintRadius * 2, glintRadius * 2);
+    });
+  });
+
+  // Soft azimuthal contrast bands for wrap-around depth
+  ctx.globalCompositeOperation = 'soft-light';
+  ctx.globalAlpha = 0.4;
+  const bandCount = 8;
+  const bandWidth = width / bandCount;
+  for (let i = 0; i < bandCount; i += 1) {
+    const centerX = (i + 0.5) * bandWidth;
+    const extent = bandWidth * 0.75;
+    wrapXPositions(width, centerX, extent, (wrappedX) => {
+      const gradient = ctx.createLinearGradient(wrappedX - extent, 0, wrappedX + extent, 0);
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 0.16)');
+      gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.22)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.16)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(wrappedX - extent, 0, extent * 2, height);
+    });
+  }
+
+  // Polar falloff to reinforce spherical lighting without a hard terminator
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.globalAlpha = 1;
+  const polar = ctx.createLinearGradient(0, 0, 0, height);
+  polar.addColorStop(0, 'rgba(0, 0, 0, 0.16)');
+  polar.addColorStop(0.45, 'rgba(0, 0, 0, 0)');
+  polar.addColorStop(0.55, 'rgba(0, 0, 0, 0)');
+  polar.addColorStop(1, 'rgba(0, 0, 0, 0.16)');
+  ctx.fillStyle = polar;
   ctx.fillRect(0, 0, width, height);
 
-  // Terminator (day/night transition)
-  ctx.globalCompositeOperation = 'multiply';
-  const shadow = ctx.createRadialGradient(
-    width * 0.82,
-    height * 0.68,
-    width * 0.08,
-    width * 0.92,
-    height * 0.78,
-    width * 1.1,
-  );
-  shadow.addColorStop(0, 'rgba(0, 0, 0, 0.15)');
-  shadow.addColorStop(0.4, 'rgba(0, 0, 0, 0.5)');
-  shadow.addColorStop(0.8, 'rgba(0, 0, 0, 0.8)');
-  shadow.addColorStop(1, 'rgba(0, 0, 0, 0.95)');
-  ctx.fillStyle = shadow;
-  ctx.fillRect(0, 0, width, height);
-  
   ctx.restore();
 }
 
