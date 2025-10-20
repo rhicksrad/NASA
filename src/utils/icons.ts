@@ -4,6 +4,7 @@ const BASE_ATTRS =
 const ICONS = {
   search: `<circle cx="11" cy="11" r="6" ${BASE_ATTRS} /><path d="m15.5 15.5 3.5 3.5" ${BASE_ATTRS} />`,
   plus: `<path d="M12 5v14" ${BASE_ATTRS} /><path d="M5 12h14" ${BASE_ATTRS} />`,
+  minus: `<path d="M5 12h14" ${BASE_ATTRS} />`,
   sort: `<path d="m8 5-3 3 3 3" ${BASE_ATTRS} /><path d="M5 8h6" ${BASE_ATTRS} /><path d="m16 19 3-3-3-3" ${BASE_ATTRS} /><path d="M13 16h6" ${BASE_ATTRS} />`,
   collection: `<path d="M4.5 7h5l1.5 2h8.5a1.5 1.5 0 0 1 1.5 1.5V17a2 2 0 0 1-2 2h-13A2 2 0 0 1 4 17V8.5A1.5 1.5 0 0 1 5.5 7Z" ${BASE_ATTRS} />`,
   play: `<path d="M9.5 7.75v8.5l6.5-4.25-6.5-4.25Z" fill="currentColor" />`,
@@ -15,6 +16,8 @@ const ICONS = {
   sparkle: `<path d="M6 5.5 7.25 8 6 10.5 3.5 11.75 6 13l1.25 2.5L8.5 13l2.5-1.25L8.5 10.5 7.25 8 6 5.5Z" fill="currentColor" /><path d="m17.5 5 1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5 1.5-3Z" fill="currentColor" /><path d="m14 15 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z" fill="currentColor" />`,
   arrowLeft: `<path d="M6.5 12h11" ${BASE_ATTRS} /><path d="m10.5 8-4 4 4 4" ${BASE_ATTRS} />`,
   arrowRight: `<path d="M17.5 12h-11" ${BASE_ATTRS} /><path d="m13.5 8 4 4-4 4" ${BASE_ATTRS} />`,
+  arrowUp: `<path d="M12 6.5v11" ${BASE_ATTRS} /><path d="m8 10.5 4-4 4 4" ${BASE_ATTRS} />`,
+  arrowDown: `<path d="M12 17.5v-11" ${BASE_ATTRS} /><path d="m16 13.5-4 4-4-4" ${BASE_ATTRS} />`,
   close: `<path d="m8.5 8.5 7 7" ${BASE_ATTRS} /><path d="m15.5 8.5-7 7" ${BASE_ATTRS} />`,
   image: `<rect x="4.5" y="5.5" width="15" height="13" rx="2" ${BASE_ATTRS} /><path d="m8.5 13.5 2.5-2.5 3 3 2.5-2.5" ${BASE_ATTRS} /><circle cx="9" cy="9" r="1.5" ${BASE_ATTRS} />`,
   earth: `<circle cx="12" cy="12" r="7" ${BASE_ATTRS} /><path d="M8 11.5c1.5-1 2.5-.5 3.5-2.5 1 2 .5 2 2 2.5 1.5.5 1.5 1.5 1 2.5-.5 1-1.5.5-2.5 1s-1 .5-1.5 1.5" ${BASE_ATTRS} />`,
@@ -27,6 +30,7 @@ const ICONS = {
   info: `<circle cx="12" cy="12" r="7.5" ${BASE_ATTRS} /><path d="M12 10.5v4" ${BASE_ATTRS} /><circle cx="12" cy="8" r="0.9" fill="currentColor" />`,
   eye: `<path d="M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5Z" ${BASE_ATTRS} /><circle cx="12" cy="12" r="2.6" ${BASE_ATTRS} /><circle cx="12" cy="12" r="1.1" fill="currentColor" />`,
   clock: `<circle cx="12" cy="12" r="7.5" ${BASE_ATTRS} /><path d="M12 8v4.2l2.8 1.8" ${BASE_ATTRS} />`,
+  target: `<circle cx="12" cy="12" r="7.5" ${BASE_ATTRS} /><path d="M12 4.5v3" ${BASE_ATTRS} /><path d="M12 19.5v-3" ${BASE_ATTRS} /><path d="M4.5 12h3" ${BASE_ATTRS} /><path d="M19.5 12h-3" ${BASE_ATTRS} />`,
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -534,6 +534,13 @@ export async function initNeo3D(
   const sbdbHost = document.getElementById('sbdb-explorer-host') as HTMLDivElement | null;
   const sbdbLoaded = document.getElementById('sbdb-loaded') as HTMLDivElement | null;
   const sbdbLoadedEmpty = document.getElementById('sbdb-loaded-empty') as HTMLElement | null;
+  const panUpBtn = document.getElementById('neo3d-pan-up') as HTMLButtonElement | null;
+  const panDownBtn = document.getElementById('neo3d-pan-down') as HTMLButtonElement | null;
+  const panLeftBtn = document.getElementById('neo3d-pan-left') as HTMLButtonElement | null;
+  const panRightBtn = document.getElementById('neo3d-pan-right') as HTMLButtonElement | null;
+  const resetViewBtn = document.getElementById('neo3d-reset-view') as HTMLButtonElement | null;
+  const zoomInBtn = document.getElementById('neo3d-zoom-in') as HTMLButtonElement | null;
+  const zoomOutBtn = document.getElementById('neo3d-zoom-out') as HTMLButtonElement | null;
 
   const loadMoreHandler = options.loadMore ?? null;
   let loadMoreDone = loadMoreHandler ? false : true;
@@ -543,6 +550,115 @@ export async function initNeo3D(
   if (sbdbHost) {
     sbdbHost.innerHTML = '';
     new SbdbExplorer(sbdbHost);
+  }
+
+  const setControlIcon = (
+    button: HTMLButtonElement | null,
+    name: IconName,
+    label: string,
+    options: { hint?: string } = {},
+  ) => {
+    if (!button) return;
+    const hint = options.hint ?? label;
+    button.innerHTML = `${icon(name, { label })}<span class="sr-only">${label}</span>`;
+    button.setAttribute('aria-label', label);
+    button.title = hint;
+  };
+
+  const registerPressAction = (
+    button: HTMLButtonElement | null,
+    handler: () => void,
+    options: { interval?: number } = {},
+  ) => {
+    if (!button) return;
+    const interval = Math.max(60, options.interval ?? 170);
+    let repeatId: number | null = null;
+    let activePointer: number | null = null;
+
+    const stop = () => {
+      if (repeatId !== null) {
+        window.clearInterval(repeatId);
+        repeatId = null;
+      }
+      if (activePointer !== null && button.hasPointerCapture(activePointer)) {
+        try {
+          button.releasePointerCapture(activePointer);
+        } catch (error) {
+          // Non-fatal; pointer capture may already be released.
+        }
+      }
+      activePointer = null;
+    };
+
+    button.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      stop();
+      button.focus();
+      handler();
+      button.setPointerCapture(event.pointerId);
+      activePointer = event.pointerId;
+      repeatId = window.setInterval(handler, interval);
+      event.preventDefault();
+    });
+
+    const cancel = () => {
+      stop();
+    };
+
+    button.addEventListener('pointerup', cancel);
+    button.addEventListener('pointerleave', cancel);
+    button.addEventListener('pointercancel', cancel);
+    button.addEventListener('lostpointercapture', cancel);
+
+    button.addEventListener('click', (event) => {
+      if (event.detail === 0) {
+        handler();
+      }
+    });
+
+    button.addEventListener('keydown', (event) => {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault();
+        handler();
+      }
+    });
+  };
+
+  const PAN_STEP = 120;
+  const ZOOM_IN_FACTOR = 0.82;
+  const ZOOM_OUT_FACTOR = 1.22;
+
+  setControlIcon(panUpBtn, 'arrowUp', 'Pan up', { hint: 'Pan up (press and hold)' });
+  setControlIcon(panDownBtn, 'arrowDown', 'Pan down', { hint: 'Pan down (press and hold)' });
+  setControlIcon(panLeftBtn, 'arrowLeft', 'Pan left', { hint: 'Pan left (press and hold)' });
+  setControlIcon(panRightBtn, 'arrowRight', 'Pan right', { hint: 'Pan right (press and hold)' });
+  setControlIcon(zoomInBtn, 'plus', 'Zoom in', { hint: 'Zoom in (press and hold)' });
+  setControlIcon(zoomOutBtn, 'minus', 'Zoom out', { hint: 'Zoom out (press and hold)' });
+  setControlIcon(resetViewBtn, 'target', 'Reset view');
+
+  registerPressAction(panUpBtn, () => {
+    simulation.panBy(0, -PAN_STEP);
+  });
+  registerPressAction(panDownBtn, () => {
+    simulation.panBy(0, PAN_STEP);
+  });
+  registerPressAction(panLeftBtn, () => {
+    simulation.panBy(PAN_STEP, 0);
+  });
+  registerPressAction(panRightBtn, () => {
+    simulation.panBy(-PAN_STEP, 0);
+  });
+  registerPressAction(zoomInBtn, () => {
+    simulation.zoomBy(ZOOM_IN_FACTOR);
+  }, { interval: 200 });
+  registerPressAction(zoomOutBtn, () => {
+    simulation.zoomBy(ZOOM_OUT_FACTOR);
+  }, { interval: 200 });
+
+  if (resetViewBtn) {
+    resetViewBtn.addEventListener('click', () => {
+      simulation.resetView();
+    });
   }
 
   let sliderBaseMs = rangeStart.getTime();

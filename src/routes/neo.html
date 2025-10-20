@@ -77,19 +77,48 @@
     <div class="neo3d-control-panel">
       <div class="neo3d-primary-controls">
         <div class="neo3d-playback">
-          <button id="neo3d-play" type="button">
-            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-              <path d="M9.5 7.75v8.5l6.5-4.25-6.5-4.25Z" fill="currentColor" />
-            </svg>
-            <span>Play</span>
-          </button>
-          <button id="neo3d-pause" type="button" disabled>
-            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-              <path d="M10 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-              <path d="M14 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-            </svg>
-            <span>Pause</span>
-          </button>
+          <div class="neo3d-playback-buttons">
+            <button id="neo3d-play" type="button">
+              <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <path d="M9.5 7.75v8.5l6.5-4.25-6.5-4.25Z" fill="currentColor" />
+              </svg>
+              <span>Play</span>
+            </button>
+            <button id="neo3d-pause" type="button" disabled>
+              <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <path d="M10 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                <path d="M14 7.5v9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              </svg>
+              <span>Pause</span>
+            </button>
+          </div>
+          <div class="neo3d-map-controls" role="group" aria-label="View controls">
+            <div class="neo3d-map-dpad">
+              <button id="neo3d-pan-up" type="button" class="neo3d-map-button" aria-label="Pan up">
+                <span class="sr-only">Pan up</span>
+              </button>
+              <button id="neo3d-pan-left" type="button" class="neo3d-map-button" aria-label="Pan left">
+                <span class="sr-only">Pan left</span>
+              </button>
+              <button id="neo3d-reset-view" type="button" class="neo3d-map-button" aria-label="Reset view">
+                <span class="sr-only">Reset view</span>
+              </button>
+              <button id="neo3d-pan-right" type="button" class="neo3d-map-button" aria-label="Pan right">
+                <span class="sr-only">Pan right</span>
+              </button>
+              <button id="neo3d-pan-down" type="button" class="neo3d-map-button" aria-label="Pan down">
+                <span class="sr-only">Pan down</span>
+              </button>
+            </div>
+            <div class="neo3d-map-zoom" aria-label="Zoom controls">
+              <button id="neo3d-zoom-in" type="button" class="neo3d-map-button" aria-label="Zoom in">
+                <span class="sr-only">Zoom in</span>
+              </button>
+              <button id="neo3d-zoom-out" type="button" class="neo3d-map-button" aria-label="Zoom out">
+                <span class="sr-only">Zoom out</span>
+              </button>
+            </div>
+          </div>
         </div>
         <label class="neo3d-field">
           <span class="neo3d-field-label">

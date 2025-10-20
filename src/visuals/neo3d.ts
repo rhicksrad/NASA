@@ -948,6 +948,8 @@ export class Neo3D {
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
+  private readonly defaultCameraPosition = new THREE.Vector3(6 * SCALE, 6 * SCALE, 10 * SCALE);
+  private readonly defaultTarget = new THREE.Vector3(0, 0, 0);
   private clock = new THREE.Clock();
   private simMs: number;
   private secondsPerSecond = 1;
@@ -970,6 +972,11 @@ export class Neo3D {
   private cometTailAxis = new THREE.Vector3();
   private cometAdjust = new THREE.Quaternion();
   private cometBase = new THREE.Quaternion();
+  private panOffset = new THREE.Vector3();
+  private panAxisX = new THREE.Vector3();
+  private panAxisY = new THREE.Vector3();
+  private panDelta = new THREE.Vector3();
+  private zoomOffset = new THREE.Vector3();
 
   constructor(private readonly options: Neo3DOptions) {
     const { host } = options;
@@ -986,8 +993,8 @@ export class Neo3D {
     this.renderer.domElement.style.visibility = 'visible';
 
     this.camera = new THREE.PerspectiveCamera(52, width / height, 0.005, 6000 * SCALE);
-    this.camera.position.set(6 * SCALE, 6 * SCALE, 10 * SCALE);
-    this.camera.lookAt(0, 0, 0);
+    this.camera.position.copy(this.defaultCameraPosition);
+    this.camera.lookAt(this.defaultTarget);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enablePan = true;
@@ -995,11 +1002,13 @@ export class Neo3D {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.zoomToCursor = true;
+    this.controls.screenSpacePanning = true;
     this.controls.maxPolarAngle = 0.98 * (Math.PI / 2);
     this.controls.minDistance = 0;
     this.controls.maxDistance = 600 * SCALE;
-    this.controls.target.set(0, 0, 0);
+    this.controls.target.copy(this.defaultTarget);
     this.controls.update();
+    this.controls.saveState();
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.55);
     const sunLight = new THREE.PointLight(0xfff5c0, 2.4, 0, 2);
@@ -1048,6 +1057,70 @@ export class Neo3D {
     this.renderer.domElement.addEventListener('pointerleave', this.onPointerLeave);
 
     window.addEventListener('resize', () => this.onResize());
+  }
+
+  panBy(deltaX: number, deltaY: number): void {
+    const element = this.renderer.domElement;
+    if (element.clientHeight === 0) return;
+
+    const offset = this.panOffset;
+    offset.copy(this.camera.position).sub(this.controls.target);
+    const distance = offset.length();
+    if (distance <= 0 || !Number.isFinite(distance)) {
+      return;
+    }
+
+    const fov = THREE.MathUtils.degToRad(this.camera.fov);
+    const targetDistance = distance * Math.tan(fov / 2);
+    if (!Number.isFinite(targetDistance)) {
+      return;
+    }
+
+    const panX = (2 * deltaX * targetDistance) / element.clientHeight;
+    const panY = (2 * deltaY * targetDistance) / element.clientHeight;
+    if (!Number.isFinite(panX) || !Number.isFinite(panY)) {
+      return;
+    }
+
+    this.panAxisX.setFromMatrixColumn(this.camera.matrix, 0).multiplyScalar(-panX);
+    this.panAxisY.setFromMatrixColumn(this.camera.matrix, 1).multiplyScalar(panY);
+
+    this.panDelta.copy(this.panAxisX).add(this.panAxisY);
+    this.camera.position.add(this.panDelta);
+    this.controls.target.add(this.panDelta);
+    this.controls.update();
+  }
+
+  zoomBy(factor: number): void {
+    if (!Number.isFinite(factor) || factor <= 0) return;
+
+    const offset = this.zoomOffset;
+    offset.copy(this.camera.position).sub(this.controls.target);
+    const distance = offset.length();
+    if (!Number.isFinite(distance) || distance <= 0) {
+      return;
+    }
+
+    const minDistance = Math.max(this.controls.minDistance, 0.0005);
+    const maxDistance = this.controls.maxDistance;
+    const nextDistance = THREE.MathUtils.clamp(distance * factor, minDistance, maxDistance);
+    if (!Number.isFinite(nextDistance) || nextDistance === distance) {
+      return;
+    }
+
+    offset.setLength(nextDistance);
+    this.camera.position.copy(this.controls.target).add(offset);
+    this.controls.update();
+  }
+
+  resetView(): void {
+    this.camera.position.copy(this.defaultCameraPosition);
+    this.controls.target.copy(this.defaultTarget);
+    this.controls.update();
+  }
+
+  getCameraDistance(): number {
+    return this.camera.position.distanceTo(this.controls.target);
   }
 
   setDate(date: Date): void {
