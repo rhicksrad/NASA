@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { imagesSearch, largestAssetUrl, type NasaImageItem, type SearchParams } from '../api/nasaImages';
 import { icon, type IconName } from '../utils/icons';
@@ -176,6 +176,7 @@ export default function ImagesExplorer() {
   const modalRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  const [headerOffset, setHeaderOffset] = useState(0);
 
   useEffect(() => {
     writeHashState({ preset, q, page, ys, ye, kw: keywordInputToList(kwInput) });
@@ -305,6 +306,59 @@ export default function ImagesExplorer() {
       document.removeEventListener('keydown', handleKeydown);
     };
   }, [selected]);
+
+  useEffect(() => {
+    if (!selected) {
+      setHeaderOffset(0);
+      return;
+    }
+
+    const header = document.querySelector<HTMLElement>('.site-header');
+    if (!header) {
+      setHeaderOffset(0);
+      return;
+    }
+
+    const updateOffset = () => {
+      setHeaderOffset(header.offsetHeight);
+    };
+
+    updateOffset();
+
+    let observer: ResizeObserver | null = null;
+    let resizeListenerAttached = false;
+
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          if (entry.target === header) {
+            const boxSize = Array.isArray(entry.borderBoxSize)
+              ? entry.borderBoxSize[0]
+              : entry.borderBoxSize;
+            const next = boxSize?.blockSize ?? header.offsetHeight;
+            setHeaderOffset(Math.round(next));
+          }
+        }
+      });
+      observer.observe(header);
+    } else {
+      resizeListenerAttached = true;
+      window.addEventListener('resize', updateOffset);
+    }
+
+    return () => {
+      observer?.disconnect();
+      if (resizeListenerAttached) {
+        window.removeEventListener('resize', updateOffset);
+      }
+    };
+  }, [selected]);
+
+  const modalOverlayStyle = useMemo(() => {
+    return headerOffset > 0
+      ? ({ '--images-explorer-modal-offset': `${headerOffset}px` } as CSSProperties)
+      : undefined;
+  }, [headerOffset]);
 
   return (
     <div className="images-explorer">
@@ -436,6 +490,7 @@ export default function ImagesExplorer() {
           className="images-explorer__modal-overlay"
           onClick={() => setSelected(null)}
           role="presentation"
+          style={modalOverlayStyle}
         >
           <div
             className="images-explorer__modal"
