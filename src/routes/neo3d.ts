@@ -516,6 +516,10 @@ export async function initNeo3D(
   simulation.setPaused(true);
   simulation.start();
 
+  if (import.meta.env.DEV && typeof window !== 'undefined') {
+    (window as Record<string, unknown>).__neo3d = simulation;
+  }
+
   const playBtn = document.getElementById('neo3d-play') as HTMLButtonElement | null;
   const pauseBtn = document.getElementById('neo3d-pause') as HTMLButtonElement | null;
   const speedSlider = document.getElementById('neo3d-speed') as HTMLInputElement | null;
