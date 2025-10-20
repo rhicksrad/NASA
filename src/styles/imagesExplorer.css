@@ -180,6 +180,7 @@
   display: grid;
   place-items: center;
   padding: clamp(1.5rem, 4vw, 2.5rem);
+  padding-top: calc(var(--images-explorer-modal-offset, 0px) + clamp(1.5rem, 4vw, 2.5rem));
   z-index: 1000;
   cursor: zoom-out;
   backdrop-filter: blur(6px);
