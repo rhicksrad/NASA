@@ -3,6 +3,8 @@ const NASA_BASE = `https://${NASA_HOST}`;
 const API_ORIGIN = NASA_BASE;
 const JPL_SSD_BASE = 'https://ssd-api.jpl.nasa.gov';
 const EONET_BASE = 'https://eonet.gsfc.nasa.gov/api/v3';
+const EXOPLANET_ARCHIVE_BASE = 'https://exoplanetarchive.ipac.caltech.edu';
+const EXOPLANET_TAP_PATH = '/TAP/sync';
 const DEMO_KEY = 'DEMO_KEY';
 
 let NASA_API = '';
@@ -51,6 +53,33 @@ function forceApiKey(u, key) {
     return value;
   }
   return '';
+}
+
+function jsonResponse(body, status, origin, extraHeaders = {}) {
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    ...secHeaders(),
+    ...corsHeaders(origin),
+    ...extraHeaders,
+  };
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
+function buildExoplanetTapTarget(url) {
+  const adql = url.searchParams.get('adql') || url.searchParams.get('query');
+  if (!adql || !adql.trim()) {
+    return { error: 'Missing ADQL query' };
+  }
+  const target = new URL(EXOPLANET_TAP_PATH, EXOPLANET_ARCHIVE_BASE);
+  target.searchParams.set('request', url.searchParams.get('request') || 'doQuery');
+  target.searchParams.set('format', url.searchParams.get('format') || 'json');
+  target.searchParams.set('query', adql);
+  const passthrough = ['maxrec', 'phase', 'lang'];
+  for (const key of passthrough) {
+    const value = url.searchParams.get(key);
+    if (value) target.searchParams.set(key, value);
+  }
+  return { url: target };
 }
 
 async function fwd(target, request, origin, debug, cf, extraHeaders = {}) {
@@ -301,6 +330,26 @@ async function handleRequest(request) {
       usingDemoKey: key.length === 0,
     };
     return new Response(JSON.stringify(info), { status: 200, headers });
+  }
+
+  if (url.pathname === '/exo/tap') {
+    const target = buildExoplanetTapTarget(url);
+    if (target.error) {
+      return jsonResponse({ ok: false, message: target.error }, 400, origin);
+    }
+    const cf = { cacheEverything: true, cacheTtl: 300 };
+    const headers = {
+      'Cache-Control': 'public, max-age=120, s-maxage=300, stale-while-revalidate=86400',
+    };
+    return fwd(target.url, request, origin, debug, cf, headers);
+  }
+
+  if (url.pathname.startsWith('/exo/')) {
+    return jsonResponse(
+      { ok: false, message: 'Not Found', path: url.pathname, hint: 'See / for routes; /diag for bindings' },
+      404,
+      origin,
+    );
   }
 
   // APOD
