@@ -327,7 +327,8 @@ type EarthContinentConfig = {
 
 const EARTH_BASE_RADIUS = 256;
 
-function createEarthPath(points: EarthSplinePoint[]): Path2D {
+function createEarthPath(points: EarthSplinePoint[]): Path2D | null {
+  if (typeof Path2D !== 'function') return null;
   const path = new Path2D();
   if (!points.length) return path;
 
@@ -343,6 +344,48 @@ function createEarthPath(points: EarthSplinePoint[]): Path2D {
   }
   path.closePath();
   return path;
+}
+
+function traceEarthPath(ctx: CanvasRenderingContext2D, points: EarthSplinePoint[]): void {
+  if (!points.length) return;
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i += 1) {
+    const { x, y, cpx, cpy } = points[i];
+    if (cpx != null && cpy != null) {
+      ctx.quadraticCurveTo(cpx, cpy, x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.closePath();
+}
+
+function applyEarthPath(
+  ctx: CanvasRenderingContext2D,
+  path: Path2D | null,
+  points: EarthSplinePoint[],
+  action: 'fill' | 'stroke' | 'clip',
+): void {
+  if (path) {
+    if (action === 'fill') {
+      ctx.fill(path);
+    } else if (action === 'stroke') {
+      ctx.stroke(path);
+    } else {
+      ctx.clip(path);
+    }
+    return;
+  }
+
+  traceEarthPath(ctx, points);
+  if (action === 'fill') {
+    ctx.fill();
+  } else if (action === 'stroke') {
+    ctx.stroke();
+  } else {
+    ctx.clip();
+  }
 }
 
 function drawEarthContinent(
@@ -375,12 +418,12 @@ function drawEarthContinent(
     config.fillStops.forEach(({ offset, color }) => gradient.addColorStop(offset, color));
     ctx.fillStyle = gradient;
     ctx.globalAlpha = config.fillAlpha ?? 0.98;
-    ctx.fill(path);
+    applyEarthPath(ctx, path, config.points, 'fill');
     ctx.globalAlpha = 1;
 
     if (config.decorate) {
       ctx.save();
-      ctx.clip(path);
+      applyEarthPath(ctx, path, config.points, 'clip');
       config.decorate(ctx, localRand, scaleX, scaleY);
       ctx.restore();
     }
@@ -391,7 +434,7 @@ function drawEarthContinent(
       ctx.globalAlpha = config.coastlineAlpha ?? 0.5;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
-      ctx.stroke(path);
+      applyEarthPath(ctx, path, config.points, 'stroke');
       ctx.globalAlpha = 1;
     }
 
