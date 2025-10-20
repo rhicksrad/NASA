@@ -1308,6 +1308,7 @@ export async function initNeo3D(
         if (typeof value !== 'string') return;
         const normalized = normalizeEntryKey(value);
         if (!normalized) return;
+        if (normalized.length <= 1) return;
         aliasSet.add(normalized);
       };
 

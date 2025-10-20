@@ -272,14 +272,19 @@ export function collectSbdbAliases(data: SbdbLookup): string[] {
   const object = data.object ?? {};
   addAlias(aliases, typeof object.des === 'string' ? object.des : undefined);
   if (typeof object.prefix === 'string' && typeof object.des === 'string') {
-    addAlias(aliases, `${object.prefix.trim()} ${object.des.trim()}`);
+    const prefixedDes = `${object.prefix.trim()} ${object.des.trim()}`.trim();
+    if (prefixedDes.length > 1) {
+      addAlias(aliases, prefixedDes);
+    }
   }
   addAlias(aliases, typeof object.object_name === 'string' ? object.object_name : undefined);
   addAlias(aliases, typeof object.fullname === 'string' ? object.fullname : undefined);
   if (typeof object.prefix === 'string' && typeof object.fullname === 'string') {
-    addAlias(aliases, `${object.prefix.trim()} ${object.fullname.trim()}`);
+    const prefixedFullName = `${object.prefix.trim()} ${object.fullname.trim()}`.trim();
+    if (prefixedFullName.length > 1) {
+      addAlias(aliases, prefixedFullName);
+    }
   }
-  addAlias(aliases, typeof object.prefix === 'string' ? object.prefix : undefined);
   return Array.from(aliases);
 }
 
