@@ -118,7 +118,18 @@
             </div>
           </div>
         </div>
-        <label class="neo3d-field">
+        <label class="neo3d-field neo3d-field--time">
+          <span class="neo3d-field-label">
+            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+              <path d="M12 8v4.2l2.8 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
+            <span>Time scrubber</span>
+          </span>
+          <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
+          <span id="neo3d-time-label" class="meta">—</span>
+        </label>
+        <label class="neo3d-field neo3d-field--speed">
           <span class="neo3d-field-label">
             <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
               <path d="M20 13a8 8 0 1 0-2.34 5.66" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
@@ -129,7 +140,7 @@
           <input type="range" id="neo3d-speed" min="0" max="4" step="1" value="4" />
           <span id="neo3d-speed-label" class="meta">1 day/s</span>
         </label>
-        <label class="neo3d-field">
+        <label class="neo3d-field neo3d-field--range">
           <span class="neo3d-field-label">
             <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
               <path d="M7 4v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
@@ -143,17 +154,6 @@
             <input type="datetime-local" id="neo3d-range-start" step="3600" />
             <input type="datetime-local" id="neo3d-range-end" step="3600" />
           </div>
-        </label>
-        <label class="neo3d-field">
-          <span class="neo3d-field-label">
-            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-              <path d="M12 8v4.2l2.8 1.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-            </svg>
-            <span>Time scrubber</span>
-          </span>
-          <input type="range" id="neo3d-time" min="0" max="120" step="0.0416667" value="60" />
-          <span id="neo3d-time-label" class="meta">—</span>
         </label>
       </div>
     <div class="neo3d-neo-panel">
