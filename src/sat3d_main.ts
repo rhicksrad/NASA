@@ -142,12 +142,13 @@ function removeTrail(id: number): void {
 function addSatellite(tle: NormalizedTle): void {
   if (satellites.has(tle.id)) return;
   const satrec = tleToSatrec(tle.line1, tle.line2);
+  const initialState = propEciKm(satrec, new Date(simTimeMs));
   satellites.set(tle.id, {
     ...tle,
     satrec,
-    lastPositionKm: null,
-    lastVelocityKm: null,
-    lastUpdateMs: 0,
+    lastPositionKm: initialState ? initialState.position : null,
+    lastVelocityKm: initialState ? initialState.velocity : null,
+    lastUpdateMs: initialState ? simTimeMs : 0,
   });
   updateRenderStatus();
 }
@@ -183,7 +184,14 @@ async function loadSample(): Promise<void> {
       added += 1;
     });
     showToast(`Loaded ${added} satellites.`);
-    } catch (error) {
+    if (normalized.has(25544)) {
+      selectedId = 25544;
+      const selected = satellites.get(25544) ?? null;
+      if (selected) {
+        updateInfoPanel(selected, new Date(simTimeMs));
+      }
+    }
+  } catch (error) {
       // eslint-disable-next-line no-console
       console.error(error);
       showToast('Failed to load sample satellites.', true);
