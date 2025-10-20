@@ -488,66 +488,47 @@ body.neo3d-fullscreen {
 }
 
 body.neo3d-fullscreen main {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  min-height: 100%;
+  display: block;
 }
 
 body.neo3d-fullscreen #neo-3d {
   position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  display: block;
   padding: 0;
-  overflow: hidden;
 }
 
 body.neo3d-fullscreen #neo-3d > .main-wrap {
   position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  max-width: none;
-  margin: 0;
-  padding: 0;
+  display: grid;
+  gap: var(--space-6);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-4);
 }
 
 body.neo3d-fullscreen #neo3d-host {
-  position: relative;
-  flex: 1 1 auto;
   width: 100%;
   min-height: clamp(420px, 75vh, 900px);
 }
 
 body.neo3d-fullscreen .neo3d-stage {
-  min-height: 0;
-  border: none;
-  border-radius: 0;
-}
-
-body.neo3d-fullscreen #neo-3d > .main-wrap {
-  gap: var(--space-6);
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-1);
 }
 
 body.neo3d-fullscreen .neo3d-control-panel {
-  position: relative;
-  top: auto;
-  right: auto;
-  width: min(420px, 100%);
-  max-height: none;
-  overflow: visible;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: var(--space-5);
   border-radius: var(--radius-1);
   border: 1px solid var(--c-line-1);
   background: linear-gradient(180deg, hsl(230 36% 20% / 0.92), hsl(230 36% 12% / 0.92));
-  box-shadow: 0 24px 70px hsl(230 80% 5% / 0.55);
-  backdrop-filter: blur(14px);
+  box-shadow: var(--sh-1);
+  backdrop-filter: none;
   display: grid;
   gap: var(--space-5);
-  z-index: auto;
-  align-self: flex-end;
-  margin: var(--space-6) var(--space-6) 0;
 }
 
 body.neo3d-fullscreen .neo3d-control-panel > * {
@@ -559,12 +540,8 @@ body.neo3d-fullscreen .neo3d-legend {
 }
 
 @media (max-width: 960px) {
-  body.neo3d-fullscreen #neo-3d {
-    padding-bottom: var(--space-7);
-  }
-
   body.neo3d-fullscreen #neo-3d > .main-wrap {
-    min-height: 0;
+    padding: var(--space-7) var(--space-4);
   }
 
   body.neo3d-fullscreen #neo3d-host {
@@ -572,17 +549,12 @@ body.neo3d-fullscreen .neo3d-legend {
   }
 
   body.neo3d-fullscreen .neo3d-stage {
-    border: none;
-    border-radius: 0;
+    border: 1px solid var(--c-line-1);
+    border-radius: var(--radius-1);
   }
 
   body.neo3d-fullscreen .neo3d-control-panel {
-    width: 100%;
-    margin: var(--space-5) var(--space-4) 0;
     padding: var(--space-5) var(--space-4);
-    box-shadow: none;
-    backdrop-filter: none;
-    align-self: stretch;
   }
 }
 
