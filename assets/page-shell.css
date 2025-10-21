@@ -18,6 +18,11 @@ body {
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--c-line-1);
+  background: linear-gradient(to bottom, var(--c-bg-0), var(--c-bg-1));
   backdrop-filter: blur(12px);
   box-shadow: inset 0 -1px 0 var(--c-line-1);
 }
@@ -68,10 +73,7 @@ body {
   outline: none;
 }
 
-.site-nav a[aria-current='page'] {
-  color: var(--c-text-1);
-  box-shadow: inset 0 0 0 1px hsl(185 72% 45% / 35%);
-}
+
 
 .site-nav__toggle {
   display: none;

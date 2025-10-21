@@ -1,322 +1,398 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: radial-gradient(circle at top, #0b1631 0%, #030712 60%, #000 100%);
-  color: #f5f6f8;
+.page--explorer.theme-sat3d main {
+  padding-bottom: var(--space-8);
 }
 
-#canvas-holder {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+.sat3d-layout {
+  display: grid;
+  gap: var(--space-6);
+}
+
+@media (min-width: 1024px) {
+  .sat3d-layout {
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+    align-items: start;
+  }
+}
+
+.sat3d-stage {
+  position: relative;
+  padding: 0;
+  min-height: clamp(420px, 60vh, 680px);
   overflow: hidden;
+  border-radius: var(--radius-1);
+  border: 1px solid var(--c-line-1);
+  background:
+    radial-gradient(900px 500px at 75% -10%, hsl(205 70% 25% / 0.35), transparent),
+    radial-gradient(700px 400px at 20% 110%, hsl(223 80% 18% / 0.45), transparent),
+    linear-gradient(to bottom, var(--c-bg-0), var(--c-bg-1));
+  box-shadow: var(--sh-1);
+}
+
+.sat3d-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to right, hsl(220 40% 20% / 0.22) 1px, transparent 1px) 0 0/80px 80px,
+    linear-gradient(to bottom, hsl(220 40% 20% / 0.18) 1px, transparent 1px) 0 0/80px 80px;
+  opacity: 0.25;
   pointer-events: none;
 }
 
-#ui {
+.sat3d-canvas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.sat3d-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.toast-container {
   position: fixed;
-  top: 16px;
-  left: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  max-width: min(420px, 80vw);
-  background: rgba(8, 15, 30, 0.72);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  top: var(--space-6);
+  right: var(--space-6);
+  display: grid;
+  gap: var(--space-2);
+  pointer-events: none;
+  z-index: 40;
+}
+
+@media (max-width: 720px) {
+  .toast-container {
+    left: var(--space-4);
+    right: var(--space-4);
+  }
+}
+
+.toast {
   pointer-events: auto;
-  z-index: 10;
+  min-width: 220px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-1);
+  border: 1px solid var(--c-line-1);
+  background: linear-gradient(to bottom, var(--c-surface-1), var(--c-surface-2));
+  color: var(--c-text-1);
+  font-size: var(--fs-1);
+  box-shadow: var(--sh-1);
 }
 
-#ui h1 {
+.toast.error {
+  border-color: hsl(16 100% 60% / 0.45);
+  background: linear-gradient(to bottom, hsl(12 80% 30% / 0.92), hsl(12 80% 20% / 0.92));
+}
+
+.sat3d-tooltip {
+  position: fixed;
+  pointer-events: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-1);
+  border: 1px solid var(--c-line-1);
+  background: linear-gradient(to bottom, var(--c-surface-1), var(--c-surface-2));
+  color: var(--c-text-1);
+  font-size: var(--fs-1);
+  box-shadow: var(--sh-1);
+  opacity: 0;
+  transform: translate(-9999px, -9999px);
+  transition: opacity 0.15s ease;
+  z-index: 45;
+}
+
+.sat3d-tooltip[data-visible='true'] {
+  opacity: 1;
+}
+
+.sat3d-sidebar {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.sat3d-panel {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.sat3d-panel__header {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sat3d-panel__meta {
   margin: 0;
-  font-size: 1.25rem;
-  letter-spacing: 0.02em;
+  color: var(--c-text-2);
+  font-size: var(--fs-1);
 }
 
-#controls,
-#search-row,
-#toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.sat3d-search {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 1fr auto auto;
   align-items: center;
 }
 
-#search-row {
+@media (max-width: 960px) {
+  .sat3d-search {
+    grid-template-columns: 1fr;
+  }
+
+  .sat3d-search .btn {
+    width: 100%;
+  }
+}
+
+.sat3d-search input[type='search'] {
   width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-0);
+  border: 1px solid var(--c-line-1);
+  background: var(--c-surface-2);
+  color: var(--c-text-1);
+  font-size: var(--fs-1);
 }
 
-#search-row input[type="search"] {
-  flex: 1 1 auto;
-  min-width: 160px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(6, 11, 20, 0.7);
-  color: inherit;
+.sat3d-search input[type='search']::placeholder {
+  color: var(--c-muted);
 }
 
-#search-row button,
-#controls button,
-#controls select,
-#toggles label {
-  background: rgba(33, 52, 97, 0.75);
-  border: 1px solid rgba(120, 182, 255, 0.3);
-  border-radius: 8px;
-  color: inherit;
-  padding: 8px 12px;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+.sat3d-search input[type='search']:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.sat3d-controls {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  align-items: stretch;
+}
+
+.sat3d-controls .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.sat3d-select {
+  width: 100%;
+  border: 1px solid var(--c-line-1);
+  background: var(--c-surface-2);
+  color: var(--c-text-1);
+  border-radius: var(--radius-0);
+  padding: var(--space-2) var(--space-3);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.sat3d-select:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+.sat3d-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-0);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-1);
+  background: var(--c-surface-1);
+}
+
+.sat3d-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
 }
 
 .hover-hint {
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(15, 26, 48, 0.6);
-  font-size: 0.8rem;
-  color: rgba(215, 230, 255, 0.85);
-  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 10px;
+  border-radius: var(--radius-0);
+  border: 1px solid var(--c-line-1);
+  color: var(--c-muted);
+  background: var(--c-surface-1);
+  font-size: var(--fs-0);
 }
 
-#selection-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+label.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--c-text-1);
+  padding: 6px 10px;
+  border-radius: var(--radius-0);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-line-1);
 }
 
-#selection-controls button {
-  flex: 1 1 140px;
+label.checkbox input {
+  accent-color: var(--c-accent);
+}
+
+.sat3d-selection {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.sat3d-selection .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.sat3d-status {
+  min-height: 1.5em;
+  color: var(--c-muted);
+  font-size: var(--fs-0);
+}
+
+.sat3d-results {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: var(--space-2);
+  border-radius: var(--radius-0);
+  border: 1px solid var(--c-line-2);
+  background: var(--c-surface-1);
+}
+
+.sat3d-results:empty {
+  display: none;
+  padding: 0;
+  border: 0;
+}
+
+.search-status {
+  font-size: var(--fs-0);
+  color: var(--c-muted);
+}
+
+.result-item {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-0);
+  border: 1px solid transparent;
+  background: linear-gradient(to bottom, var(--c-surface-1), var(--c-surface-2));
+  color: var(--c-text-1);
+  cursor: pointer;
+}
+
+.result-item:hover {
+  border-color: var(--c-accent);
+  box-shadow: var(--sh-1);
+}
+
+.result-item.selected {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 1px var(--c-accent);
+}
+
+.result-item .result-name {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.result-item .result-meta {
+  font-size: var(--fs-0);
+  color: var(--c-muted);
+}
+
+.result-item.stale {
+  border-color: hsl(36 100% 60% / 0.45);
+  background: linear-gradient(to bottom, hsl(32 60% 20% / 0.6), hsl(32 60% 16% / 0.6));
+}
+
+.result-item.stale .result-meta {
+  color: hsl(32 80% 70%);
 }
 
 button.loading {
   position: relative;
   pointer-events: none;
-  opacity: 0.85;
+  opacity: 0.7;
 }
 
 button.loading::after {
   content: '';
   position: absolute;
   top: 50%;
-  right: 12px;
+  right: 14px;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(200, 220, 255, 0.7);
-  border-top-color: rgba(200, 220, 255, 0.2);
+  border: 2px solid hsl(205 70% 80% / 0.75);
+  border-top-color: transparent;
   transform: translateY(-50%);
-  animation: button-spin 0.85s linear infinite;
+  animation: sat3d-spin 0.75s linear infinite;
 }
 
-@keyframes button-spin {
-  0% {
+@keyframes sat3d-spin {
+  from {
     transform: translateY(-50%) rotate(0deg);
   }
-  100% {
+  to {
     transform: translateY(-50%) rotate(360deg);
   }
 }
 
-#controls select {
-  cursor: pointer;
-}
-
-#search-row button:hover,
-#controls button:hover,
-#controls select:hover,
-#toggles label:hover {
-  background: rgba(52, 82, 148, 0.9);
-  border-color: rgba(160, 210, 255, 0.6);
-}
-
-#controls button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-#render-status {
-  font-size: 0.8rem;
-  color: rgba(204, 222, 255, 0.75);
-  min-height: 1.2rem;
-}
-
-#time-readout {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
-  background: rgba(6, 11, 20, 0.6);
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-#info {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  width: min(320px, 85vw);
-  padding: 16px;
-  background: rgba(5, 11, 21, 0.78);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
-  pointer-events: auto;
-  z-index: 9;
-  max-height: 40vh;
-  overflow-y: auto;
-}
-
-#info h2 {
-  margin: 0 0 8px;
-  font-size: 1.05rem;
-}
-
-#info p {
-  margin: 4px 0;
-  font-size: 0.9rem;
-}
-
-#hover-tooltip {
-  position: fixed;
-  pointer-events: none;
-  padding: 6px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(160, 210, 255, 0.35);
-  background: rgba(12, 24, 48, 0.9);
-  color: #f4f7ff;
-  font-size: 0.85rem;
-  letter-spacing: 0.02em;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
-  opacity: 0;
-  transform: translate(-9999px, -9999px);
-  transition: opacity 0.15s ease;
-  z-index: 11;
-}
-
-#hover-tooltip[data-visible='true'] {
-  opacity: 1;
-}
-
-#search-results {
+.sat3d-info {
   display: grid;
-  gap: 4px;
-  max-height: 200px;
-  overflow-y: auto;
+  gap: var(--space-3);
 }
 
-.search-status {
-  font-size: 0.8rem;
-  color: rgba(204, 222, 255, 0.75);
-  padding: 2px 4px 6px;
+.sat3d-info h2 {
+  margin: 0;
+  font-size: var(--fs-3);
+  color: var(--c-text-1);
 }
 
-.result-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: rgba(12, 20, 38, 0.7);
-  border: 1px solid transparent;
-  cursor: pointer;
-  font-size: 0.85rem;
+.sat3d-info p {
+  margin: 0;
+  color: var(--c-text-2);
 }
 
-.result-item:hover {
-  border-color: rgba(160, 210, 255, 0.5);
-  background: rgba(30, 55, 96, 0.8);
+.sat3d-info dl {
+  display: grid;
+  gap: var(--space-1);
 }
 
-.result-item.selected {
-  border-color: rgba(123, 192, 255, 0.8);
-  box-shadow: 0 0 0 1px rgba(123, 192, 255, 0.35);
+.sat3d-info dt {
+  font-size: var(--fs-0);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--c-muted);
 }
 
-.result-item:focus-visible {
-  outline: 2px solid rgba(180, 220, 255, 0.7);
-  outline-offset: 2px;
-}
-
-.result-item.stale {
-  border-color: rgba(255, 196, 128, 0.4);
-  background: rgba(48, 32, 16, 0.55);
-}
-
-.result-item.stale .result-meta {
-  color: rgba(255, 210, 160, 0.85);
-}
-
-.result-name {
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.result-meta {
-  font-size: 0.75rem;
-  color: rgba(194, 214, 255, 0.75);
-}
-
-.toast-container {
-  position: fixed;
-  top: 16px;
-  right: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 20;
-  pointer-events: none;
-}
-
-.toast {
-  min-width: 220px;
-  max-width: min(360px, 80vw);
-  padding: 10px 14px;
-  border-radius: 8px;
-  background: rgba(25, 40, 75, 0.9);
-  border: 1px solid rgba(160, 210, 255, 0.5);
-  color: #f5f6f8;
-  font-size: 0.9rem;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-  pointer-events: auto;
-}
-
-.toast.error {
-  background: rgba(110, 24, 44, 0.9);
-  border-color: rgba(255, 120, 150, 0.5);
-}
-
-label.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-}
-
-label.checkbox input {
-  accent-color: #7bc0ff;
+.sat3d-info dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  color: var(--c-text-1);
 }
 
 @media (max-width: 720px) {
-  #ui {
-    right: 16px;
-    max-width: unset;
+  .page--explorer.theme-sat3d main {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-6);
   }
 
-  #info {
-    position: static;
-    margin: 16px;
-    max-height: none;
+  .sat3d-layout {
+    gap: var(--space-4);
+  }
+
+  .sat3d-stage {
+    min-height: 360px;
   }
 }
-

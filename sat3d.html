@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/NASA/styles/tokens.css" />
     <link rel="stylesheet" href="/NASA/styles/theme.css" />
     <link rel="stylesheet" href="/NASA/styles/components.css" />
+    <link rel="stylesheet" href="/NASA/assets/page-shell.css" />
     <link rel="stylesheet" href="/NASA/styles/sat3d.css" />
   </head>
   <body class="page--explorer theme-sat3d">
@@ -101,50 +102,98 @@
         </a>
       </nav>
     </header>
-    <div id="canvas-holder"></div>
-    <div id="ui">
-      <h1>Satellite 3D</h1>
-      <div id="search-row">
-        <input
-          id="search-input"
-          type="search"
-          placeholder="Search satellites (e.g., ISS)"
-          autocomplete="off"
-        />
-        <button id="search-btn" type="button">Search</button>
-        <button id="sample-btn" type="button">Load Sample (Top ISS + debris)</button>
+    <main class="page-shell">
+      <div class="main-wrap">
+        <div class="sat3d-layout">
+          <section class="sat3d-stage card" aria-label="3D satellite visualization">
+            <div id="canvas-holder" class="sat3d-canvas"></div>
+            <div class="toast-container" id="toast-container" aria-live="polite"></div>
+            <div id="hover-tooltip" class="sat3d-tooltip" role="presentation" aria-hidden="true"></div>
+          </section>
+          <aside class="sat3d-sidebar">
+            <section class="card sat3d-panel" id="ui">
+              <header class="sat3d-panel__header">
+                <h1>Satellite 3D</h1>
+                <p class="sat3d-panel__meta">
+                  Track satellites and debris sourced from Two-Line Elements and visualize their current passes.
+                </p>
+              </header>
+              <div id="search-row" class="sat3d-search">
+                <input
+                  id="search-input"
+                  type="search"
+                  placeholder="Search satellites (e.g., ISS)"
+                  autocomplete="off"
+                />
+                <button id="search-btn" type="button" class="btn btn--primary">Search</button>
+                <button id="sample-btn" type="button" class="btn">Load Sample (Top ISS + debris)</button>
+              </div>
+              <div id="search-results" class="sat3d-results" aria-live="polite"></div>
+              <div id="controls" class="sat3d-controls">
+                <button id="play-btn" type="button" class="btn btn--primary">Pause</button>
+                <select id="speed-select" class="sat3d-select">
+                  <option value="0.25">0.25×</option>
+                  <option value="1" selected>1×</option>
+                  <option value="4">4×</option>
+                  <option value="16">16×</option>
+                  <option value="64">64×</option>
+                </select>
+                <button id="now-btn" type="button" class="btn">Now</button>
+                <div id="time-readout" class="sat3d-time">--</div>
+              </div>
+              <div id="toggles" class="sat3d-toggles">
+                <label class="checkbox"><input id="trail-toggle" type="checkbox" /> Trails</label>
+                <span class="hover-hint" id="hover-hint">Hover satellites to view names.</span>
+              </div>
+              <div id="selection-controls" class="sat3d-selection">
+                <button id="focus-selected-btn" type="button" class="btn">Focus Selected</button>
+                <button id="clear-selected-btn" type="button" class="btn btn--ghost">Clear Selection</button>
+              </div>
+              <div id="render-status" class="sat3d-status" aria-live="polite"></div>
+            </section>
+            <section class="card sat3d-info" id="info">
+              <h2>No satellite selected</h2>
+              <p>Click a satellite to view telemetry.</p>
+            </section>
+          </aside>
+        </div>
       </div>
-      <div id="search-results" aria-live="polite"></div>
-      <div id="controls">
-        <button id="play-btn" type="button">Pause</button>
-        <select id="speed-select">
-          <option value="0.25">0.25×</option>
-          <option value="1" selected>1×</option>
-          <option value="4">4×</option>
-          <option value="16">16×</option>
-          <option value="64">64×</option>
-        </select>
-        <button id="now-btn" type="button">Now</button>
-        <div id="time-readout">--</div>
-      </div>
-      <div id="toggles">
-        <label class="checkbox"><input id="trail-toggle" type="checkbox" /> Trails</label>
-        <span class="hover-hint" id="hover-hint">Hover satellites to view names.</span>
-      </div>
-      <div id="selection-controls">
-        <button id="focus-selected-btn" type="button">Focus Selected</button>
-        <button id="clear-selected-btn" type="button">Clear Selection</button>
-      </div>
-      <div id="render-status"></div>
-    </div>
-    <div id="info">
-      <h2>No satellite selected</h2>
-      <p>Click a satellite to view telemetry.</p>
-    </div>
-    <div class="toast-container" id="toast-container"></div>
-    <div id="hover-tooltip" role="presentation" aria-hidden="true"></div>
+    </main>
     <script type="module">
       import './src/sat3d_main.ts';
+    </script>
+    <script>
+      (() => {
+        const toggle = document.querySelector('[data-nav-toggle]');
+        const nav = document.querySelector('[data-primary-nav]');
+        if (!toggle || !nav) return;
+        const setOpen = open => {
+          nav.setAttribute('data-open', open ? 'true' : 'false');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        const handleKeydown = event => {
+          if (event.key === 'Escape') {
+            setOpen(false);
+            toggle.focus();
+          }
+        };
+        toggle.addEventListener('click', () => {
+          const next = nav.getAttribute('data-open') !== 'true';
+          setOpen(next);
+          if (next) {
+            document.addEventListener('keydown', handleKeydown);
+          } else {
+            document.removeEventListener('keydown', handleKeydown);
+          }
+        });
+        nav.addEventListener('click', event => {
+          if (event.target instanceof HTMLAnchorElement) {
+            setOpen(false);
+            document.removeEventListener('keydown', handleKeydown);
+          }
+        });
+        setOpen(false);
+      })();
     </script>
     <script type="module" src="./scripts/ui_accessibility.js"></script>
   </body>

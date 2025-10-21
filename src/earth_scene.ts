@@ -103,7 +103,8 @@ const EARTH_FRAGMENT = /* glsl */ `
 
 interface IssModel {
   group: THREE.Group;
-  meshes: Array<THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>>;
+  meshes: Array<THREE.Mesh<THREE.BufferGeometry, THREE.MeshPhysicalMaterial>>;
+  boundingRadius: number;
 }
 
 function createSatelliteGeometry(): THREE.BufferGeometry {
@@ -311,7 +312,15 @@ function createIssModel(): IssModel {
   const navPodLeft = addMesh(navPodGeometry.clone(), accentMaterial);
   navPodLeft.position.set(-0.16, 0.05, -0.24);
 
-  return { group, meshes };
+  const previousVisibility = group.visible;
+  group.visible = true;
+  group.updateMatrixWorld(true);
+  const boundingSphere = new THREE.Sphere();
+  new THREE.Box3().setFromObject(group).getBoundingSphere(boundingSphere);
+  const boundingRadius = Number.isFinite(boundingSphere.radius) && boundingSphere.radius > 0 ? boundingSphere.radius : 0.9;
+  group.visible = previousVisibility;
+
+  return { group, meshes, boundingRadius };
 }
 
 export class EarthScene {
@@ -329,6 +338,9 @@ export class EarthScene {
   private readonly dayNightUniforms: { sunDirection: { value: THREE.Vector3 } };
   private readonly earthGroup: THREE.Group;
   private readonly issModel: IssModel;
+  private satelliteBoundingRadius = 0.3;
+  private issBoundingRadius = 0.9;
+  private readonly clearancePadding: number;
   private readonly trailMap = new Map<number, TrailRecord>();
   private readonly orbitMap = new Map<number, OrbitRecord>();
   private readonly labelGroup: THREE.Group;
@@ -369,6 +381,7 @@ export class EarthScene {
     this.color = new THREE.Color();
 
     this.dayNightUniforms = { sunDirection: { value: new THREE.Vector3(1, 0, 0) } };
+    this.clearancePadding = EARTH_RADIUS_UNITS * 0.015;
 
     const dayTexture = new THREE.TextureLoader().load(DAY_TEXTURE);
     dayTexture.colorSpace = THREE.SRGBColorSpace;
@@ -424,6 +437,10 @@ export class EarthScene {
     this.scene.add(starField);
 
     const satGeometry = createSatelliteGeometry();
+    satGeometry.computeBoundingSphere();
+    if (Number.isFinite(satGeometry.boundingSphere?.radius ?? NaN)) {
+      this.satelliteBoundingRadius = satGeometry.boundingSphere?.radius ?? this.satelliteBoundingRadius;
+    }
     const satMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       metalness: 0.65,
@@ -441,6 +458,9 @@ export class EarthScene {
     this.scene.add(this.instancedMesh);
 
     this.issModel = createIssModel();
+    if (Number.isFinite(this.issModel.boundingRadius) && this.issModel.boundingRadius > 0) {
+      this.issBoundingRadius = this.issModel.boundingRadius;
+    }
     this.scene.add(this.issModel.group);
 
     this.instanceIds = new Int32Array(MAX_SATELLITES);
@@ -496,7 +516,12 @@ export class EarthScene {
       const [x, y, z] = state.position;
       if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
       const scale = state.scale ?? 1;
-      this.dummyObject.position.set(x, y, z);
+      const position = this.dummyObject.position.set(x, y, z);
+      const radius = position.length();
+      const minRadius = EARTH_RADIUS_UNITS + scale * this.satelliteBoundingRadius + this.clearancePadding;
+      if (Number.isFinite(radius) && radius > 0 && radius < minRadius) {
+        position.normalize().multiplyScalar(minRadius);
+      }
       this.dummyObject.scale.setScalar(scale);
       if (state.quaternion) {
         this.dummyObject.quaternion.set(...state.quaternion);
@@ -523,9 +548,15 @@ export class EarthScene {
       const [x, y, z] = issState.position;
       if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
         this.issModel.group.visible = true;
-        this.issModel.group.position.set(x, y, z);
-        const scale = (issState.scale ?? 1) * ISS_BASE_SCALE;
-        this.issModel.group.scale.setScalar(scale);
+        const displayScale = issState.scale ?? 1;
+        const finalScale = displayScale * ISS_BASE_SCALE;
+        this.issModel.group.scale.setScalar(finalScale);
+        const position = this.issModel.group.position.set(x, y, z);
+        const radius = position.length();
+        const minRadius = EARTH_RADIUS_UNITS + finalScale * this.issBoundingRadius + this.clearancePadding;
+        if (Number.isFinite(radius) && radius > 0 && radius < minRadius) {
+          position.normalize().multiplyScalar(minRadius);
+        }
         if (issState.quaternion) {
           this.issModel.group.quaternion.set(...issState.quaternion);
         } else {
