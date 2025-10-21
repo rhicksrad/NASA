@@ -8,6 +8,10 @@ export const EARTH_RADIUS_UNITS = EARTH_RADIUS_KM * KM_TO_UNITS;
 const MAX_SATELLITES = 5000;
 const ISS_ID = 25544;
 const ISS_BASE_SCALE = 2.4;
+const CAMERA_NEAR = EARTH_RADIUS_UNITS * 0.0003;
+const CAMERA_FAR = EARTH_RADIUS_UNITS * 160;
+const DEFAULT_DISTANCE_Y = EARTH_RADIUS_UNITS * 2.1;
+const DEFAULT_DISTANCE_Z = EARTH_RADIUS_UNITS * 3.3;
 
 export interface SatelliteVisualState {
   id: number;
@@ -336,8 +340,8 @@ export class EarthScene {
     this.scene.background = new THREE.Color(0x020b1e);
     this.scene.fog = new THREE.FogExp2(0x020c1e, 0.018);
 
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 200);
-    this.camera.position.set(0, EARTH_RADIUS_UNITS * 4, EARTH_RADIUS_UNITS * 8);
+    this.camera = new THREE.PerspectiveCamera(45, 1, CAMERA_NEAR, CAMERA_FAR);
+    this.camera.position.set(0, DEFAULT_DISTANCE_Y, DEFAULT_DISTANCE_Z);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -354,8 +358,8 @@ export class EarthScene {
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-    this.controls.minDistance = EARTH_RADIUS_UNITS * 1.2;
-    this.controls.maxDistance = EARTH_RADIUS_UNITS * 80;
+    this.controls.minDistance = EARTH_RADIUS_UNITS * 1.05;
+    this.controls.maxDistance = EARTH_RADIUS_UNITS * 90;
     this.controls.target.set(0, 0, 0);
     this.controls.update();
 
@@ -630,7 +634,7 @@ export class EarthScene {
     }
     const target = this.focusTarget.set(x, y, z);
     const offset = this.focusOffset.copy(this.camera.position).sub(this.controls.target);
-    const minDistance = Math.max(options?.radius ?? EARTH_RADIUS_UNITS * 4, EARTH_RADIUS_UNITS * 1.3);
+    const minDistance = Math.max(options?.radius ?? EARTH_RADIUS_UNITS * 3, this.controls.minDistance);
     const hasDirection = Number.isFinite(offset.lengthSq()) && offset.lengthSq() > 1e-6;
     if (!hasDirection) {
       offset.set(minDistance * 0.2, minDistance * 0.4, minDistance);
