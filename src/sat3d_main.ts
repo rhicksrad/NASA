@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import {
   EarthScene,
   KM_TO_UNITS,
-  LabelState,
   SatelliteVisualState,
   TrailState,
   EARTH_RADIUS_UNITS,
@@ -29,6 +28,7 @@ const SAMPLE_SAT_IDS = [25544, 49044, 48275, 48274, 44362, 39444, 39634];
 const DEFAULT_COLOR = 0xffffff;
 const ISS_COLOR = 0xffd166;
 const SELECTED_COLOR = 0x22e7ff;
+const HOVER_COLOR = 0x7ad4ff;
 const MAX_RENDERED = 500;
 const PROPAGATE_PER_FRAME = 400;
 const TRAIL_CAPACITY = 180;
@@ -55,13 +55,13 @@ const ui = {
   nowButton: document.getElementById('now-btn') as HTMLButtonElement,
   timeReadout: document.getElementById('time-readout') as HTMLDivElement,
   trailToggle: document.getElementById('trail-toggle') as HTMLInputElement,
-  labelsToggle: document.getElementById('labels-toggle') as HTMLInputElement,
   infoPanel: document.getElementById('info') as HTMLDivElement,
   searchResults: document.getElementById('search-results') as HTMLDivElement,
   toastContainer: document.getElementById('toast-container') as HTMLDivElement,
   renderStatus: document.getElementById('render-status') as HTMLDivElement,
   focusButton: document.getElementById('focus-selected-btn') as HTMLButtonElement,
   clearButton: document.getElementById('clear-selected-btn') as HTMLButtonElement,
+  hoverTooltip: document.getElementById('hover-tooltip') as HTMLDivElement,
 };
 
 const earthScene = new EarthScene(canvasHolder);
@@ -72,13 +72,12 @@ let simTimeMs = Date.now();
 let lastFrame = performance.now();
 let propagateCursor = 0;
 let selectedId: number | null = null;
-let labelsEnabled = true;
 let trailsEnabled = false;
 let lastTrailStamp = 0;
 let nextEquatorCache: { id: number; timeMs: number; longitude: number; computedAt: number } | null = null;
-let lastLabelRefresh = 0;
 let activeSearchAbort: AbortController | null = null;
 let sampleLoading = false;
+let hoveredId: number | null = null;
 
 const satellites = new Map<number, SatelliteEntry>();
 const trailHistories = new Map<number, TrailHistory>();
@@ -236,8 +235,9 @@ function selectSatellite(id: number, options?: { focus?: boolean; toast?: string
 }
 
 function computeColor(id: number): number {
-  if (id === 25544) return ISS_COLOR;
   if (id === selectedId) return SELECTED_COLOR;
+  if (id === 25544) return hoveredId === id ? HOVER_COLOR : ISS_COLOR;
+  if (hoveredId === id) return HOVER_COLOR;
   return DEFAULT_COLOR;
 }
 
@@ -575,27 +575,6 @@ function updateInfoPanel(entry: SatelliteEntry | null, date: Date): void {
   `;
 }
 
-function updateLabels(): LabelState[] {
-  if (!labelsEnabled) return [];
-  const entries = Array.from(satellites.values())
-    .filter((sat) => sat.lastPositionKm)
-    .map((sat) => {
-      const pos = sat.lastPositionKm!;
-      const dx = pos[0] * KM_TO_UNITS - earthScene.camera.position.x;
-      const dy = pos[1] * KM_TO_UNITS - earthScene.camera.position.y;
-      const dz = pos[2] * KM_TO_UNITS - earthScene.camera.position.z;
-      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      return { sat, distance };
-    })
-    .sort((a, b) => a.distance - b.distance)
-    .slice(0, 40);
-  return entries.map(({ sat }) => ({
-    id: sat.id,
-    text: sat.name,
-    position: [sat.lastPositionKm![0] * KM_TO_UNITS, sat.lastPositionKm![1] * KM_TO_UNITS, sat.lastPositionKm![2] * KM_TO_UNITS],
-  }));
-}
-
 function updateNextEquatorPass(entry: SatelliteEntry, startDate: Date): void {
   const startMs = startDate.getTime();
   let prevLat: number | null = null;
@@ -660,8 +639,54 @@ function handlePointer(event: PointerEvent): void {
     const name = satellites.get(picked.id)?.name ?? `NORAD ${picked.id}`;
     const focus = event.detail >= 2;
     const toast = focus ? `Focused on ${name}` : `Selected ${name}`;
+    setHover(picked.id, event);
     selectSatellite(picked.id, { focus, toast });
+  } else {
+    setHover(null);
   }
+}
+
+function setHover(id: number | null, event?: PointerEvent): void {
+  hoveredId = id;
+  const tooltip = ui.hoverTooltip;
+  if (!tooltip) {
+    return;
+  }
+  if (id === null) {
+    tooltip.textContent = '';
+    tooltip.removeAttribute('data-visible');
+    tooltip.setAttribute('aria-hidden', 'true');
+    tooltip.style.transform = 'translate(-9999px, -9999px)';
+    return;
+  }
+  const name = satellites.get(id)?.name ?? `NORAD ${id}`;
+  if (tooltip.textContent !== name) {
+    tooltip.textContent = name;
+  }
+  if (event) {
+    const x = event.clientX + 16;
+    const y = event.clientY + 16;
+    tooltip.style.transform = `translate(${x}px, ${y}px)`;
+  }
+  tooltip.dataset.visible = 'true';
+  tooltip.setAttribute('aria-hidden', 'false');
+}
+
+function handlePointerMove(event: PointerEvent): void {
+  const canvasElement = earthScene.renderer.domElement as HTMLCanvasElement;
+  const rect = canvasElement.getBoundingClientRect();
+  const ndcX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const ndcY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+  const picked = earthScene.pickSatellite(ndcX, ndcY);
+  if (picked) {
+    setHover(picked.id, event);
+  } else {
+    setHover(null);
+  }
+}
+
+function handlePointerLeave(): void {
+  setHover(null);
 }
 
 function updateScene(deltaMs: number): void {
@@ -747,13 +772,6 @@ function updateScene(deltaMs: number): void {
   }
   earthScene.updateOrbits(orbitStates);
 
-  if (labelsEnabled && performance.now() - lastLabelRefresh > 500) {
-    earthScene.updateLabels(updateLabels());
-    lastLabelRefresh = performance.now();
-  } else if (!labelsEnabled) {
-    earthScene.updateLabels([]);
-  }
-
   if (selectedId) {
     const selected = satellites.get(selectedId) ?? null;
     if (selected) {
@@ -820,16 +838,6 @@ ui.sampleButton?.addEventListener('click', () => {
   loadSample();
 });
 
-ui.labelsToggle?.addEventListener('change', () => {
-  labelsEnabled = !!ui.labelsToggle?.checked;
-  if (!labelsEnabled) {
-    earthScene.updateLabels([]);
-  } else {
-    lastLabelRefresh = 0;
-    earthScene.updateLabels(updateLabels());
-  }
-});
-
 ui.trailToggle?.addEventListener('change', () => {
   trailsEnabled = !!ui.trailToggle?.checked;
   if (!trailsEnabled) {
@@ -848,7 +856,10 @@ ui.clearButton?.addEventListener('click', () => {
   clearSelection(true);
 });
 
-(earthScene.renderer.domElement as HTMLCanvasElement).addEventListener('pointerdown', handlePointer);
+const canvas = earthScene.renderer.domElement as HTMLCanvasElement;
+canvas.addEventListener('pointerdown', handlePointer);
+canvas.addEventListener('pointermove', handlePointerMove);
+canvas.addEventListener('pointerleave', handlePointerLeave);
 
 window.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {

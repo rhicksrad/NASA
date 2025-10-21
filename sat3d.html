@@ -129,7 +129,7 @@
       </div>
       <div id="toggles">
         <label class="checkbox"><input id="trail-toggle" type="checkbox" /> Trails</label>
-        <label class="checkbox"><input id="labels-toggle" type="checkbox" checked /> Labels near camera</label>
+        <span class="hover-hint" id="hover-hint">Hover satellites to view names.</span>
       </div>
       <div id="selection-controls">
         <button id="focus-selected-btn" type="button">Focus Selected</button>
@@ -142,6 +142,7 @@
       <p>Click a satellite to view telemetry.</p>
     </div>
     <div class="toast-container" id="toast-container"></div>
+    <div id="hover-tooltip" role="presentation" aria-hidden="true"></div>
     <script type="module">
       import './src/sat3d_main.ts';
     </script>

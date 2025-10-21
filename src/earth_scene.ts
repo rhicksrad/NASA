@@ -149,6 +149,33 @@ function createSatelliteGeometry(): THREE.BufferGeometry {
     throw new Error('Failed to build satellite geometry');
   }
   merged.computeVertexNormals();
+
+  const positionAttribute = merged.getAttribute('position');
+  if (!positionAttribute || positionAttribute.itemSize !== 3) {
+    throw new Error('Satellite geometry missing positions');
+  }
+  const colors = new Float32Array(positionAttribute.count * 3);
+  const color = new THREE.Color();
+  for (let i = 0; i < positionAttribute.count; i += 1) {
+    const x = positionAttribute.getX(i);
+    const y = positionAttribute.getY(i);
+    const z = positionAttribute.getZ(i);
+    if (Math.abs(x) > 0.16 && Math.abs(z) < 0.28) {
+      color.set(0x103b7c);
+    } else if (z > 0.05) {
+      color.set(0xffc989);
+    } else if (y > 0.035 && z < -0.02) {
+      color.set(0xf4f8ff);
+    } else if (Math.abs(x) > 0.1 && Math.abs(z) > 0.25) {
+      color.set(0x314568);
+    } else {
+      color.set(0xd9e3f7);
+    }
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  merged.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   return merged;
 }
 
@@ -157,39 +184,49 @@ function createIssModel(): IssModel {
   group.visible = false;
   group.userData.id = ISS_ID;
 
-  const meshes: Array<THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>> = [];
+  const meshes: Array<THREE.Mesh<THREE.BufferGeometry, THREE.MeshPhysicalMaterial>> = [];
 
-  const trussMaterial = new THREE.MeshStandardMaterial({
+  const trussMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xcfd8f9,
-    metalness: 0.45,
-    roughness: 0.4,
+    metalness: 0.55,
+    roughness: 0.35,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.45,
   });
-  const moduleMaterial = new THREE.MeshStandardMaterial({
+  const moduleMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xdfe8ff,
-    metalness: 0.25,
-    roughness: 0.45,
+    metalness: 0.3,
+    roughness: 0.38,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.25,
   });
-  const radiatorMaterial = new THREE.MeshStandardMaterial({
+  const radiatorMaterial = new THREE.MeshPhysicalMaterial({
     color: 0xf6f8ff,
-    metalness: 0.2,
-    roughness: 0.55,
-    emissive: new THREE.Color(0xdde9ff),
-    emissiveIntensity: 0.2,
-  });
-  const panelMaterial = new THREE.MeshStandardMaterial({
-    color: 0x0f2f6b,
-    emissive: new THREE.Color(0x092049),
-    emissiveIntensity: 0.45,
-    metalness: 0.15,
-    roughness: 0.8,
-  });
-  const accentMaterial = new THREE.MeshStandardMaterial({
-    color: 0xffd9a3,
-    metalness: 0.35,
+    metalness: 0.25,
     roughness: 0.5,
+    emissive: new THREE.Color(0xdde9ff),
+    emissiveIntensity: 0.25,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.2,
+  });
+  const panelMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x0f2f6b,
+    emissive: new THREE.Color(0x0a214b),
+    emissiveIntensity: 0.5,
+    metalness: 0.2,
+    roughness: 0.7,
+    clearcoat: 0.15,
+    clearcoatRoughness: 0.4,
+  });
+  const accentMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0xffd9a3,
+    metalness: 0.4,
+    roughness: 0.45,
+    clearcoat: 0.2,
+    clearcoatRoughness: 0.3,
   });
 
-  const addMesh = (geometry: THREE.BufferGeometry, material: THREE.MeshStandardMaterial) => {
+  const addMesh = (geometry: THREE.BufferGeometry, material: THREE.MeshPhysicalMaterial) => {
     const mesh = new THREE.Mesh(geometry, material);
     group.add(mesh);
     meshes.push(mesh);
@@ -252,6 +289,24 @@ function createIssModel(): IssModel {
   const sensorMesh = addMesh(sensor, accentMaterial);
   sensorMesh.position.set(0, 0.07, -0.3);
 
+  const panelStrut = new THREE.CylinderGeometry(0.008, 0.008, 0.78, 14);
+  panelStrut.rotateZ(Math.PI / 2);
+  const strutRight = addMesh(panelStrut.clone(), trussMaterial);
+  strutRight.position.set(0.36, 0, 0.04);
+  const strutLeft = addMesh(panelStrut.clone(), trussMaterial);
+  strutLeft.position.set(-0.36, 0, 0.04);
+
+  const dockingPort = new THREE.CylinderGeometry(0.02, 0.03, 0.16, 18);
+  dockingPort.rotateZ(Math.PI / 2);
+  const dockingMesh = addMesh(dockingPort, moduleMaterial);
+  dockingMesh.position.z = -0.32;
+
+  const navPodGeometry = new THREE.SphereGeometry(0.018, 16, 16);
+  const navPodRight = addMesh(navPodGeometry.clone(), accentMaterial);
+  navPodRight.position.set(0.16, 0.05, -0.24);
+  const navPodLeft = addMesh(navPodGeometry.clone(), accentMaterial);
+  navPodLeft.position.set(-0.16, 0.05, -0.24);
+
   return { group, meshes };
 }
 
@@ -263,7 +318,7 @@ export class EarthScene {
   readonly raycaster: THREE.Raycaster;
 
   private resizeObserver: ResizeObserver | null = null;
-  private readonly instancedMesh: THREE.InstancedMesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
+  private readonly instancedMesh: THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshPhysicalMaterial>;
   private readonly instanceIds: Int32Array;
   private readonly dummyObject: THREE.Object3D;
   private readonly color: THREE.Color;
@@ -365,11 +420,16 @@ export class EarthScene {
     this.scene.add(starField);
 
     const satGeometry = createSatelliteGeometry();
-    const satMaterial = new THREE.MeshStandardMaterial({
+    const satMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
-      metalness: 0.55,
+      metalness: 0.65,
       roughness: 0.35,
       vertexColors: true,
+      clearcoat: 0.4,
+      clearcoatRoughness: 0.25,
+      envMapIntensity: 0.85,
+      emissive: new THREE.Color(0x0b162d),
+      emissiveIntensity: 0.12,
     });
     this.instancedMesh = new THREE.InstancedMesh(satGeometry, satMaterial, MAX_SATELLITES);
     this.instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);

@@ -79,6 +79,16 @@ html, body {
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
+.hover-hint {
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 26, 48, 0.6);
+  font-size: 0.8rem;
+  color: rgba(215, 230, 255, 0.85);
+  letter-spacing: 0.01em;
+}
+
 #selection-controls {
   display: flex;
   flex-wrap: wrap;
@@ -174,6 +184,27 @@ button.loading::after {
 #info p {
   margin: 4px 0;
   font-size: 0.9rem;
+}
+
+#hover-tooltip {
+  position: fixed;
+  pointer-events: none;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(160, 210, 255, 0.35);
+  background: rgba(12, 24, 48, 0.9);
+  color: #f4f7ff;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translate(-9999px, -9999px);
+  transition: opacity 0.15s ease;
+  z-index: 11;
+}
+
+#hover-tooltip[data-visible='true'] {
+  opacity: 1;
 }
 
 #search-results {
