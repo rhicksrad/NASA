@@ -1,5 +1,5 @@
-import { EarthScene, KM_TO_UNITS, LabelState, SatelliteVisualState, TrailState } from './earth_scene';
-import { getTLE, parseTLEList, searchTLE, NormalizedTle } from './tle_client';
+import { EarthScene, KM_TO_UNITS, LabelState, SatelliteVisualState, TrailState, EARTH_RADIUS_UNITS } from './earth_scene';
+import { getTLE, parseTLEList, searchTLE, NormalizedTle, TleSearchResponse } from './tle_client';
 import { SatRec, eciToLngLatAlt, gmstFromDate, propEciKm, tleAgeDays, tleToSatrec } from './sat_sgp4';
 
 interface SatelliteEntry extends NormalizedTle {
@@ -24,6 +24,10 @@ const MAX_RENDERED = 500;
 const PROPAGATE_PER_FRAME = 400;
 const TRAIL_CAPACITY = 180;
 const TRAIL_INTERVAL_MS = 2000;
+const SEARCH_IDLE_LABEL = 'Search';
+const SEARCH_LOADING_LABEL = 'Searching…';
+const SAMPLE_IDLE_LABEL = 'Load Sample (Top ISS + debris)';
+const SAMPLE_LOADING_LABEL = 'Loading…';
 
 const canvasHolder = document.getElementById('canvas-holder');
 if (!canvasHolder) {
@@ -44,6 +48,8 @@ const ui = {
   searchResults: document.getElementById('search-results') as HTMLDivElement,
   toastContainer: document.getElementById('toast-container') as HTMLDivElement,
   renderStatus: document.getElementById('render-status') as HTMLDivElement,
+  focusButton: document.getElementById('focus-selected-btn') as HTMLButtonElement,
+  clearButton: document.getElementById('clear-selected-btn') as HTMLButtonElement,
 };
 
 const earthScene = new EarthScene(canvasHolder);
@@ -59,6 +65,8 @@ let trailsEnabled = false;
 let lastTrailStamp = 0;
 let nextEquatorCache: { id: number; timeMs: number; longitude: number; computedAt: number } | null = null;
 let lastLabelRefresh = 0;
+let activeSearchAbort: AbortController | null = null;
+let sampleLoading = false;
 
 const satellites = new Map<number, SatelliteEntry>();
 const trailHistories = new Map<number, TrailHistory>();
@@ -88,10 +96,123 @@ function updateTimeReadout(): void {
 function updateRenderStatus(): void {
   if (!ui.renderStatus) return;
   const total = satellites.size;
-  if (total <= MAX_RENDERED) {
-    ui.renderStatus.textContent = '';
+  if (total === 0) {
+    ui.renderStatus.textContent = 'Tip: load the sample set or search by name/ID to populate the scene.';
+    return;
+  }
+  const parts: string[] = [];
+  if (total > MAX_RENDERED) {
+    parts.push(`Showing ${MAX_RENDERED.toLocaleString()} of ${total.toLocaleString()} satellites (use search to refine).`);
+  }
+  if (selectedId) {
+    parts.push('Double-click a satellite or use “Focus Selected” to center the camera.');
   } else {
-    ui.renderStatus.textContent = `Showing ${MAX_RENDERED.toLocaleString()} of ${total.toLocaleString()} satellites (use search to refine).`;
+    parts.push('Tip: double-click any satellite to center the camera.');
+  }
+  ui.renderStatus.textContent = parts.join(' ');
+}
+
+function setSearchLoading(loading: boolean): void {
+  if (ui.searchButton) {
+    ui.searchButton.disabled = loading;
+    ui.searchButton.classList.toggle('loading', loading);
+    ui.searchButton.textContent = loading ? SEARCH_LOADING_LABEL : SEARCH_IDLE_LABEL;
+  }
+  if (ui.searchInput) {
+    ui.searchInput.setAttribute('aria-busy', loading ? 'true' : 'false');
+  }
+}
+
+function setSampleLoading(loading: boolean): void {
+  sampleLoading = loading;
+  if (ui.sampleButton) {
+    ui.sampleButton.disabled = loading;
+    ui.sampleButton.classList.toggle('loading', loading);
+    ui.sampleButton.textContent = loading ? SAMPLE_LOADING_LABEL : SAMPLE_IDLE_LABEL;
+  }
+}
+
+function updateSearchSelection(): void {
+  if (!ui.searchResults) return;
+  const items = ui.searchResults.querySelectorAll<HTMLDivElement>('.result-item');
+  items.forEach((element) => {
+    const id = Number(element.dataset.id);
+    element.classList.toggle('selected', Number.isFinite(id) && id === selectedId);
+  });
+}
+
+function focusOnSelected(announce = true): void {
+  if (!selectedId) {
+    if (announce) {
+      showToast('No satellite selected.', true);
+    }
+    return;
+  }
+  const entry = satellites.get(selectedId);
+  if (!entry || !entry.lastPositionKm) {
+    if (announce) {
+      showToast('Position unavailable. Waiting for propagation…', true);
+    }
+    return;
+  }
+  earthScene.focusOn(
+    [
+      entry.lastPositionKm[0] * KM_TO_UNITS,
+      entry.lastPositionKm[1] * KM_TO_UNITS,
+      entry.lastPositionKm[2] * KM_TO_UNITS,
+    ],
+    { radius: EARTH_RADIUS_UNITS * 4 }
+  );
+  if (announce) {
+    showToast(`Focused on ${entry.name}`);
+  }
+}
+
+function clearSelection(showToastMessage = true): void {
+  if (selectedId === null) {
+    return;
+  }
+  if (trailsEnabled) {
+    trailHistories.clear();
+    earthScene.updateTrails([]);
+  }
+  selectedId = null;
+  nextEquatorCache = null;
+  updateInfoPanel(null, new Date(simTimeMs));
+  updateSearchSelection();
+  updateRenderStatus();
+  if (showToastMessage) {
+    showToast('Selection cleared.');
+  }
+}
+
+function selectSatellite(id: number, options?: { focus?: boolean; toast?: string }): void {
+  const entry = satellites.get(id);
+  if (!entry) {
+    return;
+  }
+  if (trailsEnabled && selectedId !== id) {
+    trailHistories.clear();
+    earthScene.updateTrails([]);
+    lastTrailStamp = 0;
+  }
+  selectedId = id;
+  nextEquatorCache = null;
+  const date = new Date(simTimeMs);
+  const immediate = propEciKm(entry.satrec, date);
+  if (immediate) {
+    entry.lastPositionKm = immediate.position;
+    entry.lastVelocityKm = immediate.velocity;
+    entry.lastUpdateMs = simTimeMs;
+  }
+  updateInfoPanel(entry, date);
+  if (options?.focus) {
+    focusOnSelected(false);
+  }
+  updateSearchSelection();
+  updateRenderStatus();
+  if (options?.toast) {
+    showToast(options.toast);
   }
 }
 
@@ -139,8 +260,8 @@ function removeTrail(id: number): void {
   trailHistories.delete(id);
 }
 
-function addSatellite(tle: NormalizedTle): void {
-  if (satellites.has(tle.id)) return;
+function addSatellite(tle: NormalizedTle): boolean {
+  if (satellites.has(tle.id)) return false;
   const satrec = tleToSatrec(tle.line1, tle.line2);
   const initialState = propEciKm(satrec, new Date(simTimeMs));
   satellites.set(tle.id, {
@@ -151,17 +272,26 @@ function addSatellite(tle: NormalizedTle): void {
     lastUpdateMs: initialState ? simTimeMs : 0,
   });
   updateRenderStatus();
+  return true;
 }
 
 async function loadSample(): Promise<void> {
+  if (sampleLoading) return;
+  setSampleLoading(true);
   try {
     const [searchResult, ...direct] = await Promise.all([
-      searchTLE('ISS'),
-      ...SAMPLE_SAT_IDS.map((id) => getTLE(id).catch((error) => {
+      searchTLE('ISS').catch((error) => {
         // eslint-disable-next-line no-console
-        console.warn('Failed to fetch TLE', id, error);
-        return null;
-      })),
+        console.warn('Sample search failed', error);
+        return { member: [] } satisfies TleSearchResponse;
+      }),
+      ...SAMPLE_SAT_IDS.map((id) =>
+        getTLE(id).catch((error) => {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to fetch TLE', id, error);
+          return null;
+        })
+      ),
     ]);
     const normalized = new Map<number, NormalizedTle>();
     for (const tle of parseTLEList(searchResult)) {
@@ -180,60 +310,146 @@ async function loadSample(): Promise<void> {
     }
     let added = 0;
     normalized.forEach((tle) => {
-      addSatellite(tle);
-      added += 1;
-    });
-    showToast(`Loaded ${added} satellites.`);
-    if (normalized.has(25544)) {
-      selectedId = 25544;
-      const selected = satellites.get(25544) ?? null;
-      if (selected) {
-        updateInfoPanel(selected, new Date(simTimeMs));
+      if (addSatellite(tle)) {
+        added += 1;
       }
+    });
+    if (normalized.size === 0) {
+      showToast('No sample satellites available right now.', true);
+    } else {
+      const messageParts = [`Loaded ${normalized.size.toLocaleString()} satellites.`];
+      messageParts.push(
+        added > 0
+          ? `${added.toLocaleString()} new.`
+          : 'All were already in the scene.'
+      );
+      showToast(messageParts.join(' '));
+    }
+    if (normalized.has(25544)) {
+      selectSatellite(25544, { focus: true, toast: 'Selected International Space Station' });
     }
   } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error(error);
-      showToast('Failed to load sample satellites.', true);
-    }
+    // eslint-disable-next-line no-console
+    console.error(error);
+    showToast('Failed to load sample satellites.', true);
+  } finally {
+    setSampleLoading(false);
   }
+}
 
-function renderSearchResults(items: NormalizedTle[]): void {
-  if (!ui.searchResults) return;
-  ui.searchResults.innerHTML = '';
-  if (items.length === 0) {
-    const empty = document.createElement('div');
-    empty.textContent = 'No results.';
-    empty.style.opacity = '0.7';
-    ui.searchResults.appendChild(empty);
+function handleResultSelection(item: NormalizedTle): void {
+  const wasAdded = addSatellite(item);
+  if (!satellites.has(item.id)) {
+    showToast('Unable to load that satellite. Please try again.', true);
     return;
   }
-  for (const item of items.slice(0, 50)) {
+  const toast = wasAdded ? `Added and selected ${item.name}` : `Selected ${item.name}`;
+  selectSatellite(item.id, { focus: true, toast });
+}
+
+function renderSearchResults(items: NormalizedTle[], query?: string): void {
+  if (!ui.searchResults) return;
+  ui.searchResults.innerHTML = '';
+  const now = new Date();
+  if (items.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'search-status';
+    empty.textContent = query && query.trim().length > 0 ? `No results for “${query}”.` : 'No results.';
+    ui.searchResults.appendChild(empty);
+    updateSearchSelection();
+    return;
+  }
+  const limited = items.length > 50;
+  const subset = items.slice(0, 50);
+  if (query && query.trim().length > 0) {
+    const status = document.createElement('div');
+    status.className = 'search-status';
+    status.textContent = limited
+      ? `Showing first ${subset.length} of ${items.length} results for “${query}”.`
+      : `Showing ${subset.length} result${subset.length === 1 ? '' : 's'} for “${query}”.`;
+    ui.searchResults.appendChild(status);
+  }
+  for (const item of subset) {
     const entry = document.createElement('div');
     entry.className = 'result-item';
-    entry.textContent = `${item.name} · ${item.id}`;
-    entry.addEventListener('click', () => {
-      addSatellite(item);
-      showToast(`Added ${item.name}`);
+    entry.dataset.id = String(item.id);
+    entry.setAttribute('role', 'button');
+    entry.tabIndex = 0;
+    const name = document.createElement('div');
+    name.className = 'result-name';
+    name.textContent = `${item.name} · ${item.id}`;
+    entry.appendChild(name);
+    const ageDays = Math.max(0, tleAgeDays(item.epoch, now));
+    const meta = document.createElement('div');
+    meta.className = 'result-meta';
+    const parts: string[] = [];
+    if (ageDays < 0.1) {
+      parts.push('TLE age: <0.1 day');
+    } else if (ageDays < 2) {
+      parts.push(`TLE age: ${ageDays.toFixed(2)} days`);
+    } else if (ageDays < 10) {
+      parts.push(`TLE age: ${ageDays.toFixed(1)} days`);
+    } else {
+      parts.push(`TLE age: ${ageDays.toFixed(0)} days`);
+    }
+    if (satellites.has(item.id)) {
+      parts.push('Loaded');
+      entry.classList.add('selected');
+    }
+    if (ageDays > 7) {
+      entry.classList.add('stale');
+    }
+    meta.textContent = parts.join(' • ');
+    entry.appendChild(meta);
+    entry.addEventListener('click', () => handleResultSelection(item));
+    entry.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleResultSelection(item);
+      }
     });
     ui.searchResults.appendChild(entry);
   }
+  updateSearchSelection();
 }
 
 async function performSearch(): Promise<void> {
   const query = ui.searchInput?.value ?? '';
-  if (!query.trim()) {
-    renderSearchResults([]);
+  const trimmed = query.trim();
+  if (!trimmed) {
+    if (activeSearchAbort) {
+      activeSearchAbort.abort();
+      activeSearchAbort = null;
+    }
+    renderSearchResults([], '');
+    setSearchLoading(false);
     return;
   }
+  if (activeSearchAbort) {
+    activeSearchAbort.abort();
+  }
+  const controller = new AbortController();
+  activeSearchAbort = controller;
+  setSearchLoading(true);
   try {
-    const response = await searchTLE(query.trim());
+    const response = await searchTLE(trimmed, controller.signal);
+    if (controller.signal.aborted) {
+      return;
+    }
     const list = parseTLEList(response);
-    renderSearchResults(list);
+    renderSearchResults(list, trimmed);
   } catch (error) {
+    if ((error as DOMException)?.name === 'AbortError') {
+      return;
+    }
     // eslint-disable-next-line no-console
     console.error(error);
     showToast('Search failed. Please try again.', true);
+  } finally {
+    if (activeSearchAbort === controller) {
+      activeSearchAbort = null;
+      setSearchLoading(false);
+    }
   }
 }
 
@@ -350,13 +566,10 @@ function handlePointer(event: PointerEvent): void {
   const ndcY = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
   const picked = earthScene.pickSatellite(ndcX, ndcY);
   if (picked) {
-    if (trailsEnabled && selectedId !== picked.id) {
-      trailHistories.clear();
-      lastTrailStamp = 0;
-    }
-    selectedId = picked.id;
-    updateInfoPanel(satellites.get(selectedId) ?? null, new Date(simTimeMs));
-    showToast(`Selected ${satellites.get(selectedId)?.name ?? picked.id}`);
+    const name = satellites.get(picked.id)?.name ?? `NORAD ${picked.id}`;
+    const focus = event.detail >= 2;
+    const toast = focus ? `Focused on ${name}` : `Selected ${name}`;
+    selectSatellite(picked.id, { focus, toast });
   }
 }
 
@@ -523,7 +736,25 @@ ui.trailToggle?.addEventListener('change', () => {
   }
 });
 
+ui.focusButton?.addEventListener('click', () => {
+  focusOnSelected(true);
+});
+
+ui.clearButton?.addEventListener('click', () => {
+  clearSelection(true);
+});
+
 (earthScene.renderer.domElement as HTMLCanvasElement).addEventListener('pointerdown', handlePointer);
+
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    const target = event.target as HTMLElement | null;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      return;
+    }
+    clearSelection(false);
+  }
+});
 
 updatePlayButton();
 updateTimeReadout();

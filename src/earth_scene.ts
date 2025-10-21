@@ -97,6 +97,8 @@ export class EarthScene {
   private readonly earthGroup: THREE.Group;
   private readonly trailMap = new Map<number, TrailRecord>();
   private readonly labelGroup: THREE.Group;
+  private readonly focusTarget = new THREE.Vector3();
+  private readonly focusOffset = new THREE.Vector3();
 
   constructor(private readonly container: HTMLElement) {
     this.scene = new THREE.Scene();
@@ -327,6 +329,27 @@ export class EarthScene {
     sprite.scale.setScalar(EARTH_RADIUS_UNITS * 0.35);
     sprite.renderOrder = 2;
     return sprite;
+  }
+
+  focusOn(position: [number, number, number], options?: { radius?: number }): void {
+    const [x, y, z] = position;
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+      return;
+    }
+    const target = this.focusTarget.set(x, y, z);
+    const offset = this.focusOffset.copy(this.camera.position).sub(this.controls.target);
+    const minDistance = Math.max(options?.radius ?? EARTH_RADIUS_UNITS * 4, EARTH_RADIUS_UNITS * 1.3);
+    const hasDirection = Number.isFinite(offset.lengthSq()) && offset.lengthSq() > 1e-6;
+    if (!hasDirection) {
+      offset.set(minDistance * 0.2, minDistance * 0.4, minDistance);
+    }
+    const currentLength = offset.length();
+    if (!Number.isFinite(currentLength) || currentLength < minDistance) {
+      offset.setLength(minDistance);
+    }
+    this.controls.target.copy(target);
+    this.camera.position.copy(target).add(offset);
+    this.controls.update();
   }
 
   updateTrails(trails: TrailState[]): void {

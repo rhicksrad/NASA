@@ -37,8 +37,8 @@ function buildUrl(path: string, query?: Record<string, string>): string {
   return url.toString();
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { credentials: 'omit' });
+async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(url, { credentials: 'omit', signal });
   const text = await response.text();
   if (!response.ok) {
     throw new Error(`TLE ${response.status}`);
@@ -50,18 +50,18 @@ async function fetchJson<T>(url: string): Promise<T> {
   }
 }
 
-export async function searchTLE(q: string): Promise<TleSearchResponse> {
+export async function searchTLE(q: string, signal?: AbortSignal): Promise<TleSearchResponse> {
   const trimmed = q.trim();
   if (!trimmed) {
     return { member: [] };
   }
   const url = buildUrl(SEARCH_ENDPOINT, { q: trimmed });
-  return fetchJson<TleSearchResponse>(url);
+  return fetchJson<TleSearchResponse>(url, signal);
 }
 
-export async function getTLE(id: number): Promise<TleApiMember> {
+export async function getTLE(id: number, signal?: AbortSignal): Promise<TleApiMember> {
   const url = buildUrl(`${SINGLE_ENDPOINT}/${encodeURIComponent(id)}`);
-  return fetchJson<TleApiMember>(url);
+  return fetchJson<TleApiMember>(url, signal);
 }
 
 export function parseTLEList(json: { member?: TleApiMember[] } | null | undefined): NormalizedTle[] {
