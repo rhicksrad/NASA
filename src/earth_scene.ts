@@ -6,6 +6,8 @@ import { EARTH_RADIUS_KM } from './sat_sgp4';
 export const KM_TO_UNITS = 0.001;
 export const EARTH_RADIUS_UNITS = EARTH_RADIUS_KM * KM_TO_UNITS;
 const MAX_SATELLITES = 5000;
+const ISS_ID = 25544;
+const ISS_BASE_SCALE = 2.4;
 
 export interface SatelliteVisualState {
   id: number;
@@ -95,21 +97,162 @@ const EARTH_FRAGMENT = /* glsl */ `
   }
 `;
 
+interface IssModel {
+  group: THREE.Group;
+  meshes: Array<THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>>;
+}
+
 function createSatelliteGeometry(): THREE.BufferGeometry {
-  const body = new THREE.BoxGeometry(0.05, 0.05, 0.08);
-  const rightPanel = new THREE.BoxGeometry(0.16, 0.01, 0.34);
-  rightPanel.translate(0.14, 0, 0);
+  const body = new THREE.BoxGeometry(0.06, 0.06, 0.12);
+  const nose = new THREE.ConeGeometry(0.028, 0.06, 14);
+  nose.rotateX(Math.PI / 2);
+  nose.translate(0, 0, 0.09);
+  const engine = new THREE.CylinderGeometry(0.012, 0.02, 0.06, 12);
+  engine.rotateX(Math.PI / 2);
+  engine.translate(0, 0, -0.08);
+  const busStrut = new THREE.CylinderGeometry(0.01, 0.01, 0.24, 10);
+  busStrut.rotateZ(Math.PI / 2);
+  const rightPanel = new THREE.BoxGeometry(0.22, 0.012, 0.36);
+  rightPanel.translate(0.19, 0, 0);
   const leftPanel = rightPanel.clone();
-  leftPanel.translate(-0.28, 0, 0);
-  const antenna = new THREE.CylinderGeometry(0.008, 0.004, 0.2, 8, 1, true);
-  antenna.rotateZ(Math.PI / 2);
-  antenna.translate(0, 0.07, 0);
-  const merged = mergeGeometries([body, rightPanel, leftPanel, antenna], false);
+  leftPanel.translate(-0.38, 0, 0);
+  const dish = new THREE.CylinderGeometry(0.0, 0.04, 0.08, 16, 1, true);
+  dish.rotateX(Math.PI / 2);
+  dish.translate(0, 0.05, 0.04);
+  const boom = new THREE.CylinderGeometry(0.007, 0.007, 0.26, 8);
+  boom.rotateX(Math.PI / 2);
+  boom.translate(0, 0.04, -0.02);
+  const radiator = new THREE.BoxGeometry(0.12, 0.02, 0.08);
+  radiator.translate(0, 0.03, -0.06);
+  const antenna = new THREE.CylinderGeometry(0.004, 0.004, 0.26, 10);
+  antenna.rotateX(Math.PI / 2);
+  antenna.translate(0.04, 0.05, 0.1);
+  const antennaMirror = antenna.clone();
+  antennaMirror.translate(-0.08, 0, 0);
+  const merged = mergeGeometries(
+    [
+      body,
+      nose,
+      engine,
+      busStrut,
+      rightPanel,
+      leftPanel,
+      dish,
+      boom,
+      radiator,
+      antenna,
+      antennaMirror,
+    ],
+    false,
+  );
   if (!merged) {
     throw new Error('Failed to build satellite geometry');
   }
   merged.computeVertexNormals();
   return merged;
+}
+
+function createIssModel(): IssModel {
+  const group = new THREE.Group();
+  group.visible = false;
+  group.userData.id = ISS_ID;
+
+  const meshes: Array<THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>> = [];
+
+  const trussMaterial = new THREE.MeshStandardMaterial({
+    color: 0xcfd8f9,
+    metalness: 0.45,
+    roughness: 0.4,
+  });
+  const moduleMaterial = new THREE.MeshStandardMaterial({
+    color: 0xdfe8ff,
+    metalness: 0.25,
+    roughness: 0.45,
+  });
+  const radiatorMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf6f8ff,
+    metalness: 0.2,
+    roughness: 0.55,
+    emissive: new THREE.Color(0xdde9ff),
+    emissiveIntensity: 0.2,
+  });
+  const panelMaterial = new THREE.MeshStandardMaterial({
+    color: 0x0f2f6b,
+    emissive: new THREE.Color(0x092049),
+    emissiveIntensity: 0.45,
+    metalness: 0.15,
+    roughness: 0.8,
+  });
+  const accentMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffd9a3,
+    metalness: 0.35,
+    roughness: 0.5,
+  });
+
+  const addMesh = (geometry: THREE.BufferGeometry, material: THREE.MeshStandardMaterial) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    group.add(mesh);
+    meshes.push(mesh);
+    return mesh;
+  };
+
+  const mainTruss = new THREE.BoxGeometry(0.12, 0.05, 0.8);
+  addMesh(mainTruss, trussMaterial);
+
+  const trussExtensions = new THREE.BoxGeometry(0.06, 0.04, 1.1);
+  const trussRight = addMesh(trussExtensions.clone(), trussMaterial);
+  trussRight.position.x = 0.13;
+  const trussLeft = addMesh(trussExtensions.clone(), trussMaterial);
+  trussLeft.position.x = -0.13;
+
+  const serviceModule = new THREE.CylinderGeometry(0.055, 0.055, 0.28, 24);
+  serviceModule.rotateZ(Math.PI / 2);
+  addMesh(serviceModule, moduleMaterial);
+
+  const node1 = new THREE.CylinderGeometry(0.045, 0.045, 0.18, 24);
+  node1.rotateZ(Math.PI / 2);
+  const nodeMesh = addMesh(node1, moduleMaterial);
+  nodeMesh.position.z = -0.15;
+
+  const labModule = new THREE.CylinderGeometry(0.05, 0.05, 0.26, 26);
+  labModule.rotateZ(Math.PI / 2);
+  const labMesh = addMesh(labModule, moduleMaterial);
+  labMesh.position.z = 0.18;
+
+  const cupola = new THREE.CylinderGeometry(0.025, 0.04, 0.07, 12);
+  const cupolaMesh = addMesh(cupola, accentMaterial);
+  cupolaMesh.position.y = -0.05;
+  cupolaMesh.position.z = -0.16;
+
+  const radiator = new THREE.BoxGeometry(0.02, 0.42, 0.26);
+  const radiatorRight = addMesh(radiator.clone(), radiatorMaterial);
+  radiatorRight.position.set(0.32, 0, 0.32);
+  radiatorRight.rotation.z = THREE.MathUtils.degToRad(8);
+  const radiatorLeft = addMesh(radiator.clone(), radiatorMaterial);
+  radiatorLeft.position.set(-0.32, 0, 0.32);
+  radiatorLeft.rotation.z = THREE.MathUtils.degToRad(-8);
+
+  const panel = new THREE.BoxGeometry(0.02, 0.6, 0.9);
+  const panelRight = addMesh(panel.clone(), panelMaterial);
+  panelRight.position.set(0.5, 0, 0);
+  const panelLeft = addMesh(panel.clone(), panelMaterial);
+  panelLeft.position.set(-0.5, 0, 0);
+
+  const boomGeometry = new THREE.CylinderGeometry(0.015, 0.015, 0.38, 12);
+  boomGeometry.rotateZ(Math.PI / 2);
+  const boom = addMesh(boomGeometry, trussMaterial);
+  boom.position.set(0, 0.05, 0.25);
+
+  const adapter = new THREE.CylinderGeometry(0.025, 0.04, 0.1, 16);
+  adapter.rotateZ(Math.PI / 2);
+  const adapterMesh = addMesh(adapter, accentMaterial);
+  adapterMesh.position.z = 0.35;
+
+  const sensor = new THREE.SphereGeometry(0.03, 18, 18);
+  const sensorMesh = addMesh(sensor, accentMaterial);
+  sensorMesh.position.set(0, 0.07, -0.3);
+
+  return { group, meshes };
 }
 
 export class EarthScene {
@@ -126,6 +269,7 @@ export class EarthScene {
   private readonly color: THREE.Color;
   private readonly dayNightUniforms: { sunDirection: { value: THREE.Vector3 } };
   private readonly earthGroup: THREE.Group;
+  private readonly issModel: IssModel;
   private readonly trailMap = new Map<number, TrailRecord>();
   private readonly orbitMap = new Map<number, OrbitRecord>();
   private readonly labelGroup: THREE.Group;
@@ -232,6 +376,9 @@ export class EarthScene {
     this.instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SATELLITES * 3), 3);
     this.scene.add(this.instancedMesh);
 
+    this.issModel = createIssModel();
+    this.scene.add(this.issModel.group);
+
     this.instanceIds = new Int32Array(MAX_SATELLITES);
     this.instanceIds.fill(-1);
 
@@ -248,6 +395,10 @@ export class EarthScene {
     this.renderer.dispose();
     this.instancedMesh.geometry.dispose();
     this.instancedMesh.material.dispose();
+    for (const mesh of this.issModel.meshes) {
+      mesh.geometry.dispose();
+      mesh.material.dispose();
+    }
     this.trailMap.forEach((record) => {
       record.geometry.dispose();
       record.line.material.dispose();
@@ -270,7 +421,12 @@ export class EarthScene {
     const mesh = this.instancedMesh;
     const colorAttr = mesh.instanceColor;
     let index = 0;
+    let issState: SatelliteVisualState | null = null;
     for (const state of states) {
+      if (state.id === ISS_ID) {
+        issState = state;
+        continue;
+      }
       if (index >= MAX_SATELLITES) break;
       if (state.visible === false) continue;
       const [x, y, z] = state.position;
@@ -297,6 +453,30 @@ export class EarthScene {
     colorAttr.needsUpdate = true;
     for (let i = index; i < MAX_SATELLITES; i += 1) {
       this.instanceIds[i] = -1;
+    }
+
+    if (issState && issState.visible !== false) {
+      const [x, y, z] = issState.position;
+      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z)) {
+        this.issModel.group.visible = true;
+        this.issModel.group.position.set(x, y, z);
+        const scale = (issState.scale ?? 1) * ISS_BASE_SCALE;
+        this.issModel.group.scale.setScalar(scale);
+        if (issState.quaternion) {
+          this.issModel.group.quaternion.set(...issState.quaternion);
+        } else {
+          this.issModel.group.quaternion.identity();
+        }
+        const emissiveIntensity = issState.scale && issState.scale > 1 ? 0.75 : 0.28;
+        const highlight = new THREE.Color(issState.color).multiplyScalar(emissiveIntensity);
+        for (const meshEntry of this.issModel.meshes) {
+          meshEntry.material.emissive.copy(highlight);
+        }
+      } else {
+        this.issModel.group.visible = false;
+      }
+    } else {
+      this.issModel.group.visible = false;
     }
   }
 
@@ -506,14 +686,32 @@ export class EarthScene {
 
   pickSatellite(ndcX: number, ndcY: number): { id: number; distance: number } | null {
     this.raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.camera);
-    const intersections = this.raycaster.intersectObject(this.instancedMesh, true);
-    if (intersections.length === 0) return null;
-    const intersection = intersections[0];
-    const instanceId = intersection.instanceId ?? -1;
-    if (instanceId < 0) return null;
-    const satelliteId = this.instanceIds[instanceId];
-    if (satelliteId < 0) return null;
-    return { id: satelliteId, distance: intersection.distance };
+    const hits: { id: number; distance: number }[] = [];
+
+    if (this.issModel.group.visible) {
+      const issIntersections = this.raycaster.intersectObject(this.issModel.group, true);
+      if (issIntersections.length > 0) {
+        hits.push({ id: ISS_ID, distance: issIntersections[0].distance });
+      }
+    }
+
+    const instancedHits = this.raycaster.intersectObject(this.instancedMesh, true);
+    if (instancedHits.length > 0) {
+      const intersection = instancedHits[0];
+      const instanceId = intersection.instanceId ?? -1;
+      if (instanceId >= 0) {
+        const satelliteId = this.instanceIds[instanceId];
+        if (satelliteId >= 0) {
+          hits.push({ id: satelliteId, distance: intersection.distance });
+        }
+      }
+    }
+
+    if (hits.length === 0) {
+      return null;
+    }
+    hits.sort((a, b) => a.distance - b.distance);
+    return hits[0];
   }
 
   render(): void {
