@@ -624,6 +624,7 @@ section#neo-3d {
 }
 
 .neo3d-neo-item {
+  position: relative;
   border: 1px solid var(--c-line-1);
   border-radius: var(--radius-1);
   background: linear-gradient(180deg, hsl(230 32% 14%), hsl(230 28% 12%));
@@ -634,6 +635,33 @@ section#neo-3d {
 
 .neo3d-neo-item:hover {
   box-shadow: var(--sh-1);
+}
+
+.neo3d-neo-remove {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-0);
+  background: hsl(230 35% 20% / 0.8);
+  color: var(--c-text-2);
+  font-size: var(--fs-2);
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.neo3d-neo-remove:hover,
+.neo3d-neo-remove:focus-visible {
+  background: hsl(230 42% 28%);
+  border-color: hsl(185 72% 45% / 0.5);
+  color: var(--c-text-1);
+}
+
+.neo3d-neo-remove:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
 }
 
 .neo3d-neo-entry {

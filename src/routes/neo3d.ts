@@ -1278,6 +1278,21 @@ export async function initNeo3D(
 
     item.appendChild(label);
 
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'neo3d-neo-remove';
+    removeButton.setAttribute('aria-label', `Remove ${name} from the scene`);
+    removeButton.title = 'Remove';
+    removeButton.textContent = '×';
+    removeButton.addEventListener('click', (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      removeEntry(id);
+      updateSmallBodies();
+      refreshNeoUi();
+    });
+    item.appendChild(removeButton);
+
     const entry: NeoEntry = {
       spec,
       enabled: defaultEnabled,
