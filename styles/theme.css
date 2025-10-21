@@ -28,6 +28,7 @@ a:hover { text-decoration: underline; }
 .theme-epic { --c-accent: var(--c-accent-epic); }
 .theme-cme  { --c-accent: var(--c-accent-cme); }
 .theme-exo  { --c-accent: var(--c-accent-exo); }
+.theme-sat3d { --c-accent: var(--c-accent-neo); }
 /* === END PHASE2: THEME SWITCH === */
 
 /* Subtle telemetry grid overlay for large sections */

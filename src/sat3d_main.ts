@@ -29,6 +29,8 @@ const DEFAULT_COLOR = 0xffffff;
 const ISS_COLOR = 0xffd166;
 const SELECTED_COLOR = 0x22e7ff;
 const HOVER_COLOR = 0x7ad4ff;
+const SATELLITE_BASE_SCALE = 0.78;
+const SATELLITE_SELECTED_SCALE = 1.18;
 const MAX_RENDERED = 500;
 const PROPAGATE_PER_FRAME = 400;
 const TRAIL_CAPACITY = 180;
@@ -756,7 +758,7 @@ function updateScene(deltaMs: number): void {
           sat.lastPositionKm[2] * KM_TO_UNITS,
         ] as [number, number, number],
         color: computeColor(sat.id),
-        scale: sat.id === selectedId ? 1.6 : 1,
+        scale: sat.id === selectedId ? SATELLITE_SELECTED_SCALE : SATELLITE_BASE_SCALE,
         quaternion: quaternion ?? undefined,
       } satisfies SatelliteVisualState,
     ];
