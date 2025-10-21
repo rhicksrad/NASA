@@ -179,7 +179,7 @@ function focusOnSelected(announce = true): void {
       entry.lastPositionKm[1] * KM_TO_UNITS,
       entry.lastPositionKm[2] * KM_TO_UNITS,
     ],
-    { radius: EARTH_RADIUS_UNITS * 4 }
+    { radius: EARTH_RADIUS_UNITS * 3 }
   );
   if (announce) {
     showToast(`Focused on ${entry.name}`);
