@@ -14,6 +14,7 @@ import {
 } from '../../utils/sbdb';
 import { DetailsPanel } from './DetailsPanel';
 import { ResultRow } from './ResultRow';
+import { loadSbdbCollections, type SbdbCollection } from '../../data/sbdbCollections';
 import {
   type SbdbIndexEntry,
   type SbdbIndexPayload,
@@ -117,6 +118,8 @@ export function SBDBSearch(): JSX.Element {
   const [viewportHeight, setViewportHeight] = useState(320);
   const [indexPayload, setIndexPayload] = useState<SbdbIndexPayload | null>(null);
   const [indexError, setIndexError] = useState<string | null>(null);
+  const [collections, setCollections] = useState<SbdbCollection[] | null>(null);
+  const [collectionsError, setCollectionsError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -199,6 +202,24 @@ export function SBDBSearch(): JSX.Element {
         if (cancelled) return;
         const message = error instanceof Error ? error.message : String(error);
         setIndexError(message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSbdbCollections()
+      .then((payload) => {
+        if (cancelled) return;
+        setCollections(payload);
+        setCollectionsError(null);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setCollectionsError(message);
       });
     return () => {
       cancelled = true;
@@ -476,6 +497,49 @@ export function SBDBSearch(): JSX.Element {
           </a>
         </div>
       </div>
+      {!trimmedQuery ? (
+        <section className="sbdb-search__collections" aria-label="Curated SBDB collections">
+          <header className="sbdb-search__collections-header">
+            <h4>Curated collections</h4>
+            <span className="meta">25-object sets ready to load into the scene.</span>
+          </header>
+          {collectionsError ? (
+            <p className="sbdb-search__collections-error" role="alert">
+              {collectionsError}
+            </p>
+          ) : null}
+          {!collectionsError && collections === null ? (
+            <p className="sbdb-search__collections-loading">Loading curated lists…</p>
+          ) : null}
+          {collections?.map((collection) => (
+            <article key={collection.id} className="sbdb-search__collection">
+              <header className="sbdb-search__collection-header">
+                <h5>{collection.title}</h5>
+                <span>{collection.items.length} objects</span>
+              </header>
+              <ul className="sbdb-search__collection-items" role="list">
+                {collection.items.map((item) => (
+                  <li key={item}>
+                    <button
+                      type="button"
+                      className="sbdb-search__collection-button"
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail: item }));
+                      }}
+                    >
+                      <span>{item}</span>
+                      <span
+                        className="sbdb-search__collection-icon"
+                        dangerouslySetInnerHTML={{ __html: icon('plus') }}
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </section>
+      ) : null}
       {searchError ? (
         <div className="sbdb-search__error" role="alert">
           <span>
