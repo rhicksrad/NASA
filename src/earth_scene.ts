@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { EARTH_RADIUS_KM } from './sat_sgp4';
 
 export const KM_TO_UNITS = 0.001;
@@ -12,6 +13,7 @@ export interface SatelliteVisualState {
   color: number;
   scale?: number;
   visible?: boolean;
+  quaternion?: [number, number, number, number];
 }
 
 export interface LabelState {
@@ -32,6 +34,17 @@ interface TrailRecord {
   colorArray: Float32Array;
 }
 
+export interface OrbitState {
+  id: number;
+  positions: Float32Array;
+  color: number;
+}
+
+interface OrbitRecord {
+  geometry: THREE.BufferGeometry;
+  line: THREE.Line;
+}
+
 const DAY_TEXTURE = 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg';
 const NIGHT_TEXTURE = 'https://threejs.org/examples/textures/planets/earth_lights_2048.png';
 
@@ -46,8 +59,8 @@ const ATMOSPHERE_VERTEX = /* glsl */ `
 const ATMOSPHERE_FRAGMENT = /* glsl */ `
   varying vec3 vNormal;
   void main() {
-    float intensity = pow(0.65 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 6.0);
-    gl_FragColor = vec4(0.2, 0.45, 1.0, 1.0) * intensity;
+    float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 5.0);
+    gl_FragColor = vec4(0.35, 0.65, 1.0, 1.0) * intensity;
   }
 `;
 
@@ -74,12 +87,30 @@ const EARTH_FRAGMENT = /* glsl */ `
   void main() {
     vec3 day = texture2D(dayTex, vUv).rgb;
     vec3 night = texture2D(nightTex, vUv).rgb;
-    float diffuse = max(dot(normalize(vWorldNormal), normalize(sunDirection)), -0.35);
-    float mixAmount = smoothstep(-0.2, 0.2, diffuse);
-    vec3 color = mix(night * 0.7, day, mixAmount);
+    float diffuse = dot(normalize(vWorldNormal), normalize(sunDirection));
+    float mixAmount = smoothstep(-0.15, 0.3, diffuse);
+    vec3 ambient = vec3(0.08, 0.11, 0.18);
+    vec3 color = mix(night * 0.55 + ambient, day * 1.2 + ambient * 0.4, mixAmount);
     gl_FragColor = vec4(color, 1.0);
   }
 `;
+
+function createSatelliteGeometry(): THREE.BufferGeometry {
+  const body = new THREE.BoxGeometry(0.05, 0.05, 0.08);
+  const rightPanel = new THREE.BoxGeometry(0.16, 0.01, 0.34);
+  rightPanel.translate(0.14, 0, 0);
+  const leftPanel = rightPanel.clone();
+  leftPanel.translate(-0.28, 0, 0);
+  const antenna = new THREE.CylinderGeometry(0.008, 0.004, 0.2, 8, 1, true);
+  antenna.rotateZ(Math.PI / 2);
+  antenna.translate(0, 0.07, 0);
+  const merged = mergeGeometries([body, rightPanel, leftPanel, antenna], false);
+  if (!merged) {
+    throw new Error('Failed to build satellite geometry');
+  }
+  merged.computeVertexNormals();
+  return merged;
+}
 
 export class EarthScene {
   readonly scene: THREE.Scene;
@@ -96,13 +127,15 @@ export class EarthScene {
   private readonly dayNightUniforms: { sunDirection: { value: THREE.Vector3 } };
   private readonly earthGroup: THREE.Group;
   private readonly trailMap = new Map<number, TrailRecord>();
+  private readonly orbitMap = new Map<number, OrbitRecord>();
   private readonly labelGroup: THREE.Group;
   private readonly focusTarget = new THREE.Vector3();
   private readonly focusOffset = new THREE.Vector3();
 
   constructor(private readonly container: HTMLElement) {
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x01040c, 0.04);
+    this.scene.background = new THREE.Color(0x020b1e);
+    this.scene.fog = new THREE.FogExp2(0x020c1e, 0.018);
 
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 200);
     this.camera.position.set(0, EARTH_RADIUS_UNITS * 4, EARTH_RADIUS_UNITS * 8);
@@ -111,6 +144,8 @@ export class EarthScene {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.35;
+    this.renderer.physicallyCorrectLights = true;
     this.renderer.shadowMap.enabled = false;
     this.renderer.autoClear = true;
     this.renderer.domElement.style.width = '100%';
@@ -169,21 +204,29 @@ export class EarthScene {
     this.labelGroup = new THREE.Group();
     this.scene.add(this.labelGroup);
 
-    const hemisphere = new THREE.HemisphereLight(0x3454a7, 0x000310, 0.25);
+    const hemisphere = new THREE.HemisphereLight(0x5078ff, 0x01040c, 0.55);
     this.scene.add(hemisphere);
 
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    const ambient = new THREE.AmbientLight(0x1a2f55, 0.35);
+    this.scene.add(ambient);
+
+    const sunLight = new THREE.DirectionalLight(0xfff3d6, 1.45);
     sunLight.castShadow = false;
     sunLight.position.copy(this.dayNightUniforms.sunDirection.value.clone().multiplyScalar(50));
     this.scene.add(sunLight);
 
     const starGeometry = new THREE.SphereGeometry(this.controls.maxDistance, 16, 16);
-    const starMaterial = new THREE.MeshBasicMaterial({ color: 0x010409, side: THREE.BackSide });
+    const starMaterial = new THREE.MeshBasicMaterial({ color: 0x041024, side: THREE.BackSide });
     const starField = new THREE.Mesh(starGeometry, starMaterial);
     this.scene.add(starField);
 
-    const satGeometry = new THREE.SphereGeometry(0.03, 12, 12);
-    const satMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true });
+    const satGeometry = createSatelliteGeometry();
+    const satMaterial = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      metalness: 0.55,
+      roughness: 0.35,
+      vertexColors: true,
+    });
     this.instancedMesh = new THREE.InstancedMesh(satGeometry, satMaterial, MAX_SATELLITES);
     this.instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.instancedMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_SATELLITES * 3), 3);
@@ -209,6 +252,10 @@ export class EarthScene {
       record.geometry.dispose();
       record.line.material.dispose();
     });
+    this.orbitMap.forEach((record) => {
+      record.geometry.dispose();
+      record.line.material.dispose();
+    });
   }
 
   private handleResize = () => {
@@ -231,6 +278,11 @@ export class EarthScene {
       const scale = state.scale ?? 1;
       this.dummyObject.position.set(x, y, z);
       this.dummyObject.scale.setScalar(scale);
+      if (state.quaternion) {
+        this.dummyObject.quaternion.set(...state.quaternion);
+      } else {
+        this.dummyObject.quaternion.identity();
+      }
       this.dummyObject.updateMatrix();
       mesh.setMatrixAt(index, this.dummyObject.matrix);
       this.color.set(state.color);
@@ -405,6 +457,49 @@ export class EarthScene {
         record.geometry.dispose();
         (record.line.material as THREE.Material).dispose();
         this.trailMap.delete(id);
+      }
+    }
+  }
+
+  updateOrbits(orbits: OrbitState[]): void {
+    const activeIds = new Set<number>();
+    for (const orbit of orbits) {
+      activeIds.add(orbit.id);
+      let record = this.orbitMap.get(orbit.id);
+      const neededLength = orbit.positions.length;
+      if (neededLength < 6) continue;
+      if (!record) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(neededLength), 3));
+        geometry.setDrawRange(0, neededLength / 3);
+        const material = new THREE.LineBasicMaterial({
+          color: orbit.color,
+          transparent: true,
+          opacity: 0.42,
+        });
+        const line = new THREE.Line(geometry, material);
+        line.renderOrder = 0;
+        this.scene.add(line);
+        record = { geometry, line };
+        this.orbitMap.set(orbit.id, record);
+      } else {
+        const positionAttribute = record.geometry.getAttribute('position') as THREE.BufferAttribute | null;
+        if (!positionAttribute || positionAttribute.array.length < neededLength) {
+          record.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(neededLength), 3));
+        }
+        (record.line.material as THREE.LineBasicMaterial).color.setHex(orbit.color);
+      }
+      const positionAttribute = record.geometry.getAttribute('position') as THREE.BufferAttribute;
+      positionAttribute.array.set(orbit.positions);
+      positionAttribute.needsUpdate = true;
+      record.geometry.setDrawRange(0, orbit.positions.length / 3);
+    }
+    for (const [id, record] of this.orbitMap) {
+      if (!activeIds.has(id)) {
+        record.line.parent?.remove(record.line);
+        record.geometry.dispose();
+        (record.line.material as THREE.Material).dispose();
+        this.orbitMap.delete(id);
       }
     }
   }

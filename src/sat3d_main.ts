@@ -1,4 +1,13 @@
-import { EarthScene, KM_TO_UNITS, LabelState, SatelliteVisualState, TrailState, EARTH_RADIUS_UNITS } from './earth_scene';
+import * as THREE from 'three';
+import {
+  EarthScene,
+  KM_TO_UNITS,
+  LabelState,
+  SatelliteVisualState,
+  TrailState,
+  EARTH_RADIUS_UNITS,
+  OrbitState,
+} from './earth_scene';
 import { getTLE, parseTLEList, searchTLE, NormalizedTle, TleSearchResponse } from './tle_client';
 import { SatRec, eciToLngLatAlt, gmstFromDate, propEciKm, tleAgeDays, tleToSatrec } from './sat_sgp4';
 
@@ -24,6 +33,9 @@ const MAX_RENDERED = 500;
 const PROPAGATE_PER_FRAME = 400;
 const TRAIL_CAPACITY = 180;
 const TRAIL_INTERVAL_MS = 2000;
+const ORBIT_SAMPLE_COUNT = 192;
+const ORBIT_SPAN_MINUTES = 96;
+const ORBIT_CACHE_WINDOW_MS = 60_000;
 const SEARCH_IDLE_LABEL = 'Search';
 const SEARCH_LOADING_LABEL = 'Searching…';
 const SAMPLE_IDLE_LABEL = 'Load Sample (Top ISS + debris)';
@@ -70,6 +82,13 @@ let sampleLoading = false;
 
 const satellites = new Map<number, SatelliteEntry>();
 const trailHistories = new Map<number, TrailHistory>();
+const orbitCache = new Map<number, { positions: Float32Array; timestamp: number }>();
+
+const tempForward = new THREE.Vector3();
+const tempUp = new THREE.Vector3();
+const tempRight = new THREE.Vector3();
+const tempMatrix = new THREE.Matrix4();
+const tempQuaternion = new THREE.Quaternion();
 
 function showToast(message: string, isError = false, timeout = 4500): void {
   if (!ui.toastContainer) return;
@@ -220,6 +239,78 @@ function computeColor(id: number): number {
   if (id === 25544) return ISS_COLOR;
   if (id === selectedId) return SELECTED_COLOR;
   return DEFAULT_COLOR;
+}
+
+function computeOrientation(entry: SatelliteEntry): [number, number, number, number] | null {
+  if (!entry.lastVelocityKm || !entry.lastPositionKm) return null;
+  tempForward.set(entry.lastVelocityKm[0], entry.lastVelocityKm[1], entry.lastVelocityKm[2]);
+  if (!Number.isFinite(tempForward.lengthSq()) || tempForward.lengthSq() < 1e-8) {
+    return null;
+  }
+  tempForward.normalize();
+
+  tempUp.set(entry.lastPositionKm[0], entry.lastPositionKm[1], entry.lastPositionKm[2]);
+  if (!Number.isFinite(tempUp.lengthSq()) || tempUp.lengthSq() < 1e-8) {
+    tempUp.set(0, 1, 0);
+  } else {
+    tempUp.normalize();
+  }
+
+  if (Math.abs(tempForward.dot(tempUp)) > 0.95) {
+    tempUp.set(0, 1, 0);
+  }
+
+  tempRight.copy(tempForward).cross(tempUp);
+  if (!Number.isFinite(tempRight.lengthSq()) || tempRight.lengthSq() < 1e-8) {
+    return null;
+  }
+  tempRight.normalize();
+  tempUp.copy(tempRight).cross(tempForward).normalize();
+
+  tempMatrix.makeBasis(tempRight, tempUp, tempForward);
+  tempQuaternion.setFromRotationMatrix(tempMatrix);
+  return [tempQuaternion.x, tempQuaternion.y, tempQuaternion.z, tempQuaternion.w];
+}
+
+function computeOrbitPositions(entry: SatelliteEntry, date: Date): Float32Array | null {
+  const spanMs = ORBIT_SPAN_MINUTES * 60_000;
+  if (spanMs <= 0) return null;
+  const startMs = date.getTime() - spanMs / 2;
+  const step = spanMs / Math.max(1, ORBIT_SAMPLE_COUNT - 1);
+  const positions = new Float32Array(ORBIT_SAMPLE_COUNT * 3);
+  let count = 0;
+  for (let i = 0; i < ORBIT_SAMPLE_COUNT; i += 1) {
+    const time = startMs + step * i;
+    const propagation = propEciKm(entry.satrec, new Date(time));
+    if (!propagation) {
+      continue;
+    }
+    positions[count * 3] = propagation.position[0] * KM_TO_UNITS;
+    positions[count * 3 + 1] = propagation.position[1] * KM_TO_UNITS;
+    positions[count * 3 + 2] = propagation.position[2] * KM_TO_UNITS;
+    count += 1;
+  }
+  if (count < 2) {
+    return null;
+  }
+  if (count < ORBIT_SAMPLE_COUNT) {
+    return positions.slice(0, count * 3);
+  }
+  return positions;
+}
+
+function getOrbitPositions(entry: SatelliteEntry, date: Date): Float32Array | null {
+  const cached = orbitCache.get(entry.id);
+  if (cached && Math.abs(cached.timestamp - simTimeMs) < ORBIT_CACHE_WINDOW_MS) {
+    return cached.positions;
+  }
+  const computed = computeOrbitPositions(entry, date);
+  if (computed) {
+    orbitCache.set(entry.id, { positions: computed, timestamp: simTimeMs });
+    return computed;
+  }
+  orbitCache.delete(entry.id);
+  return null;
 }
 
 function ensureTrailHistory(id: number): TrailHistory {
@@ -587,6 +678,8 @@ function updateScene(deltaMs: number): void {
     earthScene.updateSatellites([]);
     earthScene.updateLabels([]);
     earthScene.updateTrails([]);
+    earthScene.updateOrbits([]);
+    orbitCache.clear();
     updateInfoPanel(null, date);
     return;
   }
@@ -628,6 +721,7 @@ function updateScene(deltaMs: number): void {
 
   const nowStates = visible.flatMap((sat) => {
     if (!sat.lastPositionKm) return [];
+    const quaternion = computeOrientation(sat);
     return [
       {
         id: sat.id,
@@ -638,10 +732,20 @@ function updateScene(deltaMs: number): void {
         ] as [number, number, number],
         color: computeColor(sat.id),
         scale: sat.id === selectedId ? 1.6 : 1,
+        quaternion: quaternion ?? undefined,
       } satisfies SatelliteVisualState,
     ];
   });
   earthScene.updateSatellites(nowStates);
+
+  const orbitStates: OrbitState[] = [];
+  for (const sat of visible) {
+    const positions = getOrbitPositions(sat, date);
+    if (positions) {
+      orbitStates.push({ id: sat.id, positions, color: computeColor(sat.id) });
+    }
+  }
+  earthScene.updateOrbits(orbitStates);
 
   if (labelsEnabled && performance.now() - lastLabelRefresh > 500) {
     earthScene.updateLabels(updateLabels());
