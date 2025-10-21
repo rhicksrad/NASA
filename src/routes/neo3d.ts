@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import type { NeoItem } from '../types/nasa';
 import { Neo3D, type PlanetSampleProvider, type SmallBodySpec } from '../visuals/neo3d';
 import {
@@ -8,10 +10,10 @@ import {
   isFiniteVec3,
 } from '../api/neo3dData';
 import { loadSBDBConic } from '../api/sbdb';
-import { SbdbExplorer } from '../components/SbdbExplorer';
+import { SBDBSearch } from '../components/sbdb/SBDBSearch';
 import { propagateConic, type ConicElements } from '../orbits';
 import { type Keplerian } from '../utils/orbit';
-import '../styles/sbdb.css';
+import '../styles/sbdbSearch.css';
 import { icon, type IconName } from '../utils/icons';
 
 const DEG2RAD = Math.PI / 180;
@@ -549,7 +551,8 @@ export async function initNeo3D(
 
   if (sbdbHost) {
     sbdbHost.innerHTML = '';
-    new SbdbExplorer(sbdbHost);
+    const reactRoot = createRoot(sbdbHost);
+    reactRoot.render(createElement(SBDBSearch));
   }
 
   const setControlIcon = (
