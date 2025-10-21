@@ -530,6 +530,7 @@ export async function initNeo3D(
   const rangeStartInput = document.getElementById('neo3d-range-start') as HTMLInputElement | null;
   const rangeEndInput = document.getElementById('neo3d-range-end') as HTMLInputElement | null;
   const neoAllToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
+  const neoHazardToggle = document.getElementById('neo3d-hazard') as HTMLInputElement | null;
   const neoLoadMore = document.getElementById('neo3d-load-more') as HTMLButtonElement | null;
   const neoList = document.getElementById('neo3d-neo-list') as HTMLElement | null;
   const neoSummary = document.getElementById('neo3d-neo-summary') as HTMLElement | null;
@@ -850,7 +851,17 @@ export async function initNeo3D(
   const neoEntries = new Map<string, NeoEntry>();
   const entryKeyIndex = new Map<string, string>();
   let allNeos: NeoCandidate[] = [];
+  let activeNeos: NeoCandidate[] = [];
+  let hazardOnly = neoHazardToggle?.checked ?? false;
   let nextNeoIndex = 0;
+
+  const isHazardousCandidate = (candidate: NeoCandidate): boolean =>
+    candidate.neo.is_potentially_hazardous_asteroid === true;
+
+  const recomputeActiveNeos = () => {
+    activeNeos = hazardOnly ? allNeos.filter((candidate) => isHazardousCandidate(candidate)) : [...allNeos];
+    nextNeoIndex = 0;
+  };
   let sbdbCounter = 0;
   type LoadedSbdbEntry = {
     spec: SmallBodySpec;
@@ -885,11 +896,13 @@ export async function initNeo3D(
     const empty = document.createElement('div');
     empty.className = 'neo3d-empty';
     empty.setAttribute('role', 'listitem');
-    empty.textContent = 'NEOs with orbital data will appear here when available.';
+    empty.textContent = hazardOnly
+      ? 'No potentially hazardous NEOs available.'
+      : 'NEOs with orbital data will appear here when available.';
     neoList.appendChild(empty);
   };
 
-  const getRemainingNeos = () => Math.max(0, allNeos.length - nextNeoIndex);
+  const getRemainingNeos = () => Math.max(0, activeNeos.length - nextNeoIndex);
 
   const appendNeoCandidates = (neos: NeoItem[]): boolean => {
     let appended = false;
@@ -897,6 +910,9 @@ export async function initNeo3D(
       const candidate = createNeoCandidate(neo);
       if (candidate) {
         allNeos.push(candidate);
+        if (!hazardOnly || isHazardousCandidate(candidate)) {
+          activeNeos.push(candidate);
+        }
         appended = true;
       }
     }
@@ -1092,12 +1108,24 @@ export async function initNeo3D(
   const updateNeoSummary = () => {
     if (!neoSummary) return;
     const counts = countEntries();
+    const activeCount = activeNeos.length;
+    const remaining = getRemainingNeos();
+    const canFetchMore = Boolean(loadMoreHandler) && !loadMoreDone;
+
     if (counts.total === 0) {
-      if (!allNeos.length) {
-        neoSummary.textContent = 'Awaiting NEO data…';
-      } else if (nextNeoIndex >= allNeos.length) {
-        if (Boolean(loadMoreHandler) && !loadMoreDone) {
-          neoSummary.textContent = 'Add more NEOs to load candidates.';
+      if (activeCount === 0) {
+        if (hazardOnly) {
+          if (allNeos.length > 0) {
+            neoSummary.textContent = 'No potentially hazardous NEOs available.';
+          } else if (canFetchMore) {
+            neoSummary.textContent = 'Awaiting NEO data…';
+          } else {
+            neoSummary.textContent = 'No potentially hazardous NEOs available.';
+          }
+        } else if (!allNeos.length) {
+          neoSummary.textContent = canFetchMore ? 'Awaiting NEO data…' : 'No NEOs with orbital data available.';
+        } else if (remaining > 0 || canFetchMore) {
+          neoSummary.textContent = 'Load more NEOs to display them.';
         } else {
           neoSummary.textContent = 'No NEOs with orbital data available.';
         }
@@ -1106,6 +1134,15 @@ export async function initNeo3D(
       }
       return;
     }
+
+    if (hazardOnly && counts.neoCount === 0) {
+      neoSummary.textContent =
+        counts.sbdbCount > 0
+          ? 'No potentially hazardous NEOs available. Showing SBDB objects.'
+          : 'No potentially hazardous NEOs available.';
+      return;
+    }
+
     let message: string;
     if (counts.enabledCount === 0) {
       message = 'All objects hidden.';
@@ -1116,7 +1153,8 @@ export async function initNeo3D(
     }
     const details: string[] = [];
     if (counts.neoCount > 0) {
-      details.push(`${counts.neoCount} ${counts.neoCount === 1 ? 'NEO' : 'NEOs'}`);
+      const neoLabelBase = hazardOnly ? 'hazardous NEO' : 'NEO';
+      details.push(`${counts.neoCount} ${counts.neoCount === 1 ? neoLabelBase : `${neoLabelBase}s`}`);
     }
     if (counts.sbdbCount > 0) {
       details.push(`${counts.sbdbCount} SBDB ${counts.sbdbCount === 1 ? 'object' : 'objects'}`);
@@ -1124,12 +1162,20 @@ export async function initNeo3D(
     if (details.length) {
       message = `${message} (${details.join(' • ')})`;
     }
-    const remaining = getRemainingNeos();
     if (remaining > 0) {
-      const remainNoun = remaining === 1 ? 'NEO available' : 'NEOs available';
+      const remainNoun = remaining === 1
+        ? hazardOnly
+          ? 'hazardous NEO available'
+          : 'NEO available'
+        : hazardOnly
+          ? 'hazardous NEOs available'
+          : 'NEOs available';
       message = `${message} ${remaining} more ${remainNoun}.`;
-    } else if (Boolean(loadMoreHandler) && !loadMoreDone) {
+    } else if (canFetchMore) {
       message = `${message} More NEOs available.`;
+    }
+    if (hazardOnly) {
+      message = `${message} Hazardous filter on.`;
     }
     neoSummary.textContent = message;
   };
@@ -1255,7 +1301,7 @@ export async function initNeo3D(
     let added = 0;
 
     while (added < batchSize) {
-      if (nextNeoIndex >= allNeos.length) {
+      if (nextNeoIndex >= activeNeos.length) {
         const fetched = await requestAdditionalNeos();
         if (!fetched) {
           break;
@@ -1263,7 +1309,7 @@ export async function initNeo3D(
         continue;
       }
 
-      const candidate = allNeos[nextNeoIndex];
+      const candidate = activeNeos[nextNeoIndex];
       nextNeoIndex += 1;
 
       let normalizedKeys = [...candidate.normalizedKeys];
@@ -1550,6 +1596,23 @@ export async function initNeo3D(
     });
   }
 
+  if (neoHazardToggle) {
+    neoHazardToggle.addEventListener('change', () => {
+      hazardOnly = neoHazardToggle.checked;
+      recomputeActiveNeos();
+      removeEntriesBySource('neo');
+      updateSmallBodies();
+      refreshNeoUi();
+      if (!activeNeos.length) {
+        if (neoEntries.size === 0) {
+          renderNeoEmptyState();
+        }
+        return;
+      }
+      void loadNextNeos(NEO_BATCH_SIZE);
+    });
+  }
+
   if (playBtn) {
     playBtn.addEventListener('click', () => {
       simulation.setDate(rangeStart);
@@ -1594,7 +1657,7 @@ export async function initNeo3D(
       .map((neo) => createNeoCandidate(neo))
       .filter((candidate): candidate is NeoCandidate => candidate !== null);
     allNeos = candidates;
-    nextNeoIndex = 0;
+    recomputeActiveNeos();
     if (typeof applyOptions?.hasMore === 'boolean') {
       loadMoreDone = !applyOptions.hasMore;
     } else if (!loadMoreHandler) {
@@ -1605,7 +1668,7 @@ export async function initNeo3D(
     removeEntriesBySource('neo');
     updateSmallBodies();
     refreshNeoUi();
-    if (!allNeos.length) {
+    if (!activeNeos.length) {
       if (neoEntries.size === 0) {
         renderNeoEmptyState();
       }
