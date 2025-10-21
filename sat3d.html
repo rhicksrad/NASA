@@ -1,12 +1,106 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Satellite 3D</title>
-    <link rel="stylesheet" href="./styles/sat3d.css" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="icon" type="image/x-icon" href="/NASA/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/NASA/favicon.svg" />
+    <title>Satellite 3D — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="/NASA/styles/tokens.css" />
+    <link rel="stylesheet" href="/NASA/styles/theme.css" />
+    <link rel="stylesheet" href="/NASA/styles/components.css" />
+    <link rel="stylesheet" href="/NASA/styles/sat3d.css" />
   </head>
-  <body>
+  <body class="page--explorer theme-sat3d">
+    <header class="site-header">
+      <a class="site-brand" href="/NASA/">NASA Open APIs Visualization Hub</a>
+      <button
+        class="site-nav__toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="primary-nav"
+        data-nav-toggle
+      >
+        <span class="site-nav__icon" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <span>Menu</span>
+        <span class="sr-only">Toggle primary navigation</span>
+      </button>
+      <nav aria-label="Primary" class="site-nav" id="primary-nav" data-primary-nav>
+        <a href="/NASA/#/images/explorer" id="nav-images-explorer">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <rect x="4.5" y="5.5" width="15" height="13" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect>
+            <path d="m8.5 13.5 2.5-2.5 3 3 2.5-2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <circle cx="9" cy="9" r="1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle>
+          </svg>
+          <span>Images Explorer</span>
+        </a>
+        <a href="/NASA/#/epic" id="nav-epic">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle>
+            <path d="M8 11.5c1.5-1 2.5-.5 3.5-2.5 1 2 .5 2 2 2.5 1.5.5 1.5 1.5 1 2.5-.5 1-1.5.5-2.5 1s-1 .5-1.5 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+          </svg>
+          <span>EPIC Earth</span>
+        </a>
+        <a href="/NASA/neo3d.html" id="nav-neo3d">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <ellipse cx="12" cy="12" rx="8" ry="5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></ellipse>
+            <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+            <circle cx="18" cy="9" r="1.1" fill="currentColor"></circle>
+          </svg>
+          <span>NEO3D</span>
+        </a>
+        <a href="/NASA/sat3d.html" id="nav-sat3d" aria-current="page">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle>
+            <path d="M7 7.5 4.5 5M17 17l2.5 2.5M7 17l-2.5 2.5M17 7.5 19.5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
+          </svg>
+          <span>Satellite 3D</span>
+        </a>
+        <a href="/NASA/storm.html" id="nav-storm">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle>
+            <path d="M12 3v2.5M12 18.5V21M4.5 12H7M17 12h2.5M6.2 6.2 7.9 7.9M16.1 16.1l1.7 1.7M16.1 7.9l1.7-1.7M6.2 17.8 7.9 16.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+          </svg>
+          <span>CME Explorer</span>
+        </a>
+        <a href="/NASA/events.html" id="nav-events">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="M12 5.5 4.5 18h15L12 5.5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <path d="M12 10.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <circle cx="12" cy="16.5" r="0.9" fill="currentColor"></circle>
+          </svg>
+          <span>EONET Explorer</span>
+        </a>
+        <a href="/NASA/exo.html" id="nav-exo">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="M12 6.5a5.5 5.5 0 1 1-5.5 5.5A5.5 5.5 0 0 1 12 6.5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <path d="M4 12c0-1.5 3.6-3.5 8-3.5s8 2 8 3.5-3.6 3.5-8 3.5-8-2-8-3.5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+          </svg>
+          <span>Exoplanet Explorer</span>
+        </a>
+        <a href="/NASA/#/mars" id="nav-mars">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle>
+            <path d="M8.5 9c1.5-.5 2 0 3 .5s1.5.5 2-.5M9 14.5c1 .5 2 .5 3 0s1.5-.5 2.5 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <circle cx="9" cy="9" r="0.9" fill="currentColor"></circle>
+          </svg>
+          <span>Mars Images</span>
+        </a>
+        <a href="/NASA/#/about" id="nav-about">
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle>
+            <path d="M12 16v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+            <circle cx="12" cy="8.5" r="0.9" fill="currentColor"></circle>
+          </svg>
+          <span>About</span>
+        </a>
+      </nav>
+    </header>
     <div id="canvas-holder"></div>
     <div id="ui">
       <h1>Satellite 3D</h1>
@@ -51,5 +145,6 @@
     <script type="module">
       import './src/sat3d_main.ts';
     </script>
+    <script type="module" src="./scripts/ui_accessibility.js"></script>
   </body>
 </html>
