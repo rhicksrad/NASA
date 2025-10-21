@@ -533,6 +533,9 @@ export async function initNeo3D(
   const neoLoadMore = document.getElementById('neo3d-load-more') as HTMLButtonElement | null;
   const neoList = document.getElementById('neo3d-neo-list') as HTMLElement | null;
   const neoSummary = document.getElementById('neo3d-neo-summary') as HTMLElement | null;
+  const neoPanel = document.getElementById('neo3d-neo-panel') as HTMLElement | null;
+  const neoContent = document.getElementById('neo3d-neo-content') as HTMLElement | null;
+  const neoCollapseToggle = document.getElementById('neo3d-collapse-toggle') as HTMLButtonElement | null;
   const sbdbHost = document.getElementById('sbdb-explorer-host') as HTMLDivElement | null;
   const sbdbLoaded = document.getElementById('sbdb-loaded') as HTMLDivElement | null;
   const sbdbLoadedEmpty = document.getElementById('sbdb-loaded-empty') as HTMLElement | null;
@@ -567,6 +570,36 @@ export async function initNeo3D(
     button.setAttribute('aria-label', label);
     button.title = hint;
   };
+
+  let neoListCollapsed = false;
+
+  const updateNeoCollapseToggle = () => {
+    if (!neoCollapseToggle) return;
+    const expanded = !neoListCollapsed;
+    const text = expanded ? 'Collapse list' : 'Expand list';
+    const hint = expanded ? 'Hide the near-Earth object list' : 'Show the near-Earth object list';
+    const iconName: IconName = expanded ? 'arrowUp' : 'arrowDown';
+    neoCollapseToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    neoCollapseToggle.innerHTML = `${icon(iconName)}<span>${text}</span>`;
+    neoCollapseToggle.title = hint;
+  };
+
+  const applyNeoCollapseState = () => {
+    if (neoPanel) {
+      neoPanel.classList.toggle('neo3d-neo-panel--collapsed', neoListCollapsed);
+    }
+    if (neoContent) {
+      neoContent.hidden = neoListCollapsed;
+    }
+    updateNeoCollapseToggle();
+  };
+
+  neoCollapseToggle?.addEventListener('click', () => {
+    neoListCollapsed = !neoListCollapsed;
+    applyNeoCollapseState();
+  });
+
+  applyNeoCollapseState();
 
   const registerPressAction = (
     button: HTMLButtonElement | null,

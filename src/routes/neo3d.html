@@ -156,7 +156,7 @@
           </div>
         </label>
       </div>
-    <div class="neo3d-neo-panel">
+    <div id="neo3d-neo-panel" class="neo3d-neo-panel">
       <div class="neo3d-neo-panel-header">
         <div>
           <h3 class="neo3d-heading">
@@ -169,27 +169,40 @@
           </h3>
           <p class="meta">Toggle individual NEOs to focus on their orbits.</p>
         </div>
-        <label class="neo3d-select-all">
-          <input type="checkbox" id="neo3d-toggle-neos" checked />
-          <span class="neo3d-toggle-label">
-            <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-              <path d="M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-              <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-              <circle cx="12" cy="12" r="1.1" fill="currentColor" />
-            </svg>
-            <span>Show all NEOs</span>
-          </span>
-        </label>
+        <div class="neo3d-neo-panel-actions">
+          <button
+            id="neo3d-collapse-toggle"
+            type="button"
+            class="neo3d-collapse-toggle"
+            aria-controls="neo3d-neo-content"
+            aria-expanded="true"
+          >
+            <span>Collapse list</span>
+          </button>
+          <label class="neo3d-select-all">
+            <input type="checkbox" id="neo3d-toggle-neos" checked />
+            <span class="neo3d-toggle-label">
+              <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+                <path d="M3 12s3.5-5 9-5 9 5 9 5-3.5 5-9 5-9-5-9-5Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+                <circle cx="12" cy="12" r="1.1" fill="currentColor" />
+              </svg>
+              <span>Show all NEOs</span>
+            </span>
+          </label>
+        </div>
       </div>
-      <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
-      <button id="neo3d-load-more" type="button" class="neo3d-load-more" hidden>
-        <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-          <path d="M12 5v14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-          <path d="M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-        </svg>
-        <span>Add 50 more</span>
-      </button>
-      <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
+      <div id="neo3d-neo-content" class="neo3d-neo-content">
+        <p id="neo3d-neo-summary" class="meta">Loading NEOs…</p>
+        <button id="neo3d-load-more" type="button" class="neo3d-load-more" hidden>
+          <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+            <path d="M12 5v14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            <path d="M5 12h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          </svg>
+          <span>Add 50 more</span>
+        </button>
+        <div id="neo3d-neo-list" class="neo3d-neo-list" role="list"></div>
+      </div>
     </div>
     <section class="neo3d-sbdb-panel">
       <header>
