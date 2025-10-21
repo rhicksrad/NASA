@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { icon } from '../../utils/icons';
 import {
-  ADVANCED_FIELDS,
   DEFAULT_FIELDS,
-  SBDB_WORKER,
   type FieldName,
   type SbdbFieldValue,
   type SbdbSearchResponse,
@@ -36,7 +34,6 @@ interface ParsedState {
   q: string;
   limit: number;
   types: SbdbTypeFilter;
-  advanced: FieldName[];
 }
 
 interface HttpStatusError extends Error {
@@ -58,29 +55,7 @@ function parseStateFromSearch(): ParsedState {
   const limitValue = LIMIT_OPTIONS.includes(limit as (typeof LIMIT_OPTIONS)[number]) ? limit : DEFAULT_LIMIT;
   const typesParam = params.get('types');
   const types = TYPE_OPTIONS.some((option) => option.value === typesParam) ? (typesParam as SbdbTypeFilter) : 'all';
-  const fieldsParam = params.get('fields');
-  const advanced: FieldName[] = [];
-  if (fieldsParam) {
-    const rawFields = fieldsParam.split(',');
-    rawFields.forEach((field) => {
-      if (ADVANCED_FIELDS.includes(field as FieldName)) {
-        advanced.push(field as FieldName);
-      }
-    });
-  }
-  return { q, limit: limitValue, types, advanced };
-}
-
-function buildFields(base: readonly FieldName[], advanced: readonly FieldName[]): FieldName[] {
-  const deduped: FieldName[] = [];
-  const seen = new Set<FieldName>();
-  [...base, ...advanced].forEach((field) => {
-    if (!seen.has(field)) {
-      seen.add(field);
-      deduped.push(field);
-    }
-  });
-  return deduped;
+  return { q, limit: limitValue, types };
 }
 
 function identifierFromRow(row: Record<FieldName, SbdbFieldValue | undefined>): string | null {
@@ -104,8 +79,6 @@ export function SBDBSearch(): JSX.Element {
   const [query, setQuery] = useState(parsed.q);
   const [limit, setLimit] = useState<number>(parsed.limit);
   const [types, setTypes] = useState<SbdbTypeFilter>(parsed.types);
-  const [advancedFields, setAdvancedFields] = useState<FieldName[]>(parsed.advanced);
-  const [advancedOpen, setAdvancedOpen] = useState(parsed.advanced.length > 0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SbdbSearchResponse | null>(null);
   const [upstreamQuery, setUpstreamQuery] = useState<string | null>(null);
@@ -122,11 +95,6 @@ export function SBDBSearch(): JSX.Element {
   const [collectionsError, setCollectionsError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
-
-  const requestedFields = useMemo(
-    () => buildFields(DEFAULT_FIELDS, advancedFields),
-    [advancedFields],
-  );
 
   const trimmedQuery = query.trim();
 
@@ -167,12 +135,11 @@ export function SBDBSearch(): JSX.Element {
     }
     params.set('limit', String(limit));
     params.set('types', types);
-    params.set('fields', requestedFields.join(','));
     const next = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
     if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
       window.history.replaceState(null, '', next);
     }
-  }, [trimmedQuery, limit, types, requestedFields]);
+  }, [trimmedQuery, limit, types]);
 
   useEffect(() => {
     const onPopState = () => {
@@ -180,8 +147,6 @@ export function SBDBSearch(): JSX.Element {
       setQuery(latest.q);
       setLimit(latest.limit);
       setTypes(latest.types);
-      setAdvancedFields(latest.advanced);
-      setAdvancedOpen(latest.advanced.length > 0);
       setRefreshToken((token) => token + 1);
     };
     window.addEventListener('popstate', onPopState);
@@ -264,8 +229,7 @@ export function SBDBSearch(): JSX.Element {
       return;
     }
 
-    const wantsLocalIndex = advancedFields.length === 0;
-    if (wantsLocalIndex && !indexPayload && !indexError) {
+    if (!indexPayload && !indexError) {
       setLoading(true);
       setSearchError(null);
       setResult(null);
@@ -273,7 +237,7 @@ export function SBDBSearch(): JSX.Element {
       return;
     }
 
-    if (wantsLocalIndex && indexPayload) {
+    if (indexPayload) {
       const { items, total } = searchSbdbIndex(indexPayload, { query: trimmedQuery, limit, types });
       const rows = items.map((entry) => mapIndexEntryToRow(entry));
       setResult({ fields: DEFAULT_FIELDS.slice() as FieldName[], count: total, data: rows });
@@ -296,7 +260,7 @@ export function SBDBSearch(): JSX.Element {
         q: trimmedQuery,
         limit,
         types,
-        fields: requestedFields,
+        fields: DEFAULT_FIELDS.slice() as FieldName[],
       })
         .then((payload: SbdbSearchResult) => {
           if (controller.signal.aborted) return;
@@ -336,9 +300,7 @@ export function SBDBSearch(): JSX.Element {
     trimmedQuery,
     limit,
     types,
-    requestedFields,
     refreshToken,
-    advancedFields,
     indexPayload,
     indexError,
   ]);
@@ -365,7 +327,7 @@ export function SBDBSearch(): JSX.Element {
   const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
   const endIndex = Math.min(rows.length, startIndex + visibleCount);
   const visibleRows = rows.slice(startIndex, endIndex);
-  const usingLocalIndex = advancedFields.length === 0 && indexPayload !== null;
+  const usingLocalIndex = upstreamQuery === null && result !== null && indexPayload !== null;
 
   const activeRowId = selectedIndex !== null ? `sbdb-row-${selectedIndex}` : undefined;
 
@@ -385,8 +347,6 @@ export function SBDBSearch(): JSX.Element {
   const handleRetry = () => {
     setRefreshToken((token) => token + 1);
   };
-
-  const diagLink = `${SBDB_WORKER}/sbdb/search?q=1&limit=50`;
 
   return (
     <div className="sbdb-search">
@@ -427,62 +387,7 @@ export function SBDBSearch(): JSX.Element {
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            className="sbdb-search__advanced-toggle"
-            onClick={() => {
-              setAdvancedOpen((open) => {
-                const next = !open;
-                if (!next) {
-                  setAdvancedFields([]);
-                }
-                return next;
-              });
-            }}
-            aria-expanded={advancedOpen}
-          >
-            Advanced fields
-          </button>
         </div>
-        {advancedOpen ? (
-          <fieldset className="sbdb-search__advanced">
-            <legend>Additional fields</legend>
-            {ADVANCED_FIELDS.map((field) => {
-              const labelMap: Record<FieldName, string> = {
-                diameter_km: 'Diameter (km)',
-                albedo: 'Albedo',
-                G: 'Slope parameter (G)',
-                rot_per: 'Rotation period',
-                class: 'Class',
-                full_name: 'Full name',
-                pdes: 'Permanent designation',
-                des: 'Designation',
-                neo: 'NEO',
-                kind: 'Kind',
-                H: 'H',
-                epoch_tdb: 'Epoch TDB',
-              };
-              return (
-                <label key={field}>
-                  <input
-                    type="checkbox"
-                    checked={advancedFields.includes(field)}
-                    onChange={(event) => {
-                      setAdvancedFields((current) => {
-                        if (event.target.checked) {
-                          if (current.includes(field)) return current;
-                          return [...current, field];
-                        }
-                        return current.filter((item) => item !== field);
-                      });
-                    }}
-                  />
-                  {labelMap[field]}
-                </label>
-              );
-            })}
-          </fieldset>
-        ) : null}
         <div className="sbdb-search__status">
           {trimmedQuery ? (
             <span>
@@ -492,9 +397,6 @@ export function SBDBSearch(): JSX.Element {
           ) : (
             <span>Enter a prefix to search SBDB</span>
           )}
-          <a href={diagLink} target="_blank" rel="noopener">
-            diag
-          </a>
         </div>
       </div>
       {!trimmedQuery ? (

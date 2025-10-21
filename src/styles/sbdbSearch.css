@@ -95,48 +95,6 @@
   color: var(--c-text-1);
 }
 
-.sbdb-search__advanced-toggle {
-  margin-left: auto;
-  padding: 0.45rem 0.75rem;
-  border-radius: var(--radius-1);
-  border: 1px solid var(--c-line-1);
-  background: var(--c-surface-1);
-  color: var(--c-text-2);
-  cursor: pointer;
-}
-
-.sbdb-search__advanced-toggle:hover,
-.sbdb-search__advanced-toggle:focus-visible {
-  color: var(--c-text-1);
-  border-color: var(--c-accent);
-  outline: none;
-}
-
-.sbdb-search__advanced {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  border-radius: var(--radius-1);
-  border: 1px dashed var(--c-line-1);
-  background: var(--c-surface-2);
-  color: var(--c-text-2);
-}
-
-.sbdb-search__advanced legend {
-  font-size: var(--fs--1);
-  font-weight: 600;
-  margin-right: var(--space-2);
-  padding: 0 var(--space-1);
-}
-
-.sbdb-search__advanced label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: var(--fs--1);
-}
-
 .sbdb-search__status {
   display: flex;
   align-items: center;
@@ -144,10 +102,6 @@
   gap: var(--space-2);
   font-size: var(--fs--1);
   color: var(--c-text-2);
-}
-
-.sbdb-search__status a {
-  color: var(--c-accent);
 }
 
 .sbdb-search__collections {
