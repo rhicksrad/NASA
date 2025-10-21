@@ -1,71 +1,89 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title id="title">NASA Visualization Icon</title>
-  <desc id="desc">A detailed, stylized icon featuring a blue planet, a red aeronautics vector, and an orbital path.</desc>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 64 64"
+     width="64" height="64"
+     role="img"
+     aria-labelledby="nvi-title nvi-desc"
+     focusable="false"
+     preserveAspectRatio="xMidYMid meet">
+  <title id="nvi-title">NASA Visualization Icon</title>
+  <desc id="nvi-desc">Stylized icon with a blue planet, red aeronautics vector, and an orbital path.</desc>
+
   <defs>
-    <!-- Deep space background gradient -->
-    <linearGradient id="spaceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- Scoped gradients/filters to avoid ID collisions -->
+    <linearGradient id="nvi-spaceGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#0B3D91"/>
       <stop offset="100%" stop-color="#06255B"/>
     </linearGradient>
-    
-    <!-- Planet sphere gradient for 3D effect -->
-    <radialGradient id="planetGrad" cx="35%" cy="35%" r="60%">
+
+    <radialGradient id="nvi-planetGrad" cx="35%" cy="35%" r="60%">
       <stop offset="0%" stop-color="#4D89F0"/>
       <stop offset="50%" stop-color="#0B3D91"/>
       <stop offset="100%" stop-color="#001A4D"/>
     </radialGradient>
-    
-    <!-- Red Vector gradient for dynamism -->
-    <linearGradient id="vectorGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+
+    <linearGradient id="nvi-vectorGrad" x1="0%" y1="50%" x2="100%" y2="50%">
       <stop offset="0%" stop-color="#FC3D21"/>
       <stop offset="100%" stop-color="#D92D15"/>
     </linearGradient>
 
-    <!-- Orbit path filter for a subtle glow -->
-    <filter id="orbitGlow" x="-50%" y="-50%" width="200%" height="200%">
+    <filter id="nvi-orbitGlow" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
       <feGaussianBlur stdDeviation="0.5" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
+
+    <!-- Clip to rounded rect so outer glow stays inside the container -->
+    <clipPath id="nvi-clip">
+      <rect width="64" height="64" rx="14"/>
+    </clipPath>
   </defs>
 
-  <!-- Main Container Base -->
-  <rect width="64" height="64" rx="14" fill="url(#spaceGrad)" stroke="#092C6B" stroke-width="1"/>
+  <style>
+    /* Non-scaling strokes stay crisp when the icon scales */
+    .ns { vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; paint-order: stroke fill markers; }
+    svg { color-interpolation-filters: sRGB; shape-rendering: geometricPrecision; text-rendering: optimizeLegibility; }
 
-  <!-- Distant Stars (Subtle texture) -->
-  <g opacity="0.4" fill="#FFFFFF">
-    <circle cx="12" cy="14" r="1"/>
-    <circle cx="50" cy="10" r="0.8"/>
-    <circle cx="56" cy="52" r="1"/>
-    <circle cx="8" cy="50" r="0.6"/>
-    <circle cx="30" cy="8" r="0.5"/>
+    /* Respect user motion preferences for the subtle rim pulse */
+    @media (prefers-reduced-motion: reduce) {
+      .motion { display: none; }
+    }
+  </style>
+
+  <g clip-path="url(#nvi-clip)">
+    <!-- Base -->
+    <rect width="64" height="64" rx="14" fill="url(#nvi-spaceGrad)" stroke="#092C6B" stroke-width="1" class="ns"/>
+
+    <!-- Distant stars -->
+    <g opacity="0.4" fill="#FFFFFF">
+      <circle cx="12" cy="14" r="1"/>
+      <circle cx="50" cy="10" r="0.8"/>
+      <circle cx="56" cy="52" r="1"/>
+      <circle cx="8"  cy="50" r="0.6"/>
+      <circle cx="30" cy="8"  r="0.5"/>
+    </g>
+
+    <!-- Orbital ring (rear segment) -->
+    <path d="M46 20 C54 26, 56 38, 48 46" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.3" class="ns"/>
+
+    <!-- Planet -->
+    <circle cx="32" cy="32" r="20" fill="url(#nvi-planetGrad)">
+      <!-- Subtle breathing rim (opt-out via reduced motion) -->
+      <animate class="motion" attributeName="r" values="20;20.5;20" dur="5s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Atmosphere / rim light -->
+    <circle cx="32" cy="32" r="19.5" fill="none" stroke="#4D89F0" stroke-width="1" opacity="0.3" class="ns"/>
+
+    <!-- Red aeronautics vector -->
+    <path d="M10 36 Q28 42 44 28 L46 32 Q28 52 8 42 Z" fill="url(#nvi-vectorGrad)"/>
+
+    <!-- Orbital ring (front segment) + satellite -->
+    <g filter="url(#nvi-orbitGlow)">
+      <path d="M48 46 C34 58, 14 52, 12 36 C11 28, 16 22, 24 18"
+            fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity="0.95" class="ns"/>
+      <circle cx="24" cy="18" r="3" fill="#FFFFFF"/>
+    </g>
   </g>
-
-  <!-- Orbital Ring (Back Section) - Drawn first to be behind the planet -->
-  <path d="M 46 20 C 54 26, 56 38, 48 46" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.3" stroke-linecap="round"/>
-
-  <!-- Central Planet Sphere -->
-  <circle cx="32" cy="32" r="20" fill="url(#planetGrad)">
-     <!-- Subtle Rim Light on top left -->
-     <animate attributeName="r" values="20;20.5;20" dur="5s" repeatCount="indefinite" />
-  </circle>
-  
-  <!-- Atmosphere/Glow Effect on Planet -->
-  <circle cx="32" cy="32" r="19.5" fill="none" stroke="#4D89F0" stroke-width="1" opacity="0.3"/>
-
-  <!-- Red Aeronautics "Vector" Swoosh -->
-  <!-- This shape mimics the red chevron wing in the official logo -->
-  <path d="M 10 36 Q 28 42 44 28 L 46 32 Q 28 52 8 42 Z" fill="url(#vectorGrad)"/>
-
-  <!-- Orbital Ring (Front Section) -->
-  <!-- Creates the 3D illusion by crossing IN FRONT of the planet -->
-  <g filter="url(#orbitGlow)">
-    <path d="M 48 46 C 34 58, 14 52, 12 36 C 11 28, 16 22, 24 18" 
-          fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" opacity="0.95"/>
-    <!-- The "Satellite" object on the orbit -->
-    <circle cx="24" cy="18" r="3" fill="#FFFFFF"/>
-  </g>
-
 </svg>
