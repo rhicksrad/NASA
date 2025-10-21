@@ -14,6 +14,12 @@ import {
 } from '../../utils/sbdb';
 import { DetailsPanel } from './DetailsPanel';
 import { ResultRow } from './ResultRow';
+import {
+  type SbdbIndexEntry,
+  type SbdbIndexPayload,
+  loadSbdbIndex,
+  searchSbdbIndex,
+} from '../../data/sbdbIndex';
 
 const ROW_HEIGHT = 92;
 const OVERSCAN = 6;
@@ -109,6 +115,8 @@ export function SBDBSearch(): JSX.Element {
   const [refreshToken, setRefreshToken] = useState(0);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(320);
+  const [indexPayload, setIndexPayload] = useState<SbdbIndexPayload | null>(null);
+  const [indexError, setIndexError] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
@@ -118,6 +126,34 @@ export function SBDBSearch(): JSX.Element {
   );
 
   const trimmedQuery = query.trim();
+
+  function mapIndexEntryToRow(entry: SbdbIndexEntry): Record<FieldName, SbdbFieldValue | undefined> {
+    if (entry.type === 'ast') {
+      const number = entry.number ?? '';
+      const baseName = entry.name ?? '';
+      const full = number && baseName ? `${number} ${baseName}` : baseName || number;
+      const designation = entry.principal ?? entry.other[0] ?? null;
+      return {
+        full_name: full || designation || null,
+        pdes: number || designation || null,
+        des: designation,
+        neo: entry.neo ? 'Y' : undefined,
+        kind: 'A',
+        H: entry.h ?? null,
+        epoch_tdb: entry.epoch ?? null,
+      };
+    }
+    const designation = entry.designation;
+    const base = designation.includes('(') ? designation.split('(')[0]!.trim() : designation;
+    return {
+      full_name: designation,
+      pdes: base || entry.packed || null,
+      des: entry.packed ?? null,
+      kind: 'C',
+      H: entry.h ?? null,
+      epoch_tdb: null,
+    };
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -148,6 +184,24 @@ export function SBDBSearch(): JSX.Element {
     window.addEventListener('popstate', onPopState);
     return () => {
       window.removeEventListener('popstate', onPopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSbdbIndex()
+      .then((payload) => {
+        if (cancelled) return;
+        setIndexPayload(payload);
+        setIndexError(null);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error ? error.message : String(error);
+        setIndexError(message);
+      });
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -188,6 +242,31 @@ export function SBDBSearch(): JSX.Element {
       setSelectedIndex(null);
       return;
     }
+
+    const wantsLocalIndex = advancedFields.length === 0;
+    if (wantsLocalIndex && !indexPayload && !indexError) {
+      setLoading(true);
+      setSearchError(null);
+      setResult(null);
+      setSelectedIndex(null);
+      return;
+    }
+
+    if (wantsLocalIndex && indexPayload) {
+      const { items, total } = searchSbdbIndex(indexPayload, { query: trimmedQuery, limit, types });
+      const rows = items.map((entry) => mapIndexEntryToRow(entry));
+      setResult({ fields: DEFAULT_FIELDS.slice() as FieldName[], count: total, data: rows });
+      setUpstreamQuery(null);
+      setSearchError(null);
+      setLoading(false);
+      setSelectedIndex(rows.length > 0 ? 0 : null);
+      if (listRef.current) {
+        listRef.current.scrollTop = 0;
+      }
+      setScrollTop(0);
+      return;
+    }
+
     const controller = new AbortController();
     const debounce = window.setTimeout(() => {
       setLoading(true);
@@ -232,7 +311,16 @@ export function SBDBSearch(): JSX.Element {
       window.clearTimeout(debounce);
       controller.abort();
     };
-  }, [trimmedQuery, limit, types, requestedFields, refreshToken]);
+  }, [
+    trimmedQuery,
+    limit,
+    types,
+    requestedFields,
+    refreshToken,
+    advancedFields,
+    indexPayload,
+    indexError,
+  ]);
 
   useEffect(() => {
     if (selectedIndex === null) return;
@@ -256,6 +344,7 @@ export function SBDBSearch(): JSX.Element {
   const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
   const endIndex = Math.min(rows.length, startIndex + visibleCount);
   const visibleRows = rows.slice(startIndex, endIndex);
+  const usingLocalIndex = advancedFields.length === 0 && indexPayload !== null;
 
   const activeRowId = selectedIndex !== null ? `sbdb-row-${selectedIndex}` : undefined;
 
@@ -377,6 +466,7 @@ export function SBDBSearch(): JSX.Element {
           {trimmedQuery ? (
             <span>
               Showing {formatCount(rows.length)} of {formatCount(count)} matches
+              {usingLocalIndex ? ' · Local index' : ''}
             </span>
           ) : (
             <span>Enter a prefix to search SBDB</span>
