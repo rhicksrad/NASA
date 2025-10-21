@@ -1,4 +1,4 @@
-@import url('./page-shell.css');
+@import url('../styles/page-shell.css');
 
 main.page-shell {
   width: min(980px, calc(100% - 48px));

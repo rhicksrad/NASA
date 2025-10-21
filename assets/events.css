@@ -1,4 +1,4 @@
-@import './page-shell.css';
+@import '../styles/page-shell.css';
 
 main.page-shell {
   grid-template-columns: minmax(0, 1fr);
