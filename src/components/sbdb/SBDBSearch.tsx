@@ -22,6 +22,7 @@ import {
 
 const ROW_HEIGHT = 92;
 const OVERSCAN = 6;
+const COMPACT_QUERY = '(max-width: 720px)';
 
 const LIMIT_OPTIONS = [50, 100, 200] as const;
 const TYPE_OPTIONS: Array<{ value: SbdbTypeFilter; label: string }> = [
@@ -93,10 +94,18 @@ export function SBDBSearch(): JSX.Element {
   const [indexError, setIndexError] = useState<string | null>(null);
   const [collections, setCollections] = useState<SbdbCollection[] | null>(null);
   const [collectionsError, setCollectionsError] = useState<string | null>(null);
+  const [isCompact, setIsCompact] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia(COMPACT_QUERY).matches;
+  });
 
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const trimmedQuery = query.trim();
+  const requestedFields = useMemo(
+    () => result?.fields ?? (DEFAULT_FIELDS.slice() as FieldName[]),
+    [result],
+  );
 
   function mapIndexEntryToRow(entry: SbdbIndexEntry): Record<FieldName, SbdbFieldValue | undefined> {
     if (entry.type === 'ast') {
@@ -125,6 +134,25 @@ export function SBDBSearch(): JSX.Element {
       epoch_tdb: null,
     };
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mediaQuery = window.matchMedia(COMPACT_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsCompact(event.matches);
+    };
+    setIsCompact(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleChange);
+      return () => {
+        mediaQuery.removeEventListener('change', handleChange);
+      };
+    }
+    mediaQuery.addListener(handleChange);
+    return () => {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -192,8 +220,10 @@ export function SBDBSearch(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (isCompact) return;
     const container = listRef.current;
     if (!container) return;
+    setViewportHeight(container.clientHeight);
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect) {
@@ -205,19 +235,24 @@ export function SBDBSearch(): JSX.Element {
     return () => {
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [isCompact]);
 
   useEffect(() => {
+    if (isCompact) {
+      setScrollTop(0);
+      return;
+    }
     const container = listRef.current;
     if (!container) return;
     const handleScroll = () => {
       setScrollTop(container.scrollTop);
     };
+    handleScroll();
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       container.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [isCompact]);
 
   useEffect(() => {
     if (!trimmedQuery) {
@@ -306,7 +341,7 @@ export function SBDBSearch(): JSX.Element {
   ]);
 
   useEffect(() => {
-    if (selectedIndex === null) return;
+    if (isCompact || selectedIndex === null) return;
     const container = listRef.current;
     if (!container) return;
     const top = selectedIndex * ROW_HEIGHT;
@@ -318,15 +353,15 @@ export function SBDBSearch(): JSX.Element {
     } else if (bottom > currentBottom) {
       container.scrollTop = bottom - container.clientHeight;
     }
-  }, [selectedIndex]);
+  }, [selectedIndex, isCompact]);
 
   const rows = result?.data ?? [];
   const count = result?.count ?? 0;
   const totalHeight = rows.length * ROW_HEIGHT;
-  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-  const visibleCount = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
-  const endIndex = Math.min(rows.length, startIndex + visibleCount);
-  const visibleRows = rows.slice(startIndex, endIndex);
+  const startIndex = isCompact ? 0 : Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+  const visibleCount = isCompact ? rows.length : Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
+  const endIndex = isCompact ? rows.length : Math.min(rows.length, startIndex + visibleCount);
+  const visibleRows = isCompact ? rows : rows.slice(startIndex, endIndex);
   const usingLocalIndex = upstreamQuery === null && result !== null && indexPayload !== null;
 
   const activeRowId = selectedIndex !== null ? `sbdb-row-${selectedIndex}` : undefined;
@@ -455,7 +490,7 @@ export function SBDBSearch(): JSX.Element {
       ) : null}
       <div
         ref={listRef}
-        className="sbdb-search__results"
+        className={`sbdb-search__results${isCompact ? ' is-compact' : ''}`}
         role="listbox"
         tabIndex={0}
         aria-label="SBDB search results"
@@ -499,25 +534,42 @@ export function SBDBSearch(): JSX.Element {
         {!loading && !rows.length && trimmedQuery ? (
           <div className="sbdb-search__empty">No matches for “{trimmedQuery}”.</div>
         ) : null}
-        <div className="sbdb-search__spacer" style={{ height: totalHeight }}>
-          <div className="sbdb-search__items" style={{ transform: `translateY(${startIndex * ROW_HEIGHT}px)` }}>
-            {visibleRows.map((row, offset) => {
-              const index = startIndex + offset;
-              return (
-                <ResultRow
-                  key={index}
-                  id={`sbdb-row-${index}`}
-                  row={row}
-                  fields={requestedFields}
-                  prefix={trimmedQuery}
-                  isSelected={selectedIndex === index}
-                  onSelect={() => setSelectedIndex(index)}
-                  onActivate={() => handleRowActivate(index)}
-                />
-              );
-            })}
+        {isCompact ? (
+          <div className="sbdb-search__items sbdb-search__items--static">
+            {rows.map((row, index) => (
+              <ResultRow
+                key={index}
+                id={`sbdb-row-${index}`}
+                row={row}
+                fields={requestedFields}
+                prefix={trimmedQuery}
+                isSelected={selectedIndex === index}
+                onSelect={() => setSelectedIndex(index)}
+                onActivate={() => handleRowActivate(index)}
+              />
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="sbdb-search__spacer" style={{ height: totalHeight }}>
+            <div className="sbdb-search__items" style={{ transform: `translateY(${startIndex * ROW_HEIGHT}px)` }}>
+              {visibleRows.map((row, offset) => {
+                const index = startIndex + offset;
+                return (
+                  <ResultRow
+                    key={index}
+                    id={`sbdb-row-${index}`}
+                    row={row}
+                    fields={requestedFields}
+                    prefix={trimmedQuery}
+                    isSelected={selectedIndex === index}
+                    onSelect={() => setSelectedIndex(index)}
+                    onActivate={() => handleRowActivate(index)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
       <footer className="sbdb-search__footer">
         <span>Worker upstream: {upstreamQuery ?? 'n/a'}</span>
