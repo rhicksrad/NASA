@@ -4,3 +4,4 @@ dist/
 .env
 
 public/favicon.ico
+public/dev-shots/

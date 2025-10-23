@@ -1670,6 +1670,8 @@ export class Neo3D {
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private controls: OrbitControls;
+  private readonly host: HTMLElement;
+  private readonly celestialRadius = 24 * SCALE;
   private readonly defaultCameraPosition = new THREE.Vector3(6 * SCALE, 6 * SCALE, 10 * SCALE);
   private readonly defaultTarget = new THREE.Vector3(0, 0, 0);
   private clock = new THREE.Clock();
@@ -1702,6 +1704,7 @@ export class Neo3D {
 
   constructor(private readonly options: Neo3DOptions) {
     const { host } = options;
+    this.host = host;
     const width = host.clientWidth || 800;
     const height = host.clientHeight || 520;
 
@@ -1758,9 +1761,9 @@ export class Neo3D {
     this.maxMs = options.maxDate?.getTime() ?? Number.POSITIVE_INFINITY;
 
     if (typeof window !== 'undefined') {
-      const computed = window.getComputedStyle(host);
+      const computed = window.getComputedStyle(this.host);
       if (computed.position === 'static') {
-        host.style.position = 'relative';
+        this.host.style.position = 'relative';
       }
     }
 
@@ -1784,8 +1787,10 @@ export class Neo3D {
       transition: 'opacity 0.12s ease',
       zIndex: '1000',
     });
-    const tooltipParent = typeof document !== 'undefined' && document.body ? document.body : host;
+    const tooltipParent = typeof document !== 'undefined' && document.body ? document.body : this.host;
     tooltipParent.appendChild(this.tooltip);
+
+    this.scene.userData.celestialRadius = this.celestialRadius;
 
     this.renderer.domElement.addEventListener('pointermove', this.onPointerMove);
     this.renderer.domElement.addEventListener('pointerleave', this.onPointerLeave);
@@ -1850,6 +1855,52 @@ export class Neo3D {
   resetView(): void {
     this.camera.position.copy(this.defaultCameraPosition);
     this.controls.target.copy(this.defaultTarget);
+    this.controls.update();
+  }
+
+  getScene(): THREE.Scene {
+    return this.scene;
+  }
+
+  getCamera(): THREE.PerspectiveCamera {
+    return this.camera;
+  }
+
+  getRenderer(): THREE.WebGLRenderer {
+    return this.renderer;
+  }
+
+  getHostElement(): HTMLElement {
+    return this.host;
+  }
+
+  getCelestialRadius(): number {
+    return this.celestialRadius;
+  }
+
+  addOverlay(object: THREE.Object3D): void {
+    this.scene.add(object);
+  }
+
+  focusOnWorld(position: THREE.Vector3, options: { distance?: number } = {}): void {
+    const target = position.clone();
+    if (!Number.isFinite(target.x) || !Number.isFinite(target.y) || !Number.isFinite(target.z)) {
+      return;
+    }
+    const direction = position.clone();
+    const length = direction.length();
+    if (!Number.isFinite(length) || length <= 0) {
+      return;
+    }
+    direction.normalize();
+    const minDistance = Math.max(this.controls.minDistance, 0.001);
+    const maxDistance = this.controls.maxDistance;
+    const desired = options.distance && Number.isFinite(options.distance)
+      ? options.distance
+      : Math.max(length * 1.8, minDistance * 2);
+    const distance = THREE.MathUtils.clamp(desired, minDistance, maxDistance);
+    this.controls.target.copy(target);
+    this.camera.position.copy(direction.multiplyScalar(distance));
     this.controls.update();
   }
 
@@ -2192,9 +2243,8 @@ export class Neo3D {
   }
 
   private onResize(): void {
-    const { host } = this.options;
-    const width = host.clientWidth || 800;
-    const height = host.clientHeight || 520;
+    const width = this.host.clientWidth || 800;
+    const height = this.host.clientHeight || 520;
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
@@ -2222,7 +2272,7 @@ export class Neo3D {
     this.pointer.x = ((event.clientX - canvasRect.left) / canvasRect.width) * 2 - 1;
     this.pointer.y = -((event.clientY - canvasRect.top) / canvasRect.height) * 2 + 1;
 
-    const hostRect = this.options.host.getBoundingClientRect();
+    const hostRect = this.host.getBoundingClientRect();
     this.pointerClient.x = event.clientX - hostRect.left;
     this.pointerClient.y = event.clientY - hostRect.top;
     this.pointerViewport = { x: event.clientX, y: event.clientY };
@@ -2247,7 +2297,7 @@ export class Neo3D {
     const intersections = this.raycaster.intersectObjects(this.interactiveMeshes, false);
     const hit = intersections.find((entry) => entry.object.visible);
     if (!hit || !(hit.object instanceof THREE.Mesh)) {
-      const hostRect = this.options.host.getBoundingClientRect();
+      const hostRect = this.host.getBoundingClientRect();
       const width = hostRect.width;
       const height = hostRect.height;
       if (width <= 0 || height <= 0) {
@@ -2302,7 +2352,7 @@ export class Neo3D {
     if (this.tooltip.textContent !== label) {
       this.tooltip.textContent = label;
     }
-    const hostRect = this.options.host.getBoundingClientRect();
+    const hostRect = this.host.getBoundingClientRect();
     const hostWidth = hostRect.width;
     const hostHeight = hostRect.height;
     if (hostWidth <= 0 || hostHeight <= 0) {

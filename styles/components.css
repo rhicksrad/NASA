@@ -309,6 +309,25 @@
   accent-color: hsl(185 72% 45%);
 }
 
+.neo3d-layer-toggle {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.neo3d-layer-toggle .neo3d-select-all {
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--c-text-1);
+  font-size: var(--fs-0);
+}
+
+.neo3d-layer-toggle .neo3d-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .neo3d-neo-list { display: grid; gap: var(--space-2); }
 
 .neo3d-neo-item {
