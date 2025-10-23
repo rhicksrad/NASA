@@ -269,6 +269,10 @@
   right: 0;
 }
 
+.sbdb-search__items--static {
+  position: static;
+}
+
 .sbdb-search__empty {
   padding: 2.5rem 1.5rem;
   text-align: center;
@@ -386,6 +390,12 @@
   opacity: 0.75;
   display: flex;
   justify-content: flex-end;
+}
+
+.sbdb-search__results.is-compact {
+  max-height: none;
+  min-height: 0;
+  overflow: visible;
 }
 
 .sbdb-details {
@@ -551,10 +561,12 @@
 @media (max-width: 720px) {
   .sbdb-search {
     padding: var(--space-2);
+    min-height: auto;
   }
 
   .sbdb-search__results {
-    max-height: clamp(300px, 55vh, 520px);
+    max-height: none;
+    overflow: visible;
   }
 
   .sbdb-details__panel {
