@@ -1,4 +1,5 @@
 import { WORKER_BASE, HttpError } from './base';
+import { findManualSbdb } from '../data/manualSbdb';
 
 const DEG2RAD = Math.PI / 180;
 
@@ -642,8 +643,13 @@ function toNum(v: unknown): number {
 export async function loadSBDBConic(
   sstr: string,
 ): Promise<{ conic: ConicForProp; label: string; row: SbdbRow | null; aliases: string[] }> {
-  try {
-    const data = await sbdbLookup(sstr, { fullPrec: true });
+  const manual = findManualSbdb(sstr);
+
+  const buildResult = (
+    query: string,
+    data: SbdbLookup,
+    extraAliases: string[] = [],
+  ): { conic: ConicForProp; label: string; row: SbdbRow | null; aliases: string[] } => {
     const elems = data.orbit?.elements ?? [];
     const map = new Map<string, unknown>();
     for (const entry of elems) {
@@ -657,13 +663,22 @@ export async function loadSBDBConic(
     const i = toNum(map.get('i')) * DEG2RAD;
     const Om = toNum(map.get('om')) * DEG2RAD;
     const w = toNum(map.get('w')) * DEG2RAD;
-    const tp = toNum(map.get('tp'));
-    const epoch = toNum(map.get('epoch'));
-    let ma = toNum(map.get('ma'));
-    if (!Number.isFinite(ma)) {
-      ma = toNum(map.get('M'));
+    let epoch = toNum(map.get('epoch'));
+    if (!Number.isFinite(epoch)) {
+      epoch = toNum((data.orbit as { epoch?: unknown } | undefined)?.epoch);
     }
-    const maRad = Number.isFinite(ma) ? (ma * DEG2RAD) : Number.NaN;
+    let maDeg = toNum(map.get('ma'));
+    if (!Number.isFinite(maDeg)) {
+      maDeg = toNum(map.get('M'));
+    }
+    const maRad = Number.isFinite(maDeg) ? maDeg * DEG2RAD : Number.NaN;
+    let tp = toNum(map.get('tp'));
+    if (!Number.isFinite(tp)) {
+      const n = toNum(map.get('n'));
+      if (Number.isFinite(n) && Number.isFinite(maDeg) && Number.isFinite(epoch) && Math.abs(n) > 1e-12) {
+        tp = (epoch as number) - maDeg / n;
+      }
+    }
     let a = toNum(map.get('a'));
 
     if (!Number.isFinite(a) && Number.isFinite(q) && Number.isFinite(e)) {
@@ -676,7 +691,7 @@ export async function loadSBDBConic(
 
     let row: SbdbRow | null = null;
     try {
-      row = normalizeRow(data, sstr);
+      row = normalizeRow(data, query);
     } catch {
       row = null;
     }
@@ -688,12 +703,15 @@ export async function loadSBDBConic(
       if (!trimmed) return;
       aliasSet.add(trimmed);
     };
-    pushAlias(sstr);
+    pushAlias(query);
+    for (const alias of extraAliases) {
+      pushAlias(alias);
+    }
     pushAlias(row?.id);
     pushAlias(row?.name);
 
     const label =
-      row?.name || data.object?.fullname || data.object?.des || data.object?.object_name || sstr;
+      row?.name || data.object?.fullname || data.object?.des || data.object?.object_name || query;
     pushAlias(label);
 
     return {
@@ -703,15 +721,24 @@ export async function loadSBDBConic(
         i,
         Omega: Om,
         omega: w,
-        tp,
-        a,
-        epoch: Number.isFinite(epoch) ? epoch : undefined,
+        tp: tp as number,
+        a: a as number,
+        epoch: Number.isFinite(epoch) ? (epoch as number) : undefined,
         ma: Number.isFinite(maRad) ? maRad : undefined,
       },
       label,
       row,
       aliases: Array.from(aliasSet),
     };
+  };
+
+  if (manual) {
+    return buildResult(manual.primary, manual.lookup, manual.aliases);
+  }
+
+  try {
+    const data = await sbdbLookup(sstr, { fullPrec: true });
+    return buildResult(sstr, data);
   } catch (error) {
     if (error instanceof HttpError) {
       const body = error.bodyText ? `: ${error.bodyText}` : '';
