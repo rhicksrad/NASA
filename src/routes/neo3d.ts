@@ -15,6 +15,7 @@ import { propagateConic, type ConicElements } from '../orbits';
 import { type Keplerian } from '../utils/orbit';
 import '../styles/sbdbSearch.css';
 import { icon, type IconName } from '../utils/icons';
+import { createWowSignalLayer, type WowDebugApi } from '../layers/WowSignalLayer';
 
 const DEG2RAD = Math.PI / 180;
 const DAY_MS = 86_400_000;
@@ -518,6 +519,15 @@ export async function initNeo3D(
   simulation.setPaused(true);
   simulation.start();
 
+  const wowLayer = createWowSignalLayer({
+    scene: simulation.getScene(),
+    camera: simulation.getCamera(),
+    renderer: simulation.getRenderer(),
+    host: simulation.getHostElement(),
+    celestialRadius: simulation.getCelestialRadius(),
+  });
+  simulation.addOverlay(wowLayer.group);
+
   if (import.meta.env.DEV && typeof window !== 'undefined') {
     (window as Record<string, unknown>).__neo3d = simulation;
   }
@@ -531,6 +541,7 @@ export async function initNeo3D(
   const rangeEndInput = document.getElementById('neo3d-range-end') as HTMLInputElement | null;
   const neoAllToggle = document.getElementById('neo3d-toggle-neos') as HTMLInputElement | null;
   const neoHazardToggle = document.getElementById('neo3d-hazard') as HTMLInputElement | null;
+  const wowToggle = document.getElementById('neo3d-wow-toggle') as HTMLInputElement | null;
   const neoLoadMore = document.getElementById('neo3d-load-more') as HTMLButtonElement | null;
   const neoList = document.getElementById('neo3d-neo-list') as HTMLElement | null;
   const neoSummary = document.getElementById('neo3d-neo-summary') as HTMLElement | null;
@@ -558,6 +569,42 @@ export async function initNeo3D(
     const reactRoot = createRoot(sbdbHost);
     reactRoot.render(createElement(SBDBSearch));
   }
+
+  let wowVisible = true;
+  const syncWowVisibility = (visible: boolean) => {
+    wowVisible = visible;
+    wowLayer.setVisible(visible);
+    if (wowToggle) {
+      wowToggle.checked = visible;
+    }
+  };
+
+  syncWowVisibility(true);
+
+  if (wowToggle) {
+    wowToggle.checked = true;
+    wowToggle.addEventListener('change', () => {
+      syncWowVisibility(wowToggle.checked);
+    });
+  }
+
+  if (typeof window !== 'undefined') {
+    const win = window as Window & { __wow?: WowDebugApi };
+    win.__wow = {
+      setVisible: (value: boolean) => {
+        syncWowVisibility(value);
+      },
+      getVectors: wowLayer.getVectors,
+    };
+  }
+
+  const handleWowKey = (event: KeyboardEvent) => {
+    if (event.key === 'w' || event.key === 'W') {
+      const next = !wowVisible;
+      syncWowVisibility(next);
+    }
+  };
+  window.addEventListener('keydown', handleWowKey);
 
   const setControlIcon = (
     button: HTMLButtonElement | null,
