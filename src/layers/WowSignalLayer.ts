@@ -40,14 +40,21 @@ const TOOLTIP_NOTE = 'Direction in Sagittarius. RA is ambiguous because Big Ear 
 const TOOLTIP_FRAME = 'J2000; RA ambiguous due to dual horns';
 
 const COLORS = {
-  sphereBase: new THREE.Color(0xf8fafc),
-  sphereEmissive: new THREE.Color(0xfdf5c2),
-  sphereHighlight: new THREE.Color(0xfde68a),
-  ringBase: new THREE.Color(0x94a3b8),
-  ringHighlight: new THREE.Color(0xfacc15),
-  ringBaseOpacity: 0.55,
-  ringHighlightOpacity: 0.92,
+  anchorBase: new THREE.Color(0xf8fafc),
+  anchorEmissive: new THREE.Color(0xfdf5c2),
+  anchorHighlight: new THREE.Color(0xfde68a),
+  lineBase: new THREE.Color(0x38bdf8),
+  lineHighlight: new THREE.Color(0xfacc15),
+  lineBaseOpacity: 0.72,
+  lineHighlightOpacity: 0.95,
 } as const;
+
+const CELESTIAL_TO_EARTH_ORBIT_RATIO = 24;
+const EARTH_ORBIT_CLEARANCE = 1.02;
+const LINE_THICKNESS_RATIO = 0.0012;
+const LINE_BASE_EMISSIVE = COLORS.lineBase.clone().multiplyScalar(0.25);
+const LINE_HOVER_EMISSIVE = COLORS.lineHighlight.clone().multiplyScalar(0.35);
+const LINE_PINNED_EMISSIVE = COLORS.lineHighlight.clone().multiplyScalar(0.45);
 
 const DEG_TO_RAD = Math.PI / 180;
 
@@ -75,10 +82,11 @@ interface CandidateSpec {
 interface CandidateNode {
   spec: CandidateSpec;
   group: THREE.Group;
-  sphere: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>;
-  ring: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+  line: THREE.Mesh<THREE.CylinderGeometry, THREE.MeshStandardMaterial>;
+  anchor: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>;
   label: THREE.Sprite;
   worldPosition: THREE.Vector3;
+  startPosition: THREE.Vector3;
   normal: THREE.Vector3;
   tooltip: string;
   state: VisualState;
@@ -199,39 +207,49 @@ function buildCandidate(spec: CandidateSpec, radius: number): CandidateNode {
   const group = new THREE.Group();
   group.name = spec.label;
 
-  const sphereRadius = radius * 0.0125;
-  const sphereGeom = new THREE.SphereGeometry(sphereRadius, 32, 24);
-  const sphereMaterial = new THREE.MeshStandardMaterial({
-    color: COLORS.sphereBase,
-    emissive: COLORS.sphereEmissive,
+  const earthOrbitRadius = radius / CELESTIAL_TO_EARTH_ORBIT_RATIO;
+  const startDistance = Math.min(radius * 0.95, earthOrbitRadius * EARTH_ORBIT_CLEARANCE);
+  const startPosition = normal.clone().multiplyScalar(startDistance);
+  const direction = worldPosition.clone().sub(startPosition);
+  const lineLength = direction.length();
+  const lineRadius = Math.max(lineLength * LINE_THICKNESS_RATIO, earthOrbitRadius * 0.015);
+  direction.normalize();
+
+  const lineGeometry = new THREE.CylinderGeometry(lineRadius, lineRadius, lineLength, 32, 1, false);
+  lineGeometry.translate(0, lineLength / 2, 0);
+  const lineMaterial = new THREE.MeshStandardMaterial({
+    color: COLORS.lineBase,
+    emissive: LINE_BASE_EMISSIVE.clone(),
+    emissiveIntensity: 0.65,
+    roughness: 0.45,
+    metalness: 0.18,
+    transparent: true,
+    opacity: COLORS.lineBaseOpacity,
+    toneMapped: false,
+  });
+  const line = new THREE.Mesh(lineGeometry, lineMaterial);
+  line.position.copy(startPosition);
+  const align = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+  line.quaternion.copy(align);
+  line.castShadow = false;
+  line.receiveShadow = false;
+  line.name = `${spec.label} Direction`;
+
+  const anchorRadius = earthOrbitRadius * 0.045;
+  const anchorGeometry = new THREE.SphereGeometry(anchorRadius, 32, 24);
+  const anchorMaterial = new THREE.MeshStandardMaterial({
+    color: COLORS.anchorBase,
+    emissive: COLORS.anchorEmissive,
     emissiveIntensity: 0.78,
     roughness: 0.3,
     metalness: 0.1,
     toneMapped: false,
   });
-  const sphere = new THREE.Mesh(sphereGeom, sphereMaterial);
-  sphere.position.copy(worldPosition);
-  sphere.castShadow = false;
-  sphere.receiveShadow = false;
-  sphere.name = `${spec.label} Marker`;
-
-  const ringInner = sphereRadius * 1.65;
-  const ringOuter = sphereRadius * 2.4;
-  const ringGeom = new THREE.RingGeometry(ringInner, ringOuter, 72, 1);
-  const ringMaterial = new THREE.MeshBasicMaterial({
-    color: COLORS.ringBase,
-    transparent: true,
-    opacity: COLORS.ringBaseOpacity,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-    depthTest: false,
-    toneMapped: false,
-  });
-  const ring = new THREE.Mesh(ringGeom, ringMaterial);
-  ring.position.copy(worldPosition);
-  ring.renderOrder = 15;
-  const align = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-  ring.quaternion.copy(align);
+  const anchor = new THREE.Mesh(anchorGeometry, anchorMaterial);
+  anchor.position.copy(startPosition);
+  anchor.castShadow = false;
+  anchor.receiveShadow = false;
+  anchor.name = `${spec.label} Anchor`;
 
   const labelScale = radius * 0.14;
   const label = createLabelSprite(spec.label, labelScale);
@@ -241,12 +259,12 @@ function buildCandidate(spec: CandidateSpec, radius: number): CandidateNode {
     right.set(1, 0, 0);
   }
   right.normalize();
-  const labelOffset = normal.clone().multiplyScalar(sphereRadius * 4.2);
-  const lateralOffset = right.multiplyScalar(sphereRadius * 2.8);
+  const labelOffset = normal.clone().multiplyScalar(radius * 0.05);
+  const lateralOffset = right.multiplyScalar(radius * 0.03);
   label.position.copy(worldPosition).add(labelOffset).add(lateralOffset);
   label.name = `${spec.label} Label`;
 
-  group.add(sphere, ring, label);
+  group.add(line, anchor, label);
 
   const tooltip = [
     spec.label,
@@ -259,10 +277,11 @@ function buildCandidate(spec: CandidateSpec, radius: number): CandidateNode {
   return {
     spec,
     group,
-    sphere,
-    ring,
+    line,
+    anchor,
     label,
     worldPosition,
+    startPosition,
     normal,
     tooltip,
     state: 'idle',
@@ -307,9 +326,9 @@ export function createWowSignalLayer(refs: WowSceneRefs): WowSignalLayer {
   const meshToNode = new Map<THREE.Object3D, CandidateNode>();
   const pickables: THREE.Object3D[] = [];
   for (const node of nodes) {
-    meshToNode.set(node.sphere, node);
-    meshToNode.set(node.ring, node);
-    pickables.push(node.sphere, node.ring);
+    meshToNode.set(node.line, node);
+    meshToNode.set(node.anchor, node);
+    pickables.push(node.line, node.anchor);
   }
 
   const tooltip = document.createElement('div');
@@ -350,26 +369,32 @@ export function createWowSignalLayer(refs: WowSceneRefs): WowSignalLayer {
   const updateMaterials = (node: CandidateNode, state: VisualState) => {
     if (node.state === state) return;
     node.state = state;
-    const sphereMaterial = node.sphere.material;
-    const ringMaterial = node.ring.material;
+    const lineMaterial = node.line.material;
+    const anchorMaterial = node.anchor.material;
     const spriteMaterial = node.label.material as THREE.SpriteMaterial;
     if (state === 'idle') {
-      sphereMaterial.emissive.copy(COLORS.sphereEmissive);
-      sphereMaterial.emissiveIntensity = 0.78;
-      ringMaterial.color.copy(COLORS.ringBase);
-      ringMaterial.opacity = COLORS.ringBaseOpacity;
+      anchorMaterial.emissive.copy(COLORS.anchorEmissive);
+      anchorMaterial.emissiveIntensity = 0.78;
+      lineMaterial.color.copy(COLORS.lineBase);
+      lineMaterial.opacity = COLORS.lineBaseOpacity;
+      lineMaterial.emissive.copy(LINE_BASE_EMISSIVE);
+      lineMaterial.emissiveIntensity = 0.65;
       spriteMaterial.opacity = 0.92;
     } else if (state === 'hover') {
-      sphereMaterial.emissive.copy(COLORS.sphereHighlight);
-      sphereMaterial.emissiveIntensity = 1.2;
-      ringMaterial.color.copy(COLORS.ringHighlight);
-      ringMaterial.opacity = COLORS.ringHighlightOpacity;
+      anchorMaterial.emissive.copy(COLORS.anchorHighlight);
+      anchorMaterial.emissiveIntensity = 1.2;
+      lineMaterial.color.copy(COLORS.lineHighlight);
+      lineMaterial.opacity = COLORS.lineHighlightOpacity;
+      lineMaterial.emissive.copy(LINE_HOVER_EMISSIVE);
+      lineMaterial.emissiveIntensity = 0.85;
       spriteMaterial.opacity = 1;
     } else {
-      sphereMaterial.emissive.copy(COLORS.sphereHighlight);
-      sphereMaterial.emissiveIntensity = 1.45;
-      ringMaterial.color.copy(COLORS.ringHighlight);
-      ringMaterial.opacity = COLORS.ringHighlightOpacity;
+      anchorMaterial.emissive.copy(COLORS.anchorHighlight);
+      anchorMaterial.emissiveIntensity = 1.45;
+      lineMaterial.color.copy(COLORS.lineHighlight);
+      lineMaterial.opacity = COLORS.lineHighlightOpacity;
+      lineMaterial.emissive.copy(LINE_PINNED_EMISSIVE);
+      lineMaterial.emissiveIntensity = 1.05;
       spriteMaterial.opacity = 1;
     }
   };
