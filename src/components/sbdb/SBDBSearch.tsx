@@ -98,8 +98,10 @@ export function SBDBSearch(): JSX.Element {
     if (typeof window === 'undefined') return false;
     return window.matchMedia(COMPACT_QUERY).matches;
   });
+  const [manualAddState, setManualAddState] = useState<'idle' | 'loading'>('idle');
 
   const listRef = useRef<HTMLDivElement | null>(null);
+  const manualAddTimer = useRef<number | null>(null);
 
   const trimmedQuery = query.trim();
   const requestedFields = useMemo(
@@ -153,6 +155,22 @@ export function SBDBSearch(): JSX.Element {
       mediaQuery.removeListener(handleChange);
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (manualAddTimer.current !== null) {
+        window.clearTimeout(manualAddTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (manualAddTimer.current !== null) {
+      window.clearTimeout(manualAddTimer.current);
+      manualAddTimer.current = null;
+    }
+    setManualAddState('idle');
+  }, [trimmedQuery]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -372,6 +390,19 @@ export function SBDBSearch(): JSX.Element {
     setDetailOpen(true);
   };
 
+  const handleManualAdd = () => {
+    if (!trimmedQuery || manualAddState === 'loading') return;
+    setManualAddState('loading');
+    window.dispatchEvent(new CustomEvent('neo3d:add-sbdb', { detail: trimmedQuery }));
+    if (manualAddTimer.current !== null) {
+      window.clearTimeout(manualAddTimer.current);
+    }
+    manualAddTimer.current = window.setTimeout(() => {
+      setManualAddState('idle');
+      manualAddTimer.current = null;
+    }, 1200);
+  };
+
   const handleRowActivate = (rowIndex: number) => {
     const row = rows[rowIndex];
     if (!row) return;
@@ -532,7 +563,28 @@ export function SBDBSearch(): JSX.Element {
           </div>
         ) : null}
         {!loading && !rows.length && trimmedQuery ? (
-          <div className="sbdb-search__empty">No matches for “{trimmedQuery}”.</div>
+          <div className="sbdb-search__empty">
+            <p>No matches for “{trimmedQuery}”.</p>
+            {usingLocalIndex ? (
+              <div className="sbdb-search__empty-actions">
+                <button
+                  type="button"
+                  className="sbdb-search__empty-button"
+                  onClick={() => openDetails(trimmedQuery)}
+                >
+                  Open details for “{trimmedQuery}”
+                </button>
+                <button
+                  type="button"
+                  className="sbdb-search__empty-button sbdb-search__empty-button--primary"
+                  onClick={handleManualAdd}
+                  disabled={manualAddState === 'loading'}
+                >
+                  {manualAddState === 'loading' ? 'Adding…' : 'Add to scene'}
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : null}
         {isCompact ? (
           <div className="sbdb-search__items sbdb-search__items--static">
