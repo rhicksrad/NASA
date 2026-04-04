@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { request } from '../api/nasaClient';
 import { imagesSearch, type NasaImageItem } from '../api/nasaImages';
 import '../styles/artemis.css';
 
@@ -17,23 +18,30 @@ type GallerySlot = {
   note: string;
 };
 
+type HorizonsResponse = {
+  result?: string;
+  error?: string;
+};
+
 const MISSION_START_ISO = '2026-04-01T16:50:00Z';
 const MISSION_DURATION_DAYS = 10;
 const EARTH_MOON_DISTANCE_KM = 384_400;
 const SPEED_OF_LIGHT_KM_S = 299_792;
+const AU_TO_KM = 149_597_870.7;
+const SCENE_MOON_RADIUS = 5.8;
 
 const PHASES: MissionPhase[] = [
-  { startDay: 0, label: 'TLI burn', detail: 'Orion departs parking orbit and commits to translunar trajectory.' },
-  { startDay: 1.25, label: 'Deep-space cruise', detail: 'Crew executes systems checks and optical navigation updates.' },
-  { startDay: 3.45, label: 'Lunar flyby', detail: 'Perilune pass leverages lunar gravity to target Earth return corridor.' },
-  { startDay: 4.6, label: 'Return arc', detail: 'Trajectory correction maneuvers trim entry interface conditions.' },
-  { startDay: 9.2, label: 'Entry & recovery', detail: 'Crew configures skip-entry guidance for Pacific splashdown operations.' },
+  { startDay: 0, label: 'Takeoff & TLI burn', detail: 'Launch stack insertion and trans-lunar injection burn depart Earth parking orbit.' },
+  { startDay: 1.25, label: 'Outbound coast', detail: 'Crew checks life support, optics and navigation while climbing toward lunar encounter.' },
+  { startDay: 3.45, label: 'Moon slingshot', detail: 'Perilune pass uses lunar gravity assist to bend the trajectory into a free-return Earth corridor.' },
+  { startDay: 4.6, label: 'Earth-return arc', detail: 'Return leg tracks re-entry corridor with correction burns as needed.' },
+  { startDay: 9.2, label: 'Entry & recovery', detail: 'Skip-entry guidance and parachute sequence target Pacific splashdown and recovery.' },
 ];
 
 const MISSION_FACTS = [
-  'Profile: crewed free-return lunar flyby with high-energy Earth re-entry.',
-  'Reference frame: Earth-Moon transfer approximation for public mission awareness.',
-  'Distance model scales to the mean Earth-Moon separation (384,400 km).',
+  'Trajectory includes visualized takeoff, translunar transfer, and lunar slingshot return geometry.',
+  'Moon orbit line is sampled from JPL Horizons vectors via the worker /horizons endpoint.',
+  'Spacecraft timeline shows completed path as a glow trail and upcoming path as dotted guidance.',
   'Mission clock and phase transitions update in real time using UTC.',
   'All mission imagery is loaded from NASA public archives via worker-backed search.',
 ];
@@ -83,17 +91,49 @@ function getShipProgress(day: number): number {
   return clamp01(day / MISSION_DURATION_DAYS);
 }
 
-function getShipPosition(progress: number): THREE.Vector3 {
-  const earth = new THREE.Vector3(0, 0, 0);
-  const moon = new THREE.Vector3(5.8, 0, 0);
+function getMissionPathPoints(samples = 320): THREE.Vector3[] {
+  const p0 = new THREE.Vector3(0.45, 0.22, 0);
+  const p1 = new THREE.Vector3(4.9, 1.52, 0.48);
+  const p2 = new THREE.Vector3(6.15, 0.12, -0.12);
+  const p3 = new THREE.Vector3(5.1, -1.28, -0.42);
+  const p4 = new THREE.Vector3(0.55, -0.46, 0.02);
 
-  if (progress <= 0.5) {
-    const outbound = progress / 0.5;
-    return new THREE.Vector3().lerpVectors(earth, moon, outbound).add(new THREE.Vector3(0, Math.sin(outbound * Math.PI) * 1.55, 0));
-  }
+  const outboundCurve = new THREE.CubicBezierCurve3(
+    p0,
+    new THREE.Vector3(1.8, 0.95, 0.3),
+    new THREE.Vector3(3.8, 1.7, 0.45),
+    p1,
+  );
 
-  const inbound = (progress - 0.5) / 0.5;
-  return new THREE.Vector3().lerpVectors(moon, earth, inbound).add(new THREE.Vector3(0, Math.sin(inbound * Math.PI) * -1.55, 0));
+  const slingCurve = new THREE.CubicBezierCurve3(
+    p1,
+    new THREE.Vector3(5.58, 1.1, 0.2),
+    new THREE.Vector3(6.36, 0.42, -0.2),
+    p3,
+  );
+
+  const returnCurve = new THREE.CubicBezierCurve3(
+    p3,
+    new THREE.Vector3(3.9, -1.6, -0.2),
+    new THREE.Vector3(1.55, -0.85, -0.05),
+    p4,
+  );
+
+  const result: THREE.Vector3[] = [];
+  const a = Math.floor(samples * 0.45);
+  const b = Math.floor(samples * 0.22);
+  const c = Math.max(2, samples - a - b);
+
+  result.push(...outboundCurve.getPoints(a));
+  result.push(...slingCurve.getPoints(b).slice(1));
+  result.push(...returnCurve.getPoints(c).slice(1));
+  result.push(p2);
+  return result;
+}
+
+function getShipPosition(progress: number, path: THREE.Vector3[]): THREE.Vector3 {
+  const idx = Math.round(clamp01(progress) * (path.length - 1));
+  return path[Math.min(path.length - 1, Math.max(0, idx))].clone();
 }
 
 function makePlanetTexture(base: string, accent: string): THREE.CanvasTexture {
@@ -155,6 +195,46 @@ function createStarfield(): THREE.Points {
   return new THREE.Points(geometry, material);
 }
 
+function createShipModel(): THREE.Group {
+  const ship = new THREE.Group();
+
+  const serviceModule = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.09, 0.1, 0.42, 20),
+    new THREE.MeshStandardMaterial({ color: 0xc8d2e6, roughness: 0.35, metalness: 0.62, emissive: 0x1f2a40, emissiveIntensity: 0.2 }),
+  );
+  serviceModule.rotation.z = Math.PI / 2;
+
+  const crewCapsule = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.095, 0.2, 8, 16),
+    new THREE.MeshStandardMaterial({ color: 0xf4f7ff, roughness: 0.2, metalness: 0.45, emissive: 0x2d3956, emissiveIntensity: 0.28 }),
+  );
+  crewCapsule.rotation.z = Math.PI / 2;
+  crewCapsule.position.x = 0.25;
+
+  const nose = new THREE.Mesh(
+    new THREE.ConeGeometry(0.075, 0.14, 16),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.22, metalness: 0.28 }),
+  );
+  nose.rotation.z = -Math.PI / 2;
+  nose.position.x = 0.42;
+
+  const panelMaterial = new THREE.MeshStandardMaterial({ color: 0x32589a, roughness: 0.46, metalness: 0.14, emissive: 0x172a57, emissiveIntensity: 0.45 });
+  const leftPanel = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.34, 0.12), panelMaterial);
+  leftPanel.position.set(-0.08, 0.25, 0);
+  const rightPanel = leftPanel.clone();
+  rightPanel.position.y = -0.25;
+
+  const plume = new THREE.Mesh(
+    new THREE.ConeGeometry(0.048, 0.18, 16),
+    new THREE.MeshBasicMaterial({ color: 0x61d6ff, transparent: true, opacity: 0.55 }),
+  );
+  plume.rotation.z = Math.PI / 2;
+  plume.position.x = -0.32;
+
+  ship.add(serviceModule, crewCapsule, nose, leftPanel, rightPanel, plume);
+  return ship;
+}
+
 function formatUtc(date: Date): string {
   return `${date.toISOString().replace('T', ' ').slice(0, 19)} UTC`;
 }
@@ -208,14 +288,73 @@ async function loadGallery(galleryEl: HTMLElement, signal: AbortSignal): Promise
   galleryEl.innerHTML = '<p class="artemis-gallery-loading">Mission imagery is temporarily unavailable.</p>';
 }
 
+async function fetchMoonOrbitPoints(startIso: string, stopIso: string): Promise<THREE.Vector3[]> {
+  const response = await request<HorizonsResponse>('/horizons', {
+    COMMAND: "'301'",
+    EPHEM_TYPE: 'VECTORS',
+    START_TIME: `'${startIso.slice(0, 10)}'`,
+    STOP_TIME: `'${stopIso.slice(0, 10)}'`,
+    STEP_SIZE: "'6 HOURS'",
+    CENTER: "'500@399'",
+    REF_PLANE: 'ECLIPTIC',
+    REF_SYSTEM: 'J2000',
+    OUT_UNITS: 'AU-D',
+    VEC_TABLE: '2',
+    VEC_CORR: 'NONE',
+    CSV_FORMAT: 'NO',
+    MAKE_EPHEM: 'YES',
+    OBJ_DATA: 'NO',
+    TIME_TYPE: 'UT',
+  });
+
+  if (response.error) {
+    throw new Error(response.error);
+  }
+  const result = response.result;
+  if (!result) {
+    throw new Error('Missing Horizons vectors result');
+  }
+
+  const blockStart = result.indexOf('$$SOE');
+  const blockEnd = result.indexOf('$$EOE', blockStart + 5);
+  if (blockStart === -1 || blockEnd === -1) {
+    throw new Error('Missing Horizons block markers');
+  }
+
+  const block = result.slice(blockStart + 5, blockEnd);
+  const matches = [...block.matchAll(/X\s*=\s*([+-]?\d+(?:\.\d+)?(?:E[+-]?\d+)?)\s+Y\s*=\s*([+-]?\d+(?:\.\d+)?(?:E[+-]?\d+)?)\s+Z\s*=\s*([+-]?\d+(?:\.\d+)?(?:E[+-]?\d+)?)/gi)];
+
+  const points = matches
+    .map(match => {
+      const x = Number(match[1]);
+      const y = Number(match[2]);
+      const z = Number(match[3]);
+      if (![x, y, z].every(Number.isFinite)) {
+        return null;
+      }
+      const kmX = x * AU_TO_KM;
+      const kmY = y * AU_TO_KM;
+      const kmZ = z * AU_TO_KM;
+      const s = SCENE_MOON_RADIUS / EARTH_MOON_DISTANCE_KM;
+      return new THREE.Vector3(kmX * s, kmY * s, kmZ * s);
+    })
+    .filter((value): value is THREE.Vector3 => Boolean(value));
+
+  if (points.length < 2) {
+    throw new Error('Too few moon orbit points');
+  }
+
+  return points;
+}
+
 export function mountArtemisPage(host: HTMLElement): Cleanup {
   const container = document.createElement('section');
   container.className = 'artemis-page';
   container.innerHTML = `
     <header class="artemis-header">
       <p class="artemis-kicker">Artemis mission operations</p>
-      <h1>Professional Earth–Moon Mission Console</h1>
-      <p class="artemis-subhead">High-contrast 3D situational display, phase timeline, and mission media stream for Artemis operations storytelling.</p>
+      <h1>Artemis 3D Timeline + Lunar Slingshot Console</h1>
+      <p class="artemis-subhead">Mission timeline view with takeoff, slingshot geometry, completed/forecast trajectory zones, and live mission countdown telemetry.</p>
     </header>
 
     <div class="artemis-layout">
@@ -223,7 +362,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
         <div class="artemis-stage" id="artemis-stage"></div>
         <div class="artemis-overlay">
           <div class="artemis-badge">Live</div>
-          <p>Earth–Moon transfer visualization (reference profile)</p>
+          <p>Earth–Moon transfer visualization (worker + NASA/JPL vectors)</p>
         </div>
       </div>
 
@@ -231,9 +370,11 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
         <h2>Mission telemetry</h2>
         <dl>
           <div><dt>Mission clock</dt><dd id="artemis-elapsed">--</dd></div>
+          <div><dt>Time remaining</dt><dd id="artemis-remaining">--</dd></div>
           <div><dt>Current phase</dt><dd id="artemis-phase">--</dd></div>
           <div><dt>Phase detail</dt><dd id="artemis-detail">--</dd></div>
           <div><dt>Distance from Earth</dt><dd id="artemis-distance">--</dd></div>
+          <div><dt>Distance to Moon</dt><dd id="artemis-moon-distance">--</dd></div>
           <div><dt>Downlink light time</dt><dd id="artemis-lighttime">--</dd></div>
           <div><dt>Relative speed</dt><dd id="artemis-speed">--</dd></div>
           <div><dt>UTC now</dt><dd id="artemis-now">--</dd></div>
@@ -252,7 +393,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     </div>
 
     <section class="artemis-timeline" id="artemis-timeline">
-      ${PHASES.map(phase => `<article class="artemis-phase-card" data-phase="${phase.label}"><h4>${phase.label}</h4><p>T+${phase.startDay.toFixed(1)} days</p><small>${phase.detail}</small></article>`).join('')}
+      ${PHASES.map(phase => `<article class="artemis-phase-card" data-phase="${phase.label}" data-start-day="${phase.startDay}"><h4>${phase.label}</h4><p>T+${phase.startDay.toFixed(1)} days</p><small>${phase.detail}</small></article>`).join('')}
     </section>
   `;
 
@@ -260,16 +401,18 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
 
   const stage = container.querySelector<HTMLElement>('#artemis-stage');
   const elapsedEl = container.querySelector<HTMLElement>('#artemis-elapsed');
+  const remainingEl = container.querySelector<HTMLElement>('#artemis-remaining');
   const phaseEl = container.querySelector<HTMLElement>('#artemis-phase');
   const detailEl = container.querySelector<HTMLElement>('#artemis-detail');
   const distanceEl = container.querySelector<HTMLElement>('#artemis-distance');
+  const moonDistanceEl = container.querySelector<HTMLElement>('#artemis-moon-distance');
   const lighttimeEl = container.querySelector<HTMLElement>('#artemis-lighttime');
   const speedEl = container.querySelector<HTMLElement>('#artemis-speed');
   const nowEl = container.querySelector<HTMLElement>('#artemis-now');
   const timelineEl = container.querySelector<HTMLElement>('#artemis-timeline');
   const galleryEl = container.querySelector<HTMLElement>('#artemis-gallery-list');
 
-  if (!stage || !elapsedEl || !phaseEl || !detailEl || !distanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl) {
+  if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl) {
     return () => undefined;
   }
 
@@ -325,41 +468,50 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     new THREE.SphereGeometry(0.31, 64, 64),
     new THREE.MeshStandardMaterial({ color: 0xd0d6de, roughness: 0.96, metalness: 0.02 }),
   );
-  moon.position.set(5.8, 0, 0);
+  moon.position.set(SCENE_MOON_RADIUS, 0, 0);
   scene.add(moon);
 
-  const lunarOrbit = new THREE.LineLoop(
-    new THREE.BufferGeometry().setFromPoints(
-      Array.from({ length: 160 }, (_, idx) => {
-        const t = (idx / 160) * Math.PI * 2;
-        return new THREE.Vector3(Math.cos(t) * 5.8, 0, Math.sin(t) * 0.12);
-      }),
-    ),
-    new THREE.LineBasicMaterial({ color: 0x4fa0d9, transparent: true, opacity: 0.25 }),
+  const fallbackMoonOrbitPoints = Array.from({ length: 220 }, (_, idx) => {
+    const t = (idx / 220) * Math.PI * 2;
+    return new THREE.Vector3(Math.cos(t) * SCENE_MOON_RADIUS, Math.sin(t) * 0.18, Math.sin(t) * 0.14);
+  });
+  const moonOrbitGeom = new THREE.BufferGeometry().setFromPoints(fallbackMoonOrbitPoints);
+  const lunarOrbit = new THREE.Line(
+    moonOrbitGeom,
+    new THREE.LineBasicMaterial({ color: 0x4fa0d9, transparent: true, opacity: 0.35 }),
   );
   scene.add(lunarOrbit);
 
-  const ship = new THREE.Mesh(
-    new THREE.ConeGeometry(0.11, 0.43, 16),
-    new THREE.MeshStandardMaterial({ color: 0xf7f9ff, emissive: 0x3f4f7a, emissiveIntensity: 0.45, metalness: 0.35, roughness: 0.3 }),
-  );
-  ship.rotation.z = Math.PI / 2;
+  const ship = createShipModel();
   scene.add(ship);
 
-  const arcPoints: THREE.Vector3[] = [];
-  for (let i = 0; i <= 180; i += 1) {
-    arcPoints.push(getShipPosition(i / 180));
-  }
-  const path = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(arcPoints),
-    new THREE.LineBasicMaterial({ color: 0x6ce6ff, transparent: true, opacity: 0.9 }),
+  const missionPathPoints = getMissionPathPoints(320);
+  const pastPath = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([missionPathPoints[0], missionPathPoints[1]]),
+    new THREE.LineBasicMaterial({ color: 0x6ce6ff, transparent: true, opacity: 0.92 }),
   );
-  scene.add(path);
+  scene.add(pastPath);
+
+  const futurePath = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(missionPathPoints),
+    new THREE.LineDashedMaterial({ color: 0x8ac8ff, transparent: true, opacity: 0.82, dashSize: 0.26, gapSize: 0.16 }),
+  );
+  futurePath.computeLineDistances();
+  scene.add(futurePath);
+
+  const timelineMarkers = PHASES.map(phase => {
+    const marker = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0x9fdcff, transparent: true, opacity: 0.85 }),
+    );
+    scene.add(marker);
+    return { phase, marker };
+  });
 
   const startTs = Date.parse(MISSION_START_ISO);
   const activeCards = Array.from(timelineEl.querySelectorAll<HTMLElement>('.artemis-phase-card'));
   let raf = 0;
-  let previousPos = getShipPosition(0);
+  let previousPos = getShipPosition(0, missionPathPoints);
 
   const resize = () => {
     const width = stage.clientWidth;
@@ -368,6 +520,16 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
   };
+
+  fetchMoonOrbitPoints(new Date(startTs - 6 * 86400000).toISOString(), new Date(startTs + 16 * 86400000).toISOString())
+    .then(points => {
+      if (points.length > 1) {
+        moonOrbitGeom.setFromPoints(points);
+      }
+    })
+    .catch(() => {
+      /* keep fallback orbit */
+    });
 
   const tick = () => {
     const now = new Date();
@@ -380,26 +542,48 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     moon.rotation.y += 0.0008;
     starfield.rotation.y += 0.00006;
 
-    const pos = getShipPosition(progress);
+    const pos = getShipPosition(progress, missionPathPoints);
     ship.position.copy(pos);
-    ship.lookAt(pos.clone().add(pos.clone().sub(previousPos).normalize()));
+    const dir = pos.clone().sub(previousPos);
+    ship.lookAt(pos.clone().add(dir.lengthSq() > 0 ? dir.normalize() : new THREE.Vector3(1, 0, 0)));
 
-    const distanceKm = (pos.distanceTo(new THREE.Vector3(0, 0, 0)) / 5.8) * EARTH_MOON_DISTANCE_KM;
+    const pathIndex = Math.max(1, Math.floor(progress * (missionPathPoints.length - 1)));
+    const pastPoints = missionPathPoints.slice(0, pathIndex + 1);
+    (pastPath.geometry as THREE.BufferGeometry).setFromPoints(pastPoints);
+
+    const futurePoints = missionPathPoints.slice(Math.max(0, pathIndex - 1));
+    (futurePath.geometry as THREE.BufferGeometry).setFromPoints(futurePoints.length > 1 ? futurePoints : missionPathPoints.slice(-2));
+    futurePath.computeLineDistances();
+
+    const earthOrigin = new THREE.Vector3(0, 0, 0);
+    const distanceKm = (pos.distanceTo(earthOrigin) / SCENE_MOON_RADIUS) * EARTH_MOON_DISTANCE_KM;
+    const moonDistanceKm = (pos.distanceTo(moon.position) / SCENE_MOON_RADIUS) * EARTH_MOON_DISTANCE_KM;
     const distanceClamped = Math.max(0, distanceKm);
+    const moonDistanceClamped = Math.max(0, moonDistanceKm);
     const lightSeconds = distanceClamped / SPEED_OF_LIGHT_KM_S;
     const speedKmS = Math.max(0, pos.distanceTo(previousPos) * 420);
 
     elapsedEl.textContent = formatDuration(elapsedMs);
+    remainingEl.textContent = formatDuration(startTs + MISSION_DURATION_DAYS * 86400000 - now.getTime());
     phaseEl.textContent = phase.label;
     detailEl.textContent = phase.detail;
     distanceEl.textContent = `${Math.round(distanceClamped).toLocaleString()} km`;
+    moonDistanceEl.textContent = `${Math.round(moonDistanceClamped).toLocaleString()} km`;
     lighttimeEl.textContent = `${lightSeconds.toFixed(2)} s one-way (${(lightSeconds * 2).toFixed(2)} s RTT)`;
     speedEl.textContent = `${speedKmS.toFixed(2)} km/s`;
     nowEl.textContent = formatUtc(now);
 
+    for (const { phase: phasePoint, marker } of timelineMarkers) {
+      const markerProgress = getShipProgress(phasePoint.startDay);
+      marker.position.copy(getShipPosition(markerProgress, missionPathPoints));
+      marker.material.opacity = progress >= markerProgress ? 0.95 : 0.28;
+    }
+
     for (const card of activeCards) {
-      const isActive = card.dataset.phase === phase.label;
-      card.classList.toggle('is-active', isActive);
+      const startDay = Number(card.dataset.startDay ?? Number.NaN);
+      card.classList.toggle('is-active', card.dataset.phase === phase.label);
+      card.classList.toggle('is-complete', Number.isFinite(startDay) && day >= startDay);
+      card.classList.toggle('is-upcoming', Number.isFinite(startDay) && day < startDay);
     }
 
     previousPos = pos.clone();
@@ -420,15 +604,34 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     controls.dispose();
     renderer.dispose();
 
-    [path, lunarOrbit].forEach(line => {
+    [pastPath, futurePath, lunarOrbit].forEach(line => {
       line.geometry.dispose();
       (line.material as THREE.Material).dispose();
     });
 
-    [earth, atmosphere, moon, ship].forEach(mesh => {
+    timelineMarkers.forEach(({ marker }) => {
+      marker.geometry.dispose();
+      (marker.material as THREE.Material).dispose();
+    });
+
+    [earth, atmosphere, moon].forEach(mesh => {
       mesh.geometry.dispose();
       (mesh.material as THREE.Material).dispose();
     });
+
+    ship.traverse(obj => {
+      const mesh = obj as THREE.Mesh;
+      if (mesh.isMesh) {
+        mesh.geometry.dispose();
+        const material = mesh.material;
+        if (Array.isArray(material)) {
+          material.forEach(m => m.dispose());
+        } else {
+          material.dispose();
+        }
+      }
+    });
+
     earthTexture.dispose();
     starfield.geometry.dispose();
     (starfield.material as THREE.Material).dispose();
