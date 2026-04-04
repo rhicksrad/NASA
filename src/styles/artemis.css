@@ -3,52 +3,93 @@
   gap: var(--space-5);
   border: 1px solid var(--c-line-1);
   border-radius: var(--radius-2);
-  padding: var(--space-6);
-  background: linear-gradient(180deg, var(--c-surface-1), var(--c-surface-2));
+  padding: clamp(var(--space-4), 2.2vw, var(--space-6));
+  background:
+    radial-gradient(120% 140% at 0% 0%, hsl(216 74% 14% / 0.85), transparent 45%),
+    radial-gradient(100% 120% at 100% 0%, hsl(258 62% 11% / 0.8), transparent 40%),
+    linear-gradient(180deg, hsl(223 44% 8%), hsl(226 38% 6%));
+  box-shadow: 0 24px 64px hsl(230 90% 2% / 0.4);
 }
 
 .artemis-header h1 {
   margin: 0;
-  font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+  font-size: clamp(1.5rem, 2.6vw, 2.4rem);
+  letter-spacing: -0.02em;
 }
 
 .artemis-kicker {
   margin: 0 0 var(--space-2) 0;
   font-family: var(--font-mono);
-  color: var(--c-accent);
+  color: hsl(190 95% 75%);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   font-size: var(--fs-0);
 }
 
 .artemis-subhead {
   margin: var(--space-2) 0 0 0;
-  color: var(--c-text-2);
+  max-width: 72ch;
+  color: hsl(210 32% 78%);
 }
 
 .artemis-layout {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  grid-template-columns: minmax(0, 1.95fr) minmax(320px, 1fr);
+}
+
+.artemis-stage-wrap {
+  position: relative;
 }
 
 .artemis-stage {
-  min-height: 420px;
-  border: 1px solid var(--c-line-1);
+  min-height: 520px;
+  border: 1px solid hsl(198 50% 54% / 0.3);
   border-radius: var(--radius-1);
   overflow: hidden;
-  background: radial-gradient(circle at 35% 25%, hsl(215 40% 18%), hsl(223 50% 7%));
+  background: radial-gradient(circle at 30% 25%, hsl(219 40% 20%), hsl(230 55% 6%));
+  box-shadow: inset 0 0 36px hsl(212 84% 55% / 0.09);
+}
+
+.artemis-overlay {
+  position: absolute;
+  left: var(--space-3);
+  top: var(--space-3);
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: hsl(219 67% 8% / 0.72);
+  border: 1px solid hsl(190 78% 60% / 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.artemis-overlay p {
+  margin: 0;
+  font-size: 0.72rem;
+  color: hsl(197 64% 88%);
+}
+
+.artemis-badge {
+  color: hsl(181 100% 73%);
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 0.66rem;
 }
 
 .artemis-panel {
-  border: 1px solid var(--c-line-1);
+  border: 1px solid hsl(194 42% 52% / 0.3);
   border-radius: var(--radius-1);
   padding: var(--space-4);
-  background: hsl(222 40% 10% / 0.6);
+  background: linear-gradient(180deg, hsl(222 41% 12% / 0.88), hsl(226 37% 8% / 0.9));
+  display: grid;
+  gap: var(--space-4);
 }
 
-.artemis-panel h2 {
-  margin-top: 0;
+.artemis-panel h2,
+.artemis-panel h3 {
+  margin: 0;
 }
 
 .artemis-panel dl {
@@ -59,17 +100,111 @@
 
 .artemis-panel dt {
   font-size: var(--fs-0);
-  color: var(--c-muted);
+  color: hsl(217 23% 71%);
 }
 
 .artemis-panel dd {
-  margin: var(--space-1) 0 0 0;
+  margin: 0.2rem 0 0 0;
   font-family: var(--font-mono);
-  color: var(--c-text-1);
+  color: hsl(188 92% 80%);
+  font-size: var(--fs-1);
 }
 
-@media (max-width: 980px) {
+.artemis-facts ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+  color: hsl(210 30% 83%);
+}
+
+.artemis-gallery-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.artemis-gallery-card {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 94px minmax(0, 1fr);
+  margin: 0;
+  padding: var(--space-2);
+  border-radius: 0.7rem;
+  background: hsl(223 42% 15% / 0.9);
+  border: 1px solid hsl(195 44% 58% / 0.23);
+}
+
+.artemis-gallery-card img {
+  width: 94px;
+  height: 94px;
+  object-fit: cover;
+  border-radius: 0.55rem;
+}
+
+.artemis-gallery-card h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.artemis-gallery-card p {
+  margin: 0.2rem 0;
+  color: hsl(209 24% 76%);
+  font-size: 0.82rem;
+}
+
+.artemis-gallery-card small {
+  color: hsl(196 45% 75%);
+  font-size: 0.72rem;
+}
+
+.artemis-gallery-loading {
+  margin: 0;
+  color: hsl(209 24% 76%);
+}
+
+.artemis-timeline {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.artemis-phase-card {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-1);
+  border: 1px solid hsl(194 39% 53% / 0.2);
+  background: hsl(226 34% 11% / 0.82);
+  transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease;
+}
+
+.artemis-phase-card h4 {
+  margin: 0;
+}
+
+.artemis-phase-card p {
+  margin: 0.35rem 0;
+  color: hsl(190 79% 77%);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.artemis-phase-card small {
+  color: hsl(211 24% 76%);
+}
+
+.artemis-phase-card.is-active {
+  border-color: hsl(182 88% 62% / 0.85);
+  background: hsl(207 65% 17% / 0.78);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px hsl(192 95% 10% / 0.4);
+}
+
+@media (max-width: 1080px) {
   .artemis-layout {
     grid-template-columns: 1fr;
+  }
+
+  .artemis-stage {
+    min-height: 440px;
   }
 }
