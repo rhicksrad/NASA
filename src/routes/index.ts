@@ -2,6 +2,7 @@ import { mountMarsPage } from './marsImages';
 import { initImagesExplorerPage } from './imagesExplorer';
 import { mountAboutPage } from './about';
 import mountEpic from './epic';
+import { mountArtemisPage } from './artemis';
 
 type RouteHandler = (host: HTMLElement) => void | (() => void);
 
@@ -15,6 +16,7 @@ export function initRouter() {
   const imagesExplorerLink = document.querySelector<HTMLAnchorElement>('#nav-images-explorer');
   const epicLink = document.querySelector<HTMLAnchorElement>('#nav-epic');
   const aboutLink = document.querySelector<HTMLAnchorElement>('#nav-about');
+  const artemisLink = document.querySelector<HTMLAnchorElement>('#nav-artemis');
   const homeHtml = host.innerHTML;
 
   const routes: Record<string, RouteHandler> = {
@@ -27,6 +29,7 @@ export function initRouter() {
       container.replaceChildren(host);
       mountEpic(host);
     },
+    '/artemis': container => mountArtemisPage(container),
   };
 
   const normalizePathname = (value: string): string => {
@@ -73,6 +76,13 @@ export function initRouter() {
         aboutLink.setAttribute('aria-current', 'page');
       } else {
         aboutLink.removeAttribute('aria-current');
+      }
+    }
+    if (artemisLink) {
+      if (pathname === '/artemis') {
+        artemisLink.setAttribute('aria-current', 'page');
+      } else {
+        artemisLink.removeAttribute('aria-current');
       }
     }
   };
