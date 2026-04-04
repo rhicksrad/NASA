@@ -23,6 +23,8 @@ const EARTH_MOON_DISTANCE_KM = 384_400;
 const SPEED_OF_LIGHT_KM_S = 299_792;
 const AU_TO_KM = 149_597_870.7;
 const SCENE_MOON_RADIUS = 5.8;
+const EARTH_RADIUS_SCENE = 0.82;
+const ATMOSPHERE_RADIUS_SCENE = 0.9;
 
 const PHASES: MissionPhase[] = [
   { startDay: 0, label: 'Takeoff & TLI burn', detail: 'Launch stack insertion and trans-lunar injection burn depart Earth parking orbit.' },
@@ -277,18 +279,28 @@ async function fetchMoonOrbitPoints(startIso: string, stopIso: string): Promise<
 }
 
 function getMoonPositionForDay(day: number, moonOrbitPoints: THREE.Vector3[]): THREE.Vector3 {
-  const normalizedDay = ((day % 27.321661) + 27.321661) % 27.321661;
-  const progress = normalizedDay / 27.321661;
-  return getShipPosition(progress, moonOrbitPoints);
+  if (!moonOrbitPoints.length) return new THREE.Vector3();
+  if (moonOrbitPoints.length === 1) return moonOrbitPoints[0].clone();
+
+  const synodicMonthDays = 27.321661;
+  const normalizedDay = ((day % synodicMonthDays) + synodicMonthDays) % synodicMonthDays;
+  const progress = normalizedDay / synodicMonthDays;
+  const cursor = progress * moonOrbitPoints.length;
+  const idx = Math.floor(cursor) % moonOrbitPoints.length;
+  const nextIdx = (idx + 1) % moonOrbitPoints.length;
+  const t = cursor - Math.floor(cursor);
+
+  return moonOrbitPoints[idx].clone().lerp(moonOrbitPoints[nextIdx], t);
 }
 
 function buildMissionPathPoints(moonOrbitPoints: THREE.Vector3[], samples = 320): THREE.Vector3[] {
   const moonAtFlyby = getMoonPositionForDay(3.45, moonOrbitPoints);
   const perigeeOut = moonAtFlyby.clone().multiplyScalar(0.86);
   const returnAnchor = moonAtFlyby.clone().multiplyScalar(0.72).setY(moonAtFlyby.y - 0.8);
+  const departureRadius = EARTH_RADIUS_SCENE + 0.18;
 
   const control = [
-    new THREE.Vector3(0.5, 0.22, 0.04),
+    new THREE.Vector3(departureRadius, 0.24, 0.08),
     new THREE.Vector3(2.2, 1.0, 0.18),
     perigeeOut,
     moonAtFlyby.clone(),
@@ -408,13 +420,13 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
 
   const earthTexture = makePlanetTexture('#1f4bbd', '#6ec8ff');
   const earth = new THREE.Mesh(
-    new THREE.SphereGeometry(1.12, 96, 96),
+    new THREE.SphereGeometry(EARTH_RADIUS_SCENE, 96, 96),
     new THREE.MeshStandardMaterial({ map: earthTexture, emissive: 0x0f2347, emissiveIntensity: 0.18, roughness: 0.75 }),
   );
   scene.add(earth);
 
   const atmosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(1.2, 64, 64),
+    new THREE.SphereGeometry(ATMOSPHERE_RADIUS_SCENE, 64, 64),
     new THREE.MeshBasicMaterial({ color: 0x62b2ff, transparent: true, opacity: 0.18 }),
   );
   scene.add(atmosphere);
