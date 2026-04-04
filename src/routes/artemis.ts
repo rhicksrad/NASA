@@ -352,17 +352,14 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   container.className = 'artemis-page';
   container.innerHTML = `
     <header class="artemis-header">
-      <p class="artemis-kicker">Artemis mission operations</p>
-      <h1>Artemis 3D Timeline + Lunar Slingshot Console</h1>
-      <p class="artemis-subhead">Mission timeline view with takeoff, slingshot geometry, completed/forecast trajectory zones, and live mission countdown telemetry.</p>
+      <h1>Artemis Console</h1>
     </header>
 
     <div class="artemis-layout">
       <div class="artemis-stage-wrap">
         <div class="artemis-stage" id="artemis-stage"></div>
         <div class="artemis-overlay">
-          <div class="artemis-badge">Live</div>
-          <p>Earth–Moon transfer visualization (worker + NASA/JPL vectors)</p>
+          <div class="artemis-badge">Earth–Moon View</div>
         </div>
       </div>
 
