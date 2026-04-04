@@ -80,6 +80,23 @@
   width: 220px;
 }
 
+.artemis-live-button {
+  border: 1px solid hsl(190 82% 63% / 0.5);
+  border-radius: 999px;
+  background: hsl(226 48% 13% / 0.9);
+  color: hsl(188 92% 84%);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.artemis-live-button.is-live {
+  border-color: hsl(149 80% 57% / 0.9);
+  color: hsl(149 93% 78%);
+  box-shadow: 0 0 0 2px hsl(149 80% 57% / 0.15);
+}
+
 .artemis-badge {
   color: hsl(181 100% 73%);
   font-family: var(--font-mono);
@@ -112,14 +129,6 @@
 .artemis-panel dt { font-size: var(--fs-0); color: hsl(217 23% 71%); }
 .artemis-panel dd { margin: 0.2rem 0 0 0; font-family: var(--font-mono); color: hsl(188 92% 80%); font-size: var(--fs-1); }
 
-.artemis-facts ul {
-  margin: 0;
-  padding-left: 1.1rem;
-  display: grid;
-  gap: 0.45rem;
-  color: hsl(210 30% 83%);
-}
-
 .artemis-gallery-list { display: grid; gap: var(--space-3); }
 .artemis-image-sidebar { min-height: 580px; }
 .artemis-mission-info { max-height: none; }
@@ -142,33 +151,34 @@
 .artemis-gallery-loading { margin: 0; color: hsl(209 24% 76%); }
 
 .artemis-timeline-inline {
-  display: grid;
-  gap: var(--space-2);
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
 }
 
-.artemis-phase-pill {
-  margin: 0;
-  padding: var(--space-2);
-  border-radius: var(--radius-1);
-  border: 1px solid hsl(194 39% 53% / 0.2);
+.artemis-phase-dot {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  border: 1px solid hsl(194 39% 53% / 0.4);
   background: hsl(226 34% 11% / 0.82);
-  transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease;
+  cursor: pointer;
+  transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
 }
 
-.artemis-phase-pill h4 { margin: 0; font-size: 0.95rem; }
-.artemis-phase-pill p { margin: 0.25rem 0 0 0; color: hsl(190 79% 77%); font-family: var(--font-mono); font-size: 0.8rem; }
+.artemis-phase-dot:hover {
+  transform: scale(1.15);
+}
 
-.artemis-phase-pill.is-active {
+.artemis-phase-dot.is-active {
   border-color: hsl(182 88% 62% / 0.85);
-  background: hsl(207 65% 17% / 0.78);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 24px hsl(192 95% 10% / 0.4);
+  background: hsl(186 92% 56% / 0.95);
+  box-shadow: 0 0 0 3px hsl(186 92% 56% / 0.3);
 }
 
-.artemis-phase-pill.is-complete {
+.artemis-phase-dot.is-complete {
   border-color: hsl(190 88% 63% / 0.45);
-  background: hsl(214 56% 16% / 0.8);
+  background: hsl(202 89% 63% / 0.7);
 }
 
 @media (max-width: 1080px) {
