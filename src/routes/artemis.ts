@@ -32,13 +32,6 @@ const PHASES: MissionPhase[] = [
   { startDay: 9.2, label: 'Entry & recovery', detail: 'Skip-entry guidance and parachute sequence target Pacific splashdown and recovery.' },
 ];
 
-const MISSION_FACTS = [
-  'Trajectory includes visualized takeoff, translunar transfer, and lunar slingshot return geometry.',
-  'Moon orbit line is sampled from JPL Horizons vectors via the worker /horizons endpoint.',
-  'Spacecraft timeline shows completed path as a glow trail and upcoming path as dotted guidance.',
-  'Mission clock and phase transitions update in real time using UTC.',
-  'All mission imagery is loaded from NASA public archives via worker-backed search.',
-];
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -321,9 +314,10 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
         <div class="artemis-overlay">
           <div class="artemis-badge">Earth–Moon View</div>
           <label class="artemis-overlay-control">
-            <span>Timeline day</span>
+            <span id="artemis-scrub-date">Timeline day</span>
             <input id="artemis-scrub" type="range" min="0" max="${MISSION_DURATION_DAYS}" step="0.01" value="0" />
           </label>
+          <button id="artemis-live" class="artemis-live-button" type="button" title="Jump to live mission time and keep tracking">Go live</button>
         </div>
       </div>
 
@@ -349,13 +343,8 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
         <div><dt>UTC now</dt><dd id="artemis-now">--</dd></div>
       </dl>
 
-      <section class="artemis-facts">
-        <h3>Mission profile data</h3>
-        <ul>${MISSION_FACTS.map(fact => `<li>${fact}</li>`).join('')}</ul>
-      </section>
-
       <section class="artemis-timeline-inline" id="artemis-timeline-inline">
-        ${PHASES.map(phase => `<article class="artemis-phase-pill" data-phase="${phase.label}" data-start-day="${phase.startDay}"><h4>${phase.label}</h4><p>T+${phase.startDay.toFixed(1)} days</p></article>`).join('')}
+        ${PHASES.map(phase => `<button class="artemis-phase-dot" type="button" data-phase="${phase.label}" data-start-day="${phase.startDay}" title="${phase.label} • T+${phase.startDay.toFixed(1)} days" aria-label="${phase.label} at T+${phase.startDay.toFixed(1)} days"></button>`).join('')}
       </section>
     </section>
   `;
@@ -375,8 +364,10 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   const timelineEl = container.querySelector<HTMLElement>('#artemis-timeline-inline');
   const galleryEl = container.querySelector<HTMLElement>('#artemis-gallery-list');
   const scrubber = container.querySelector<HTMLInputElement>('#artemis-scrub');
+  const scrubDateEl = container.querySelector<HTMLElement>('#artemis-scrub-date');
+  const liveButton = container.querySelector<HTMLButtonElement>('#artemis-live');
 
-  if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl || !scrubber) {
+  if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl || !scrubber || !scrubDateEl || !liveButton) {
     return () => undefined;
   }
 
@@ -441,9 +432,9 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   });
   const moonOrbitGeom = new THREE.BufferGeometry().setFromPoints(fallbackMoonOrbitPoints);
   let moonOrbitPoints = [...fallbackMoonOrbitPoints];
-  const lunarOrbit = new THREE.Line(
+  const lunarOrbit = new THREE.LineLoop(
     moonOrbitGeom,
-    new THREE.LineBasicMaterial({ color: 0x4fa0d9, transparent: true, opacity: 0.35 }),
+    new THREE.LineBasicMaterial({ color: 0xff7fd0, transparent: true, opacity: 0.95 }),
   );
   scene.add(lunarOrbit);
 
@@ -474,7 +465,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   });
 
   const startTs = Date.parse(MISSION_START_ISO);
-  const activeCards = Array.from(timelineEl.querySelectorAll<HTMLElement>('.artemis-phase-pill'));
+  const activeCards = Array.from(timelineEl.querySelectorAll<HTMLButtonElement>('.artemis-phase-dot'));
   let raf = 0;
   let previousPos = getShipPosition(0, missionPathPoints);
   let simulatedDay: number | null = null;
@@ -487,7 +478,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     camera.updateProjectionMatrix();
   };
 
-  fetchMoonOrbitPoints(new Date(startTs - 6 * 86400000).toISOString(), new Date(startTs + 16 * 86400000).toISOString())
+  fetchMoonOrbitPoints(new Date(startTs - 3 * 86400000).toISOString(), new Date(startTs + 30 * 86400000).toISOString())
     .then(points => {
       if (points.length > 1) {
         moonOrbitPoints = points;
@@ -543,6 +534,8 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     lighttimeEl.textContent = `${lightSeconds.toFixed(2)} s one-way (${(lightSeconds * 2).toFixed(2)} s RTT)`;
     speedEl.textContent = `${speedKmS.toFixed(2)} km/s`;
     nowEl.textContent = formatUtc(new Date(startTs + elapsedMs));
+    scrubDateEl.textContent = `${formatUtc(new Date(startTs + day * 86400000)).slice(0, 16)} • T+${Math.max(0, day).toFixed(2)}d`;
+    liveButton.classList.toggle('is-live', simulatedDay === null);
     if (simulatedDay === null) scrubber.value = String(Math.max(0, Math.min(MISSION_DURATION_DAYS, day)));
 
     for (const { phase: phasePoint, marker } of timelineMarkers) {
@@ -573,6 +566,18 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     if (Math.abs(Number(scrubber.value) - realtimeMissionDay()) < 0.05) {
       simulatedDay = null;
     }
+  });
+  liveButton.addEventListener('click', () => {
+    simulatedDay = null;
+    scrubber.value = String(Math.max(0, Math.min(MISSION_DURATION_DAYS, realtimeMissionDay())));
+  });
+  activeCards.forEach(card => {
+    card.addEventListener('click', () => {
+      const startDay = Number(card.dataset.startDay ?? Number.NaN);
+      if (!Number.isFinite(startDay)) return;
+      simulatedDay = startDay;
+      scrubber.value = String(startDay);
+    });
   });
   raf = window.requestAnimationFrame(tick);
 
