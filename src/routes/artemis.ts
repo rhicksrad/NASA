@@ -12,12 +12,6 @@ type MissionPhase = {
   detail: string;
 };
 
-type GallerySlot = {
-  title: string;
-  query: string;
-  note: string;
-};
-
 type HorizonsResponse = {
   result?: string;
   error?: string;
@@ -44,24 +38,6 @@ const MISSION_FACTS = [
   'Spacecraft timeline shows completed path as a glow trail and upcoming path as dotted guidance.',
   'Mission clock and phase transitions update in real time using UTC.',
   'All mission imagery is loaded from NASA public archives via worker-backed search.',
-];
-
-const GALLERY_SLOTS: GallerySlot[] = [
-  {
-    title: 'Earth from Orion',
-    query: 'Artemis I Earth view from Orion spacecraft',
-    note: 'Orion camera view of Earth during Artemis transit.',
-  },
-  {
-    title: 'Earthrise (Apollo 8)',
-    query: 'Apollo 8 Earthrise William Anders',
-    note: 'Historic Earthrise photo captured by astronaut William Anders.',
-  },
-  {
-    title: 'Orion near Moon',
-    query: 'Artemis Orion spacecraft Moon',
-    note: 'Artemis-era Orion imagery around lunar operations.',
-  },
 ];
 
 function clamp01(value: number): number {
@@ -91,48 +67,8 @@ function getShipProgress(day: number): number {
   return clamp01(day / MISSION_DURATION_DAYS);
 }
 
-function getMissionPathPoints(samples = 320): THREE.Vector3[] {
-  const p0 = new THREE.Vector3(0.45, 0.22, 0);
-  const p1 = new THREE.Vector3(4.9, 1.52, 0.48);
-  const p2 = new THREE.Vector3(6.15, 0.12, -0.12);
-  const p3 = new THREE.Vector3(5.1, -1.28, -0.42);
-  const p4 = new THREE.Vector3(0.55, -0.46, 0.02);
-
-  const outboundCurve = new THREE.CubicBezierCurve3(
-    p0,
-    new THREE.Vector3(1.8, 0.95, 0.3),
-    new THREE.Vector3(3.8, 1.7, 0.45),
-    p1,
-  );
-
-  const slingCurve = new THREE.CubicBezierCurve3(
-    p1,
-    new THREE.Vector3(5.58, 1.1, 0.2),
-    new THREE.Vector3(6.36, 0.42, -0.2),
-    p3,
-  );
-
-  const returnCurve = new THREE.CubicBezierCurve3(
-    p3,
-    new THREE.Vector3(3.9, -1.6, -0.2),
-    new THREE.Vector3(1.55, -0.85, -0.05),
-    p4,
-  );
-
-  const result: THREE.Vector3[] = [];
-  const a = Math.floor(samples * 0.45);
-  const b = Math.floor(samples * 0.22);
-  const c = Math.max(2, samples - a - b);
-
-  result.push(...outboundCurve.getPoints(a));
-  result.push(...slingCurve.getPoints(b).slice(1));
-  result.push(...returnCurve.getPoints(c).slice(1));
-  result.push(p2);
-  return result;
-}
-
 function getShipPosition(progress: number, path: THREE.Vector3[]): THREE.Vector3 {
-  const idx = Math.round(clamp01(progress) * (path.length - 1));
+  const idx = Math.round(clamp01(progress) * Math.max(0, path.length - 1));
   return path[Math.min(path.length - 1, Math.max(0, idx))].clone();
 }
 
@@ -239,22 +175,22 @@ function formatUtc(date: Date): string {
   return `${date.toISOString().replace('T', ' ').slice(0, 19)} UTC`;
 }
 
-function buildGalleryCard(item: NasaImageItem, slot: GallerySlot): HTMLElement {
+function buildGalleryCard(item: NasaImageItem): HTMLElement {
   const article = document.createElement('article');
   article.className = 'artemis-gallery-card';
 
   const image = document.createElement('img');
   image.src = item.thumb;
-  image.alt = item.title || slot.title;
+  image.alt = item.title || 'Mission image';
   image.loading = 'lazy';
   image.decoding = 'async';
 
   const content = document.createElement('div');
   const heading = document.createElement('h4');
-  heading.textContent = item.title || slot.title;
+  heading.textContent = item.title || 'Mission image';
 
   const note = document.createElement('p');
-  note.textContent = slot.note;
+  note.textContent = item.description?.slice(0, 132) || 'NASA archive image related to Artemis mission operations.';
 
   const meta = document.createElement('small');
   const date = item.date_created ? new Date(item.date_created).toISOString().slice(0, 10) : 'Archive';
@@ -268,18 +204,18 @@ function buildGalleryCard(item: NasaImageItem, slot: GallerySlot): HTMLElement {
 
 async function loadGallery(galleryEl: HTMLElement, signal: AbortSignal): Promise<void> {
   galleryEl.innerHTML = '<p class="artemis-gallery-loading">Loading mission imagery…</p>';
-  const results = await Promise.all(
-    GALLERY_SLOTS.map(async slot => {
-      const response = await imagesSearch({ q: slot.query, page: 1 }, { signal });
-      return { slot, item: response.items.find(entry => entry.thumb) ?? null };
-    }),
-  );
+  const [page1, page2] = await Promise.all([
+    imagesSearch({ q: 'Artemis Orion Moon mission', page: 1 }, { signal }),
+    imagesSearch({ q: 'Artemis Orion Moon mission', page: 2 }, { signal }),
+  ]);
 
   if (signal.aborted) return;
 
-  const cards = results
-    .filter((entry): entry is { slot: GallerySlot; item: NasaImageItem } => Boolean(entry.item))
-    .map(({ slot, item }) => buildGalleryCard(item, slot));
+  const cards = [...page1.items, ...page2.items]
+    .filter(item => Boolean(item.thumb))
+    .sort((a, b) => Date.parse(b.date_created ?? '1900-01-01') - Date.parse(a.date_created ?? '1900-01-01'))
+    .slice(0, 8)
+    .map(item => buildGalleryCard(item));
 
   if (cards.length) {
     galleryEl.replaceChildren(...cards);
@@ -347,6 +283,30 @@ async function fetchMoonOrbitPoints(startIso: string, stopIso: string): Promise<
   return points;
 }
 
+function getMoonPositionForDay(day: number, moonOrbitPoints: THREE.Vector3[]): THREE.Vector3 {
+  const normalizedDay = ((day % 27.321661) + 27.321661) % 27.321661;
+  const progress = normalizedDay / 27.321661;
+  return getShipPosition(progress, moonOrbitPoints);
+}
+
+function buildMissionPathPoints(moonOrbitPoints: THREE.Vector3[], samples = 320): THREE.Vector3[] {
+  const moonAtFlyby = getMoonPositionForDay(3.45, moonOrbitPoints);
+  const perigeeOut = moonAtFlyby.clone().multiplyScalar(0.86);
+  const returnAnchor = moonAtFlyby.clone().multiplyScalar(0.72).setY(moonAtFlyby.y - 0.8);
+
+  const control = [
+    new THREE.Vector3(0.5, 0.22, 0.04),
+    new THREE.Vector3(2.2, 1.0, 0.18),
+    perigeeOut,
+    moonAtFlyby.clone(),
+    returnAnchor,
+    new THREE.Vector3(1.55, -0.72, -0.1),
+    new THREE.Vector3(0.6, -0.4, 0.01),
+  ];
+
+  return new THREE.CatmullRomCurve3(control, false, 'centripetal', 0.42).getPoints(samples);
+}
+
 export function mountArtemisPage(host: HTMLElement): Cleanup {
   const container = document.createElement('section');
   container.className = 'artemis-page';
@@ -360,28 +320,14 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
         <div class="artemis-stage" id="artemis-stage"></div>
         <div class="artemis-overlay">
           <div class="artemis-badge">Earth–Moon View</div>
+          <label class="artemis-overlay-control">
+            <span>Timeline day</span>
+            <input id="artemis-scrub" type="range" min="0" max="${MISSION_DURATION_DAYS}" step="0.01" value="0" />
+          </label>
         </div>
       </div>
 
-      <aside class="artemis-panel" aria-live="polite">
-        <h2>Mission telemetry</h2>
-        <dl>
-          <div><dt>Mission clock</dt><dd id="artemis-elapsed">--</dd></div>
-          <div><dt>Time remaining</dt><dd id="artemis-remaining">--</dd></div>
-          <div><dt>Current phase</dt><dd id="artemis-phase">--</dd></div>
-          <div><dt>Phase detail</dt><dd id="artemis-detail">--</dd></div>
-          <div><dt>Distance from Earth</dt><dd id="artemis-distance">--</dd></div>
-          <div><dt>Distance to Moon</dt><dd id="artemis-moon-distance">--</dd></div>
-          <div><dt>Downlink light time</dt><dd id="artemis-lighttime">--</dd></div>
-          <div><dt>Relative speed</dt><dd id="artemis-speed">--</dd></div>
-          <div><dt>UTC now</dt><dd id="artemis-now">--</dd></div>
-        </dl>
-
-        <section class="artemis-facts">
-          <h3>Mission profile data</h3>
-          <ul>${MISSION_FACTS.map(fact => `<li>${fact}</li>`).join('')}</ul>
-        </section>
-
+      <aside class="artemis-panel artemis-image-sidebar">
         <section class="artemis-gallery">
           <h3>Mission image sidebar</h3>
           <div id="artemis-gallery-list" class="artemis-gallery-list"></div>
@@ -389,8 +335,28 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
       </aside>
     </div>
 
-    <section class="artemis-timeline" id="artemis-timeline">
-      ${PHASES.map(phase => `<article class="artemis-phase-card" data-phase="${phase.label}" data-start-day="${phase.startDay}"><h4>${phase.label}</h4><p>T+${phase.startDay.toFixed(1)} days</p><small>${phase.detail}</small></article>`).join('')}
+    <section class="artemis-panel artemis-mission-info" aria-live="polite">
+      <h2>Mission telemetry</h2>
+      <dl>
+        <div><dt>Mission clock</dt><dd id="artemis-elapsed">--</dd></div>
+        <div><dt>Time remaining</dt><dd id="artemis-remaining">--</dd></div>
+        <div><dt>Current phase</dt><dd id="artemis-phase">--</dd></div>
+        <div><dt>Phase detail</dt><dd id="artemis-detail">--</dd></div>
+        <div><dt>Distance from Earth</dt><dd id="artemis-distance">--</dd></div>
+        <div><dt>Distance to Moon</dt><dd id="artemis-moon-distance">--</dd></div>
+        <div><dt>Downlink light time</dt><dd id="artemis-lighttime">--</dd></div>
+        <div><dt>Relative speed</dt><dd id="artemis-speed">--</dd></div>
+        <div><dt>UTC now</dt><dd id="artemis-now">--</dd></div>
+      </dl>
+
+      <section class="artemis-facts">
+        <h3>Mission profile data</h3>
+        <ul>${MISSION_FACTS.map(fact => `<li>${fact}</li>`).join('')}</ul>
+      </section>
+
+      <section class="artemis-timeline-inline" id="artemis-timeline-inline">
+        ${PHASES.map(phase => `<article class="artemis-phase-pill" data-phase="${phase.label}" data-start-day="${phase.startDay}"><h4>${phase.label}</h4><p>T+${phase.startDay.toFixed(1)} days</p></article>`).join('')}
+      </section>
     </section>
   `;
 
@@ -406,10 +372,11 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   const lighttimeEl = container.querySelector<HTMLElement>('#artemis-lighttime');
   const speedEl = container.querySelector<HTMLElement>('#artemis-speed');
   const nowEl = container.querySelector<HTMLElement>('#artemis-now');
-  const timelineEl = container.querySelector<HTMLElement>('#artemis-timeline');
+  const timelineEl = container.querySelector<HTMLElement>('#artemis-timeline-inline');
   const galleryEl = container.querySelector<HTMLElement>('#artemis-gallery-list');
+  const scrubber = container.querySelector<HTMLInputElement>('#artemis-scrub');
 
-  if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl) {
+  if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl || !scrubber) {
     return () => undefined;
   }
 
@@ -473,6 +440,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     return new THREE.Vector3(Math.cos(t) * SCENE_MOON_RADIUS, Math.sin(t) * 0.18, Math.sin(t) * 0.14);
   });
   const moonOrbitGeom = new THREE.BufferGeometry().setFromPoints(fallbackMoonOrbitPoints);
+  let moonOrbitPoints = [...fallbackMoonOrbitPoints];
   const lunarOrbit = new THREE.Line(
     moonOrbitGeom,
     new THREE.LineBasicMaterial({ color: 0x4fa0d9, transparent: true, opacity: 0.35 }),
@@ -482,7 +450,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   const ship = createShipModel();
   scene.add(ship);
 
-  const missionPathPoints = getMissionPathPoints(320);
+  let missionPathPoints = buildMissionPathPoints(moonOrbitPoints, 320);
   const pastPath = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([missionPathPoints[0], missionPathPoints[1]]),
     new THREE.LineBasicMaterial({ color: 0x6ce6ff, transparent: true, opacity: 0.92 }),
@@ -506,9 +474,10 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   });
 
   const startTs = Date.parse(MISSION_START_ISO);
-  const activeCards = Array.from(timelineEl.querySelectorAll<HTMLElement>('.artemis-phase-card'));
+  const activeCards = Array.from(timelineEl.querySelectorAll<HTMLElement>('.artemis-phase-pill'));
   let raf = 0;
   let previousPos = getShipPosition(0, missionPathPoints);
+  let simulatedDay: number | null = null;
 
   const resize = () => {
     const width = stage.clientWidth;
@@ -521,7 +490,9 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   fetchMoonOrbitPoints(new Date(startTs - 6 * 86400000).toISOString(), new Date(startTs + 16 * 86400000).toISOString())
     .then(points => {
       if (points.length > 1) {
+        moonOrbitPoints = points;
         moonOrbitGeom.setFromPoints(points);
+        missionPathPoints = buildMissionPathPoints(points, 320);
       }
     })
     .catch(() => {
@@ -530,14 +501,17 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
 
   const tick = () => {
     const now = new Date();
-    const elapsedMs = now.getTime() - startTs;
-    const day = elapsedMs / (1000 * 60 * 60 * 24);
+    const realtimeDay = (now.getTime() - startTs) / (1000 * 60 * 60 * 24);
+    const day = simulatedDay ?? realtimeDay;
+    const elapsedMs = day * 86400000;
     const progress = getShipProgress(day);
     const phase = missionPhaseForDay(day);
 
     earth.rotation.y += 0.0019;
     moon.rotation.y += 0.0008;
     starfield.rotation.y += 0.00006;
+
+    moon.position.copy(getMoonPositionForDay(day, moonOrbitPoints));
 
     const pos = getShipPosition(progress, missionPathPoints);
     ship.position.copy(pos);
@@ -558,17 +532,18 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     const distanceClamped = Math.max(0, distanceKm);
     const moonDistanceClamped = Math.max(0, moonDistanceKm);
     const lightSeconds = distanceClamped / SPEED_OF_LIGHT_KM_S;
-    const speedKmS = Math.max(0, pos.distanceTo(previousPos) * 420);
+    const speedKmS = Math.max(0, pos.distanceTo(previousPos) * 180);
 
     elapsedEl.textContent = formatDuration(elapsedMs);
-    remainingEl.textContent = formatDuration(startTs + MISSION_DURATION_DAYS * 86400000 - now.getTime());
+    remainingEl.textContent = formatDuration((MISSION_DURATION_DAYS - day) * 86400000);
     phaseEl.textContent = phase.label;
     detailEl.textContent = phase.detail;
     distanceEl.textContent = `${Math.round(distanceClamped).toLocaleString()} km`;
     moonDistanceEl.textContent = `${Math.round(moonDistanceClamped).toLocaleString()} km`;
     lighttimeEl.textContent = `${lightSeconds.toFixed(2)} s one-way (${(lightSeconds * 2).toFixed(2)} s RTT)`;
     speedEl.textContent = `${speedKmS.toFixed(2)} km/s`;
-    nowEl.textContent = formatUtc(now);
+    nowEl.textContent = formatUtc(new Date(startTs + elapsedMs));
+    if (simulatedDay === null) scrubber.value = String(Math.max(0, Math.min(MISSION_DURATION_DAYS, day)));
 
     for (const { phase: phasePoint, marker } of timelineMarkers) {
       const markerProgress = getShipProgress(phasePoint.startDay);
@@ -580,7 +555,6 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
       const startDay = Number(card.dataset.startDay ?? Number.NaN);
       card.classList.toggle('is-active', card.dataset.phase === phase.label);
       card.classList.toggle('is-complete', Number.isFinite(startDay) && day >= startDay);
-      card.classList.toggle('is-upcoming', Number.isFinite(startDay) && day < startDay);
     }
 
     previousPos = pos.clone();
@@ -592,7 +566,19 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
 
   resize();
   window.addEventListener('resize', resize);
+  scrubber.addEventListener('input', () => {
+    simulatedDay = Number(scrubber.value);
+  });
+  scrubber.addEventListener('change', () => {
+    if (Math.abs(Number(scrubber.value) - realtimeMissionDay()) < 0.05) {
+      simulatedDay = null;
+    }
+  });
   raf = window.requestAnimationFrame(tick);
+
+  function realtimeMissionDay(): number {
+    return (Date.now() - startTs) / 86400000;
+  }
 
   return () => {
     galleryController.abort();

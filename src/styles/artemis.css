@@ -35,7 +35,7 @@
 .artemis-layout {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: minmax(0, 2.1fr) minmax(340px, 1fr);
+  grid-template-columns: minmax(0, 2.2fr) minmax(320px, 0.9fr);
   align-items: start;
 }
 
@@ -66,6 +66,19 @@
 }
 
 .artemis-overlay p { margin: 0; font-size: 0.72rem; color: hsl(197 64% 88%); }
+.artemis-overlay-control {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+.artemis-overlay-control span {
+  color: hsl(194 83% 83%);
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+}
+.artemis-overlay-control input {
+  width: 220px;
+}
 
 .artemis-badge {
   color: hsl(181 100% 73%);
@@ -108,6 +121,8 @@
 }
 
 .artemis-gallery-list { display: grid; gap: var(--space-3); }
+.artemis-image-sidebar { min-height: 580px; }
+.artemis-mission-info { max-height: none; }
 
 .artemis-gallery-card {
   display: grid;
@@ -126,40 +141,34 @@
 .artemis-gallery-card small { color: hsl(196 45% 75%); font-size: 0.72rem; }
 .artemis-gallery-loading { margin: 0; color: hsl(209 24% 76%); }
 
-.artemis-timeline {
+.artemis-timeline-inline {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-2);
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
-.artemis-phase-card {
+.artemis-phase-pill {
   margin: 0;
-  padding: var(--space-3);
+  padding: var(--space-2);
   border-radius: var(--radius-1);
   border: 1px solid hsl(194 39% 53% / 0.2);
   background: hsl(226 34% 11% / 0.82);
   transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease;
 }
 
-.artemis-phase-card h4 { margin: 0; }
-.artemis-phase-card p { margin: 0.35rem 0; color: hsl(190 79% 77%); font-family: var(--font-mono); font-size: 0.82rem; }
-.artemis-phase-card small { color: hsl(211 24% 76%); }
+.artemis-phase-pill h4 { margin: 0; font-size: 0.95rem; }
+.artemis-phase-pill p { margin: 0.25rem 0 0 0; color: hsl(190 79% 77%); font-family: var(--font-mono); font-size: 0.8rem; }
 
-.artemis-phase-card.is-active {
+.artemis-phase-pill.is-active {
   border-color: hsl(182 88% 62% / 0.85);
   background: hsl(207 65% 17% / 0.78);
   transform: translateY(-2px);
   box-shadow: 0 10px 24px hsl(192 95% 10% / 0.4);
 }
 
-.artemis-phase-card.is-complete {
+.artemis-phase-pill.is-complete {
   border-color: hsl(190 88% 63% / 0.45);
   background: hsl(214 56% 16% / 0.8);
-}
-
-.artemis-phase-card.is-upcoming {
-  border-style: dashed;
-  border-color: hsl(210 40% 62% / 0.35);
 }
 
 @media (max-width: 1080px) {
