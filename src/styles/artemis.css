@@ -35,7 +35,8 @@
 .artemis-layout {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: minmax(0, 1.95fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 2.1fr) minmax(340px, 1fr);
+  align-items: start;
 }
 
 .artemis-stage-wrap {
@@ -43,7 +44,7 @@
 }
 
 .artemis-stage {
-  min-height: 520px;
+  min-height: 580px;
   border: 1px solid hsl(198 50% 54% / 0.3);
   border-radius: var(--radius-1);
   overflow: hidden;
@@ -64,11 +65,7 @@
   backdrop-filter: blur(8px);
 }
 
-.artemis-overlay p {
-  margin: 0;
-  font-size: 0.72rem;
-  color: hsl(197 64% 88%);
-}
+.artemis-overlay p { margin: 0; font-size: 0.72rem; color: hsl(197 64% 88%); }
 
 .artemis-badge {
   color: hsl(181 100% 73%);
@@ -85,30 +82,22 @@
   background: linear-gradient(180deg, hsl(222 41% 12% / 0.88), hsl(226 37% 8% / 0.9));
   display: grid;
   gap: var(--space-4);
+  max-height: 580px;
+  overflow: auto;
 }
 
 .artemis-panel h2,
-.artemis-panel h3 {
-  margin: 0;
-}
+.artemis-panel h3 { margin: 0; }
 
 .artemis-panel dl {
   display: grid;
   gap: var(--space-3);
   margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.artemis-panel dt {
-  font-size: var(--fs-0);
-  color: hsl(217 23% 71%);
-}
-
-.artemis-panel dd {
-  margin: 0.2rem 0 0 0;
-  font-family: var(--font-mono);
-  color: hsl(188 92% 80%);
-  font-size: var(--fs-1);
-}
+.artemis-panel dt { font-size: var(--fs-0); color: hsl(217 23% 71%); }
+.artemis-panel dd { margin: 0.2rem 0 0 0; font-family: var(--font-mono); color: hsl(188 92% 80%); font-size: var(--fs-1); }
 
 .artemis-facts ul {
   margin: 0;
@@ -118,10 +107,7 @@
   color: hsl(210 30% 83%);
 }
 
-.artemis-gallery-list {
-  display: grid;
-  gap: var(--space-3);
-}
+.artemis-gallery-list { display: grid; gap: var(--space-3); }
 
 .artemis-gallery-card {
   display: grid;
@@ -134,38 +120,16 @@
   border: 1px solid hsl(195 44% 58% / 0.23);
 }
 
-.artemis-gallery-card img {
-  width: 94px;
-  height: 94px;
-  object-fit: cover;
-  border-radius: 0.55rem;
-}
-
-.artemis-gallery-card h4 {
-  margin: 0;
-  font-size: 0.95rem;
-}
-
-.artemis-gallery-card p {
-  margin: 0.2rem 0;
-  color: hsl(209 24% 76%);
-  font-size: 0.82rem;
-}
-
-.artemis-gallery-card small {
-  color: hsl(196 45% 75%);
-  font-size: 0.72rem;
-}
-
-.artemis-gallery-loading {
-  margin: 0;
-  color: hsl(209 24% 76%);
-}
+.artemis-gallery-card img { width: 94px; height: 94px; object-fit: cover; border-radius: 0.55rem; }
+.artemis-gallery-card h4 { margin: 0; font-size: 0.95rem; }
+.artemis-gallery-card p { margin: 0.2rem 0; color: hsl(209 24% 76%); font-size: 0.82rem; }
+.artemis-gallery-card small { color: hsl(196 45% 75%); font-size: 0.72rem; }
+.artemis-gallery-loading { margin: 0; color: hsl(209 24% 76%); }
 
 .artemis-timeline {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .artemis-phase-card {
@@ -177,20 +141,9 @@
   transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease;
 }
 
-.artemis-phase-card h4 {
-  margin: 0;
-}
-
-.artemis-phase-card p {
-  margin: 0.35rem 0;
-  color: hsl(190 79% 77%);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-}
-
-.artemis-phase-card small {
-  color: hsl(211 24% 76%);
-}
+.artemis-phase-card h4 { margin: 0; }
+.artemis-phase-card p { margin: 0.35rem 0; color: hsl(190 79% 77%); font-family: var(--font-mono); font-size: 0.82rem; }
+.artemis-phase-card small { color: hsl(211 24% 76%); }
 
 .artemis-phase-card.is-active {
   border-color: hsl(182 88% 62% / 0.85);
@@ -199,12 +152,22 @@
   box-shadow: 0 10px 24px hsl(192 95% 10% / 0.4);
 }
 
-@media (max-width: 1080px) {
-  .artemis-layout {
-    grid-template-columns: 1fr;
-  }
+.artemis-phase-card.is-complete {
+  border-color: hsl(190 88% 63% / 0.45);
+  background: hsl(214 56% 16% / 0.8);
+}
 
-  .artemis-stage {
-    min-height: 440px;
-  }
+.artemis-phase-card.is-upcoming {
+  border-style: dashed;
+  border-color: hsl(210 40% 62% / 0.35);
+}
+
+@media (max-width: 1080px) {
+  .artemis-layout { grid-template-columns: 1fr; }
+  .artemis-stage { min-height: 460px; }
+  .artemis-panel { max-height: none; }
+}
+
+@media (max-width: 760px) {
+  .artemis-panel dl { grid-template-columns: 1fr; }
 }
