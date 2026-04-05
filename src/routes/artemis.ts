@@ -327,7 +327,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
           <div class="artemis-badge">Earth–Moon View</div>
           <label class="artemis-overlay-control">
             <span id="artemis-scrub-date">Timeline day</span>
-            <input id="artemis-scrub" type="range" min="0" max="${MISSION_DURATION_DAYS}" step="0.01" value="0" />
+            <input id="artemis-scrub" dir="ltr" type="range" min="0" max="${MISSION_DURATION_DAYS}" step="0.01" value="0" />
           </label>
           <button id="artemis-live" class="artemis-live-button" type="button" title="Jump to live mission time and keep tracking">Go live</button>
         </div>
@@ -382,6 +382,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl || !scrubber || !scrubDateEl || !liveButton) {
     return () => undefined;
   }
+  scrubber.style.direction = 'ltr';
 
   const galleryController = new AbortController();
   loadGallery(galleryEl, galleryController.signal).catch(() => {
