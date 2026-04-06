@@ -15,7 +15,9 @@
     "prepreview": "pnpm run build:favicon",
     "preview": "vite preview --strictPort --port 4173",
     "lint": "eslint .",
-    "shot:wow": "pnpm exec playwright install chromium && playwright test wow.spec.ts"
+    "shot:wow": "pnpm run pw:setup && pnpm exec playwright test tests/wow.spec.ts",
+    "shot:artemis": "pnpm run pw:setup && pnpm exec playwright test tests/artemis.spec.ts",
+    "pw:setup": "bash scripts/ensure-playwright-chromium.sh"
   },
   "dependencies": {
     "d3": "7.9.0",
