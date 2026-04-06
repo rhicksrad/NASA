@@ -6,12 +6,16 @@ This project renders interactive NASA datasets, combining custom Three.js scenes
 
 The NEO3D scene now includes a Wow! Signal overlay that highlights the two Big Ear feed horn candidates recorded on 1977-08-15. The overlay is enabled by default and can be toggled through the "Wow! Signal" checkbox in the control panel or by pressing the <kbd>W</kbd> key. Hover or click the markers to see the horn name, observation date, precise RA/Dec in both sexagesimal and degrees, and a reminder about the dual-horn ambiguity. A debug handle is available at `window.__wow`, exposing `setVisible(boolean)` and `getVectors()` for quick inspection.
 
-## UI Screenshot Artifact
+## UI Screenshot Artifacts
 
-If browser_container is unavailable, generate the required UI preview artifact locally with Playwright:
+If `browser_container` is unavailable, generate the required UI preview artifacts locally with Playwright:
 
 ```bash
+pnpm run pw:setup
 pnpm shot:wow
+pnpm shot:artemis
 ```
 
-This command now ensures Chromium is installed before the capture step and writes the screenshot to `public/dev-shots/wow.png`.
+- `pnpm run pw:setup` installs Linux runtime deps (including Ubuntu 24.04 `libasound2t64`) and Chromium for Playwright.
+- `pnpm shot:wow` writes `public/dev-shots/wow.png`.
+- `pnpm shot:artemis` writes `public/dev-shots/artemis-console.png`.
