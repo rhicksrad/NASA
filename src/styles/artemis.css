@@ -185,12 +185,73 @@
   background: hsl(202 89% 63% / 0.7);
 }
 
+.artemis-worker-status {
+  margin: 0;
+  color: hsl(190 87% 84%);
+  font-family: var(--font-mono);
+  font-size: var(--fs-0);
+}
+
+.artemis-worker-status.is-error {
+  color: hsl(356 95% 78%);
+}
+
+.artemis-worker-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.artemis-worker-controls label {
+  display: grid;
+  gap: 0.2rem;
+  color: hsl(208 26% 78%);
+  font-size: var(--fs-0);
+}
+
+.artemis-worker-controls input,
+.artemis-worker-controls button {
+  border: 1px solid hsl(194 39% 53% / 0.35);
+  border-radius: 0.55rem;
+  background: hsl(224 39% 12%);
+  color: hsl(194 89% 84%);
+  padding: 0.45rem 0.6rem;
+  font-family: var(--font-mono);
+}
+
+.artemis-worker-controls button {
+  align-self: end;
+  cursor: pointer;
+}
+
+.artemis-worker-grid {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.artemis-worker-grid dt {
+  font-size: var(--fs-0);
+  color: hsl(217 23% 71%);
+}
+
+.artemis-worker-grid dd {
+  margin: 0.2rem 0 0;
+  color: hsl(188 92% 80%);
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
 @media (max-width: 1080px) {
   .artemis-layout { grid-template-columns: 1fr; }
   .artemis-stage { min-height: 460px; }
   .artemis-panel { max-height: none; }
+  .artemis-worker-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
   .artemis-panel dl { grid-template-columns: 1fr; }
+  .artemis-worker-controls { grid-template-columns: 1fr; }
+  .artemis-worker-grid { grid-template-columns: 1fr; }
 }
