@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { request } from '../api/nasaClient';
 import { imagesSearch, type NasaImageItem } from '../api/nasaImages';
+import { getArtemisArticle, getArtemisTimeline, getArtemisTrack, type ArtemisVectorRow } from '../api/artemis';
 import '../styles/artemis.css';
 
 type Cleanup = () => void;
@@ -168,6 +169,25 @@ function createShipModel(): THREE.Group {
 
 function formatUtc(date: Date): string {
   return `${date.toISOString().replace('T', ' ').slice(0, 19)} UTC`;
+}
+
+function formatDateTimeInput(date: Date): string {
+  return date.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function vectorMagnitudeKm(v: ArtemisVectorRow | undefined): number | null {
+  if (!v) return null;
+  const magAu = Math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2);
+  return Number.isFinite(magAu) ? magAu * AU_TO_KM : null;
+}
+
+function vectorDistanceKm(a: ArtemisVectorRow | undefined, b: ArtemisVectorRow | undefined): number | null {
+  if (!a || !b) return null;
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const dz = a.z - b.z;
+  const distAu = Math.sqrt(dx ** 2 + dy ** 2 + dz ** 2);
+  return Number.isFinite(distAu) ? distAu * AU_TO_KM : null;
 }
 
 function buildGalleryCard(item: NasaImageItem): HTMLElement {
@@ -359,6 +379,25 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
         ${PHASES.map(phase => `<button class="artemis-phase-dot" type="button" data-phase="${phase.label}" data-start-day="${phase.startDay}" title="${phase.label} • T+${phase.startDay.toFixed(1)} days" aria-label="${phase.label} at T+${phase.startDay.toFixed(1)} days"></button>`).join('')}
       </section>
     </section>
+
+    <section class="artemis-panel artemis-worker-panel" aria-live="polite">
+      <h2>Live Worker feed</h2>
+      <p id="artemis-worker-status" class="artemis-worker-status">Connecting to Artemis worker routes…</p>
+      <div class="artemis-worker-controls">
+        <label>Start UTC <input id="artemis-track-start" type="datetime-local" step="60" /></label>
+        <label>Stop UTC <input id="artemis-track-stop" type="datetime-local" step="60" /></label>
+        <label>Step <input id="artemis-track-step" type="text" value="5 m" /></label>
+        <button id="artemis-track-refresh" type="button">Refresh telemetry</button>
+      </div>
+      <dl class="artemis-worker-grid">
+        <div><dt>Mission</dt><dd id="artemis-worker-mission">--</dd></div>
+        <div><dt>Article</dt><dd id="artemis-worker-article">--</dd></div>
+        <div><dt>Track window</dt><dd id="artemis-worker-window">--</dd></div>
+        <div><dt>Samples</dt><dd id="artemis-worker-samples">--</dd></div>
+        <div><dt>Orion from Earth</dt><dd id="artemis-worker-earth-dist">--</dd></div>
+        <div><dt>Orion to Moon</dt><dd id="artemis-worker-moon-dist">--</dd></div>
+      </dl>
+    </section>
   `;
 
   host.replaceChildren(container);
@@ -378,13 +417,25 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   const scrubber = container.querySelector<HTMLInputElement>('#artemis-scrub');
   const scrubDateEl = container.querySelector<HTMLElement>('#artemis-scrub-date');
   const liveButton = container.querySelector<HTMLButtonElement>('#artemis-live');
+  const workerStatusEl = container.querySelector<HTMLElement>('#artemis-worker-status');
+  const workerMissionEl = container.querySelector<HTMLElement>('#artemis-worker-mission');
+  const workerArticleEl = container.querySelector<HTMLElement>('#artemis-worker-article');
+  const workerWindowEl = container.querySelector<HTMLElement>('#artemis-worker-window');
+  const workerSamplesEl = container.querySelector<HTMLElement>('#artemis-worker-samples');
+  const workerEarthDistEl = container.querySelector<HTMLElement>('#artemis-worker-earth-dist');
+  const workerMoonDistEl = container.querySelector<HTMLElement>('#artemis-worker-moon-dist');
+  const trackStartInput = container.querySelector<HTMLInputElement>('#artemis-track-start');
+  const trackStopInput = container.querySelector<HTMLInputElement>('#artemis-track-stop');
+  const trackStepInput = container.querySelector<HTMLInputElement>('#artemis-track-step');
+  const trackRefreshButton = container.querySelector<HTMLButtonElement>('#artemis-track-refresh');
 
-  if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl || !scrubber || !scrubDateEl || !liveButton) {
+  if (!stage || !elapsedEl || !remainingEl || !phaseEl || !detailEl || !distanceEl || !moonDistanceEl || !lighttimeEl || !speedEl || !nowEl || !timelineEl || !galleryEl || !scrubber || !scrubDateEl || !liveButton || !workerStatusEl || !workerMissionEl || !workerArticleEl || !workerWindowEl || !workerSamplesEl || !workerEarthDistEl || !workerMoonDistEl || !trackStartInput || !trackStopInput || !trackStepInput || !trackRefreshButton) {
     return () => undefined;
   }
   scrubber.style.direction = 'ltr';
 
   const galleryController = new AbortController();
+  const telemetryController = new AbortController();
   loadGallery(galleryEl, galleryController.signal).catch(() => {
     if (!galleryController.signal.aborted) {
       galleryEl.innerHTML = '<p class="artemis-gallery-loading">Mission imagery could not be loaded right now.</p>';
@@ -478,6 +529,51 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   });
 
   const startTs = Date.parse(MISSION_START_ISO);
+  const initialStart = new Date();
+  const initialStop = new Date(initialStart.getTime() + 30 * 60_000);
+  trackStartInput.value = formatDateTimeInput(initialStart).slice(0, 16);
+  trackStopInput.value = formatDateTimeInput(initialStop).slice(0, 16);
+  trackStepInput.value = '5 m';
+
+  const refreshTelemetry = async () => {
+    workerStatusEl.textContent = 'Fetching /artemis/timeline, /artemis/article and /artemis/track…';
+    workerStatusEl.classList.remove('is-error');
+    const startUtc = cleanDateTimeInput(trackStartInput.value, formatDateTimeInput(new Date())) ?? formatDateTimeInput(new Date());
+    const stopUtc = cleanDateTimeInput(trackStopInput.value, addMinutesToDateString(startUtc, 30)) ?? addMinutesToDateString(startUtc, 30);
+    const step = trackStepInput.value.trim() || '5 m';
+
+    try {
+      const [timeline, article, track] = await Promise.all([
+        getArtemisTimeline(telemetryController.signal),
+        getArtemisArticle(telemetryController.signal),
+        getArtemisTrack({ start: startUtc, stop: stopUtc, step, format: 'text' }, telemetryController.signal),
+      ]);
+
+      const orionLast = track.parsed?.orion?.at(-1);
+      const moonLast = track.parsed?.moon?.at(-1);
+      const earthDistKm = vectorMagnitudeKm(orionLast);
+      const moonDistKm = vectorDistanceKm(orionLast, moonLast);
+      const sampleCount = `${track.parsed?.orion?.length ?? 0} Orion / ${track.parsed?.moon?.length ?? 0} Moon`;
+
+      workerMissionEl.textContent = timeline.mission?.name || track.mission?.name || 'Artemis II';
+      workerArticleEl.innerHTML = article.post?.link
+        ? `<a href="${article.post.link}" target="_blank" rel="noopener noreferrer">${article.post.title || article.post.slug}</a>`
+        : 'No article metadata';
+      workerWindowEl.textContent = `${track.window.start} → ${track.window.stop} (${track.window.step})`;
+      workerSamplesEl.textContent = sampleCount;
+      workerEarthDistEl.textContent = earthDistKm != null ? `${Math.round(earthDistKm).toLocaleString()} km` : '--';
+      workerMoonDistEl.textContent = moonDistKm != null ? `${Math.round(moonDistKm).toLocaleString()} km` : '--';
+      workerStatusEl.textContent = `Live telemetry updated at ${formatUtc(new Date())}.`;
+    } catch (error) {
+      workerStatusEl.classList.add('is-error');
+      workerStatusEl.textContent = `Worker telemetry fetch failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  };
+  trackRefreshButton.addEventListener('click', () => {
+    void refreshTelemetry();
+  });
+  void refreshTelemetry();
+
   const activeCards = Array.from(timelineEl.querySelectorAll<HTMLButtonElement>('.artemis-phase-dot'));
   let raf = 0;
   let previousPos = getShipPosition(0, missionPathPoints);
@@ -600,6 +696,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
 
   return () => {
     galleryController.abort();
+    telemetryController.abort();
     window.cancelAnimationFrame(raf);
     window.removeEventListener('resize', resize);
     controls.dispose();
