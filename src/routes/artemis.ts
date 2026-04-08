@@ -89,7 +89,7 @@ function makePlanetTexture(base: string, accent: string): THREE.CanvasTexture {
 }
 
 function createStarfield(): THREE.Points {
-  const count = 3600;
+  const count = 5200;
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i += 1) {
     const radius = 110 + Math.random() * 260;
@@ -106,14 +106,71 @@ function createStarfield(): THREE.Points {
   return new THREE.Points(
     geometry,
     new THREE.PointsMaterial({
-      color: 0xa8d9ff,
-      size: 0.35,
+      color: 0xcbe8ff,
+      size: 0.28,
       sizeAttenuation: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.9,
       depthWrite: false,
     }),
   );
+}
+
+function createGlowSprite(color: string, size = 1): THREE.Sprite {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffffff }));
+
+  const gradient = ctx.createRadialGradient(128, 128, 8, 128, 128, 120);
+  gradient.addColorStop(0, `${color}ff`);
+  gradient.addColorStop(0.45, `${color}66`);
+  gradient.addColorStop(1, `${color}00`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  sprite.scale.setScalar(size);
+  return sprite;
+}
+
+function createLabelSprite(text: string): THREE.Sprite {
+  const canvas = document.createElement('canvas');
+  canvas.width = 420;
+  canvas.height = 120;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffffff }));
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(195, 230, 255, 0.95)';
+  ctx.font = '700 56px Inter, system-ui, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 22, 60);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+    }),
+  );
+  sprite.scale.set(3.4, 0.95, 1);
+  return sprite;
 }
 
 function createShipModel(): THREE.Group {
@@ -392,25 +449,28 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.34;
   stage.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x020816, 0.01);
+  scene.fog = new THREE.FogExp2(0x020816, 0.0075);
 
   const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 1400);
-  camera.position.set(14, 8.5, 16);
+  camera.position.set(11, 6.6, 13);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.04;
-  controls.target.set(5, 0, 0);
+  controls.target.set(4.2, 0, 0);
 
   scene.add(new THREE.AmbientLight(0x9eb8ff, 0.72));
   scene.add(new THREE.HemisphereLight(0x88b5ff, 0x06080f, 0.55));
-  const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+  const sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
   sunLight.position.set(18, 12, 10);
   scene.add(sunLight);
+  const rimLight = new THREE.DirectionalLight(0x82c8ff, 0.78);
+  rimLight.position.set(-11, -3, -6);
+  scene.add(rimLight);
 
   const starfield = createStarfield();
   scene.add(starfield);
@@ -421,6 +481,9 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     new THREE.MeshStandardMaterial({ map: earthTexture, emissive: 0x0f2347, emissiveIntensity: 0.18, roughness: 0.75 }),
   );
   scene.add(earth);
+  const earthGlow = createGlowSprite('#59baff', EARTH_RADIUS_SCENE * 8.4);
+  earthGlow.position.copy(earth.position);
+  scene.add(earthGlow);
 
   const atmosphere = new THREE.Mesh(
     new THREE.SphereGeometry(ATMOSPHERE_RADIUS_SCENE, 48, 48),
@@ -434,27 +497,40 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
   );
   moon.position.set(SCENE_EARTH_MOON_DISTANCE, 0, 0);
   scene.add(moon);
+  const moonGlow = createGlowSprite('#d7ecff', MOON_RADIUS_SCENE * 15);
+  moonGlow.position.copy(moon.position);
+  scene.add(moonGlow);
 
   const ship = createShipModel();
   scene.add(ship);
+  const shipGlow = createGlowSprite('#9af8ff', 0.82);
+  scene.add(shipGlow);
+
+  const earthLabel = createLabelSprite('Earth');
+  earthLabel.position.set(0.95, EARTH_RADIUS_SCENE * 2.2, 0);
+  scene.add(earthLabel);
+  const orionLabel = createLabelSprite('Orion');
+  orionLabel.scale.set(2.9, 0.84, 1);
+  scene.add(orionLabel);
 
   const trajectoryLine = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0.3, 0, 0)]),
-    new THREE.LineBasicMaterial({ color: 0x8ad7ff, transparent: true, opacity: 0.9 }),
+    new THREE.LineBasicMaterial({ color: 0x76f3ff, transparent: true, opacity: 0.98 }),
   );
   scene.add(trajectoryLine);
 
   const futureLine = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0.3, 0, 0)]),
-    new THREE.LineDashedMaterial({ color: 0xcf89ff, transparent: true, opacity: 0.8, dashSize: 0.22, gapSize: 0.15 }),
+    new THREE.LineDashedMaterial({ color: 0xd7a6ff, transparent: true, opacity: 0.84, dashSize: 0.18, gapSize: 0.12 }),
   );
   futureLine.computeLineDistances();
   scene.add(futureLine);
 
   const moonOrbitLine = new THREE.Line(
     new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(SCENE_EARTH_MOON_DISTANCE, 0, 0)]),
-    new THREE.LineBasicMaterial({ color: 0xff7fd0, transparent: true, opacity: 0.82 }),
+    new THREE.LineDashedMaterial({ color: 0xc2d5ff, transparent: true, opacity: 0.5, dashSize: 0.2, gapSize: 0.16 }),
   );
+  moonOrbitLine.computeLineDistances();
   scene.add(moonOrbitLine);
 
   const timelineMarkers = PHASES.map(phase => {
@@ -573,7 +649,7 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
 
     earth.rotation.y += 0.0019;
     moon.rotation.y += 0.0008;
-    starfield.rotation.y += 0.00006;
+    starfield.rotation.y += 0.00005;
 
     const targetTimeMs = dayToMs(clampedDay);
     const sampled = sampleTrackAt(trackSamples, targetTimeMs);
@@ -581,8 +657,11 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     const shipPos = sampled ? kmVectorToScene(sampled.orionKm) : new THREE.Vector3(0.3, 0.1, 0);
     const moonPos = sampled ? kmVectorToScene(sampled.moonKm) : new THREE.Vector3(SCENE_EARTH_MOON_DISTANCE, 0, 0);
     moon.position.copy(moonPos);
+    moonGlow.position.copy(moonPos);
 
     ship.position.copy(shipPos);
+    shipGlow.position.copy(shipPos);
+    orionLabel.position.copy(shipPos).add(new THREE.Vector3(0.38, 0.28, 0));
     const dir = shipPos.clone().sub(previousScenePos);
     ship.lookAt(shipPos.clone().add(dir.lengthSq() > 1e-8 ? dir.normalize() : new THREE.Vector3(1, 0, 0)));
 
@@ -698,6 +777,16 @@ export function mountArtemisPage(host: HTMLElement): Cleanup {
     });
 
     earthTexture.dispose();
+    earthGlow.material.map?.dispose();
+    (earthGlow.material as THREE.Material).dispose();
+    moonGlow.material.map?.dispose();
+    (moonGlow.material as THREE.Material).dispose();
+    shipGlow.material.map?.dispose();
+    (shipGlow.material as THREE.Material).dispose();
+    earthLabel.material.map?.dispose();
+    (earthLabel.material as THREE.Material).dispose();
+    orionLabel.material.map?.dispose();
+    (orionLabel.material as THREE.Material).dispose();
     starfield.geometry.dispose();
     (starfield.material as THREE.Material).dispose();
 
