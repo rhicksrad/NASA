@@ -120,7 +120,10 @@ function mountDateline(host: HTMLElement, signal: AbortSignal): void {
   if (!date || !clock) return;
   const tick = () => {
     const now = new Date();
-    date.textContent = longDate.format(now);
+    // Weekday on its own line, so the headline never breaks mid-date.
+    const [weekday, ...rest] = longDate.format(now).split(', ');
+    const text = `${weekday}\n${rest.join(', ')}`;
+    if (date.textContent !== text) date.textContent = text;
     clock.textContent = `${now.toISOString().slice(11, 19)} UTC`;
   };
   tick();
