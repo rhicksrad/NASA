@@ -1,7 +1,7 @@
 # NASA Open APIs Visualization Hub
 
-Interactive explorers built on public NASA and JPL data, served as a static site from GitHub Pages
-with a single Cloudflare Worker as the API proxy.
+Interactive explorers built on public NASA and JPL data, served by one Cloudflare Worker: the static
+site and the API proxy together, at https://lively-haze-4b2c.hicksrch.workers.dev/.
 
 ![Every page of the site](docs/preview.png)
 

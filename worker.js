@@ -82,13 +82,13 @@ function sec() {
   };
 }
 function json(status, body, origin, extra = {}) {
-  return new Response(JSON.stringify(body), {
+  return new Response(scrub(JSON.stringify(body)), {
     status,
     headers: { 'Content-Type':'application/json; charset=utf-8', ...sec(), ...cors(origin), ...extra },
   });
 }
 function markdown(status, text, origin, extra = {}) {
-  return new Response(text, {
+  return new Response(scrub(text), {
     status,
     headers: { 'Content-Type':'text/markdown; charset=utf-8', ...sec(), ...cors(origin), ...extra },
   });
@@ -133,7 +133,8 @@ async function xfer(upstreamUrl, origin, {
   if (cacheOK && method === 'GET') {
     const hit = await cache.match(cacheKey);
     if (hit) {
-      const body = await hit.text().catch(()=> '');
+      // Entries cached before the scrub below was added can still hold the key.
+      const body = scrub(await hit.text().catch(()=> ''));
       const headers = { 'Content-Type': hit.headers.get('content-type') || 'application/octet-stream', ...sec(), ...cors(origin) };
       if (diagHeader) headers[diagHeader] = publicUrl(url);
       return new Response(body, { status: hit.status, headers });
@@ -148,7 +149,8 @@ async function xfer(upstreamUrl, origin, {
       const r = await fetch(url.toString(), { cf:{ cacheTtl:0 }, ...(init||{}), headers, signal });
       cancel();
       const ct = r.headers.get('content-type') || 'application/octet-stream';
-      const text = await r.text().catch(()=> '');
+      // NeoWs echoes the request's api_key back inside its `links` URLs.
+      const text = scrub(await r.text().catch(()=> ''));
       const outHeaders = { 'Content-Type': ct, ...sec(), ...cors(origin) };
       if (diagHeader) outHeaders[diagHeader] = publicUrl(url);
 
@@ -158,7 +160,7 @@ async function xfer(upstreamUrl, origin, {
           await new Promise(res => setTimeout(res, wait));
           attempt++; continue;
         }
-        return new Response(JSON.stringify({ ok:false, status:r.status, url:publicUrl(url), body:scrub(text).slice(0, 2000) }), {
+        return new Response(JSON.stringify({ ok:false, status:r.status, url:publicUrl(url), body:text.slice(0, 2000) }), {
           status:r.status, headers:{ ...outHeaders, 'Cache-Control':'no-store' }
         });
       }

@@ -2,8 +2,8 @@ This codebase is yours; what it's for and how it's built are your call, and you'
 
 # NASA Open APIs Visualization Hub
 
-A static, multi-page site that turns public NASA and JPL data into interactive explorers. GitHub
-Pages serves the site from `/NASA/`. One Cloudflare Worker (`worker.js`) is the only backend: it
+A static, multi-page site that turns public NASA and JPL data into interactive explorers. One
+Cloudflare Worker serves the built site and, under `/api/*`, is the only backend (`worker.js`): it
 holds the NASA API key, proxies NASA/JPL/DONKI/EONET/TLE/Exoplanet Archive, and renders a few
 Markdown reports. The browser talks to the Worker and nothing else, with one deliberate exception
 (EPIC falls back to `epic.gsfc.nasa.gov` when the Worker route fails).
@@ -21,7 +21,9 @@ Markdown reports. The browser talks to the Worker and nothing else, with one del
 | `pnpm check` | typecheck, lint, build and test, in that order |
 
 Node 20+, pnpm 9+. CI (`.github/workflows/ci.yml`) runs `pnpm check` on every pull request;
-`pages.yml` builds and deploys `main`.
+`cloudflare.yml` builds and deploys `main` to Cloudflare, with a preview address per pull
+request. `pages.yml` only publishes `pages-redirect/`, which forwards the old GitHub Pages
+address (`/NASA/...`) to Cloudflare.
 
 ## Layout
 
@@ -86,9 +88,8 @@ produces them; refresh `docs/preview.png` when the overall look changes.
 
 ## Worker
 
-`worker.js` is a classic service-worker script deployed manually to
-`https://lively-haze-4b2c.hicksrch.workers.dev` with the secret `NASA_API`. Routes: `/apod`,
+`worker.js` is a classic service-worker script served at
+`https://lively-haze-4b2c.hicksrch.workers.dev/api` with the secret `NASA_API`. Routes: `/apod`,
 `/neo/*`, `/mars/*`, `/epic/*`, `/images/*`, `/nasa/*`, `/storm/find`, `/storm/{id}.json|.md`,
 `/eonet/*`, `/event/{id}.md`, `/horizons`, `/sbdb`, `/sbdb/object|suggest|search`, `/tle/search`,
-`/tle/{id}`, `/exo/tap`, `/diag`. Changing it means redeploying it in Cloudflare; merging to
-`main` does not.
+`/tle/{id}`, `/exo/tap`, `/diag`. Merging to `main` deploys it together with the site.
