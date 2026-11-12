@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://lively-haze-4b2c.hicksrch.workers.dev/sitemap.xml

@@ -16,6 +16,7 @@ Markdown reports. The browser talks to the Worker and nothing else, with one del
 | `pnpm typecheck` | `tsc --noEmit` (strict, no unused locals or parameters) |
 | `pnpm lint` | ESLint over the repo |
 | `pnpm build` | Production bundle in `dist/` |
+| `pnpm test:worker` | `worker.js` in a sandbox with a fake upstream, cache and clock |
 | `pnpm test` | Playwright smoke test of every page against mocked network |
 | `pnpm screenshots` | Same run, also writing a PNG per page to `artifacts/screenshots/` |
 | `pnpm check` | typecheck, lint, build and test, in that order |
@@ -93,3 +94,9 @@ produces them; refresh `docs/preview.png` when the overall look changes.
 `/neo/*`, `/mars/*`, `/epic/*`, `/images/*`, `/nasa/*`, `/storm/find`, `/storm/{id}.json|.md`,
 `/eonet/*`, `/event/{id}.md`, `/horizons`, `/sbdb`, `/sbdb/object|suggest|search`, `/tle/search`,
 `/tle/{id}`, `/exo/tap`, `/diag`. Merging to `main` deploys it together with the site.
+
+Every GET route is cached at the edge by `edgeCached()` with a per-route `ttl` and a longer
+`stale` window (`cachePolicy()`): all visitors share one NASA key, so a route without a policy
+spends that key on every page view, and the stale copy is what the site shows while an upstream
+is down. A new route needs a policy and a case in `tests/worker.node.mjs`. Nothing that leaves the
+Worker may contain the key; `json()`, `markdown()` and `xfer()` all pass bodies through `scrub()`.

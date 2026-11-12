@@ -60,7 +60,7 @@ const SBDB_GET_TIMEOUT_MS   = 6000;
 
 addEventListener('fetch', (event) => {
   event.respondWith(handle(event).catch(err =>
-    json(500, { ok:false, message:'Unhandled error', error:String(err) }, '*')
+    err instanceof Response ? err : json(500, { ok:false, message:'Unhandled error', error:String(err) }, '*')
   ));
 });
 
@@ -127,19 +127,9 @@ async function xfer(upstreamUrl, origin, {
 } = {}, event) {
   const url = typeof upstreamUrl === 'string' ? new URL(upstreamUrl) : upstreamUrl;
   const method = (init && init.method) ? String(init.method).toUpperCase() : 'GET';
-  const cacheKey = new Request(url.toString(), { method:'GET' });
-  const cache = caches.default;
-
-  if (cacheOK && method === 'GET') {
-    const hit = await cache.match(cacheKey);
-    if (hit) {
-      // Entries cached before the scrub below was added can still hold the key.
-      const body = scrub(await hit.text().catch(()=> ''));
-      const headers = { 'Content-Type': hit.headers.get('content-type') || 'application/octet-stream', ...sec(), ...cors(origin) };
-      if (diagHeader) headers[diagHeader] = publicUrl(url);
-      return new Response(body, { status: hit.status, headers });
-    }
-  }
+  // Caching happens one level up, per route, in edgeCached(); `cacheOK` is kept
+  // only so call sites still read as documentation of what is safe to cache.
+  void cacheOK; void event; void method;
 
   let attempt = 0;
   while (attempt <= retries) {
@@ -151,7 +141,9 @@ async function xfer(upstreamUrl, origin, {
       const ct = r.headers.get('content-type') || 'application/octet-stream';
       // NeoWs echoes the request's api_key back inside its `links` URLs.
       const text = scrub(await r.text().catch(()=> ''));
-      const outHeaders = { 'Content-Type': ct, ...sec(), ...cors(origin) };
+      // EONET labels its JSON as application/rss+xml; say what the body is.
+      const looksJson = /^\s*[\[{]/.test(text) && !/json/i.test(ct) && /json/i.test(headers.Accept || '');
+      const outHeaders = { 'Content-Type': looksJson ? 'application/json; charset=utf-8' : ct, ...sec(), ...cors(origin) };
       if (diagHeader) outHeaders[diagHeader] = publicUrl(url);
 
       if (!r.ok) {
@@ -165,9 +157,7 @@ async function xfer(upstreamUrl, origin, {
         });
       }
 
-      const resp = new Response(text, { status:200, headers: outHeaders });
-      if (cacheOK && method === 'GET') safeWaitUntil(event, cache.put(cacheKey, resp.clone()));
-      return resp;
+      return new Response(text, { status:200, headers: outHeaders });
     } catch (e) {
       cancel();
       if (attempt < retries) {
@@ -440,6 +430,79 @@ function toEventMarkdown(ev) {
   return lines.join('\n');
 }
 
+/* -------------------------------- Edge cache ------------------------------- */
+// Every visitor shares one NASA key (1,000 requests an hour) and the upstreams
+// are often slow or down. So each GET route is cached at the edge for `ttl`
+// seconds, and a copy up to `stale` seconds older is served when the upstream
+// fails. Times are chosen by how fast the data really changes.
+const MIN = 60, HOUR = 3600, DAY = 86400;
+function cachePolicy(u) {
+  const p = u.pathname;
+  if (p === '/apod')               return u.searchParams.has('date') ? { ttl: DAY, stale: 30 * DAY } : { ttl: 30 * MIN, stale: 2 * DAY };
+  if (p === '/neo/feed')           return { ttl: HOUR, stale: 2 * DAY };
+  if (p.startsWith('/neo/'))       return { ttl: 6 * HOUR, stale: 7 * DAY };
+  if (p.startsWith('/mars/'))      return { ttl: HOUR, stale: 7 * DAY };
+  if (p.startsWith('/epic/'))      return { ttl: 30 * MIN, stale: 2 * DAY };
+  if (p.startsWith('/images/'))    return { ttl: HOUR, stale: 7 * DAY };
+  if (p.startsWith('/nasa/'))      return { ttl: 15 * MIN, stale: DAY };
+  if (p.startsWith('/storm/'))     return { ttl: 10 * MIN, stale: 2 * DAY };
+  if (p.startsWith('/eonet/'))     return { ttl: 10 * MIN, stale: DAY };
+  if (p.startsWith('/event/'))     return { ttl: 10 * MIN, stale: DAY };
+  if (p === '/horizons')           return { ttl: DAY, stale: 30 * DAY };
+  if (p === '/sbdb' || p.startsWith('/sbdb/')) return { ttl: DAY, stale: 30 * DAY };
+  if (p.startsWith('/tle/'))       return { ttl: HOUR, stale: DAY };
+  if (p === '/exo/tap' || p === '/exoplanet/tap') return { ttl: 6 * HOUR, stale: 7 * DAY };
+  return null;
+}
+
+function replay(hit, origin, state, ageSeconds, policy) {
+  const headers = new Headers(hit.headers);
+  headers.delete('x-cached-at');
+  for (const [k, v] of Object.entries({ ...sec(), ...cors(origin) })) headers.set(k, v);
+  const left = Math.max(0, Math.floor(policy.ttl - ageSeconds));
+  headers.set('Cache-Control', `public, max-age=${state === 'stale' ? 30 : Math.min(left, 300)}`);
+  headers.set('Age', String(Math.max(0, Math.floor(ageSeconds))));
+  headers.set('x-cache', state);
+  return new Response(hit.body, { status: 200, headers });
+}
+
+async function edgeCached(event, u, origin, policy, produce) {
+  const cache = caches.default;
+  const keyUrl = new URL(u.toString());
+  keyUrl.pathname = `/__api-cache/v1${u.pathname}`;
+  keyUrl.searchParams.sort();
+  keyUrl.hash = '';
+  const key = new Request(keyUrl.toString(), { method: 'GET' });
+
+  let hit = null;
+  try { hit = await cache.match(key); } catch { /* a cache miss is fine */ }
+  const now = Date.now();
+  const age = hit ? (now - Number(hit.headers.get('x-cached-at') || 0)) / 1000 : Infinity;
+  if (hit && age < policy.ttl) return replay(hit, origin, 'hit', age, policy);
+
+  let fresh;
+  try {
+    fresh = await produce();
+  } catch (e) {
+    if (e instanceof Response) fresh = e;
+    else if (hit) return replay(hit, origin, 'stale', age, policy);
+    else throw e;
+  }
+
+  if (fresh.status !== 200) return hit ? replay(hit, origin, 'stale', age, policy) : fresh;
+
+  const body = await fresh.arrayBuffer();
+  const stored = new Headers(fresh.headers);
+  stored.set('Cache-Control', `public, max-age=${policy.ttl + policy.stale}`);
+  stored.set('x-cached-at', String(now));
+  safeWaitUntil(event, cache.put(key, new Response(body, { status: 200, headers: stored })));
+
+  const headers = new Headers(fresh.headers);
+  headers.set('Cache-Control', `public, max-age=${Math.min(policy.ttl, 300)}`);
+  headers.set('x-cache', 'miss');
+  return new Response(body, { status: 200, headers });
+}
+
 /* --------------------------------- Router --------------------------------- */
 async function handle(event) {
   const req = event.request;
@@ -448,12 +511,20 @@ async function handle(event) {
 
   // The site is served from this Worker's static assets and calls the API under
   // /api/*; the bare paths still answer for older callers.
-  if (u.pathname === '/api' || u.pathname.startsWith('/api/')) {
+  const isApi = u.pathname === '/api' || u.pathname.startsWith('/api/');
+  if (isApi) {
     u.pathname = u.pathname.slice(4) || '/';
   }
 
   if (req.method === 'OPTIONS') return new Response(null, { status:204, headers:{ ...sec(), ...cors(origin) } });
   if (u.pathname === '/favicon.ico') return new Response(null, { status:204, headers:{ ...sec(), ...cors(origin) } });
+
+  const policy = req.method === 'GET' ? cachePolicy(u) : null;
+  if (policy) return edgeCached(event, u, origin, policy, () => route(event, req, u, origin, isApi));
+  return route(event, req, u, origin, isApi);
+}
+
+async function route(event, req, u, origin, isApi) {
 
   if (u.pathname === '/' || u.pathname === '') {
     return json(200, {
@@ -489,7 +560,6 @@ async function handle(event) {
       ok:true,
       runtime:'service-worker',
       hasNASA_API:key.length>0,
-      keyLen:key.length,
       now:new Date().toISOString(),
       indexBase: INDEX_BASE
     }, origin);
@@ -766,5 +836,10 @@ async function handle(event) {
     return xfer(upstream, origin, { cacheOK: true, diagHeader: 'x-upstream-exo', init: { method: 'GET' }, timeoutMs: 20000 }, event);
   }
 
-  return json(404, { ok:false, message:'Not Found', path:u.pathname, hint:'See / for routes; /diag for bindings' }, origin);
+  // Not an API route. A page address that does not exist gets the site's 404 page
+  // from the static assets (not_found_handling in wrangler.jsonc).
+  if (!isApi && typeof ASSETS !== 'undefined' && (req.method === 'GET' || req.method === 'HEAD')) {
+    try { return await ASSETS.fetch(req); } catch { /* fall through to the JSON answer */ }
+  }
+  return json(404, { ok:false, message:'Not Found', path:u.pathname, hint:'See /api for routes; /api/diag for bindings' }, origin);
 }

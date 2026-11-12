@@ -111,6 +111,9 @@ for (const { name, path, ready } of PAGES) {
     await page.waitForTimeout(1500);
 
     await expect(page.locator('.site-header')).toBeVisible();
+    // Every page describes itself for search engines and link previews.
+    await expect(page.locator('head meta[name="description"]')).toHaveAttribute('content', /\S{3}/);
+    await expect(page.locator('head meta[property="og:image"]')).toHaveAttribute('content', /\/og\.jpg$/);
     expect(pageErrors, 'uncaught page errors').toEqual([]);
     expect(api.unhandled, 'requests with no fixture').toEqual([]);
 
@@ -129,3 +132,21 @@ for (const { name, path, ready } of PAGES) {
     }
   });
 }
+
+test('the not-found page renders', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  const api = await installMockApi(page);
+
+  await page.goto('/NASA/404.html');
+  await expect(page.locator('.site-header')).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nothing at this address');
+  await expect(page.locator('head meta[name="robots"]')).toHaveAttribute('content', 'noindex');
+  expect(pageErrors, 'uncaught page errors').toEqual([]);
+  expect(api.unhandled, 'requests with no fixture').toEqual([]);
+
+  if (SHOT_DIR) {
+    mkdirSync(SHOT_DIR, { recursive: true });
+    await page.screenshot({ path: join(SHOT_DIR, 'not-found.png'), fullPage: true });
+  }
+});

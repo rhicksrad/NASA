@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "test": "playwright test",
     "screenshots": "SHOT_DIR=artifacts/screenshots playwright test",
-    "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test",
+    "test:worker": "node --test tests/worker.node.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm test:worker && pnpm build && pnpm test",
     "build:cf": "node scripts/build_cf.mjs",
     "deploy:cf": "pnpm build:cf && wrangler deploy",
     "build:sbdb-index": "python3 scripts/build_sbdb_index.py"
