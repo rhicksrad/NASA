@@ -16,6 +16,12 @@ NASA does with it.
 | `pages.yml` | `deploy` | GitHub, always | push to `main` that touches `pages-redirect/` |
 | `sbdb-index.yml` | rebuild `public/sbdb-index.json` as a download | PCs, label `python` | manual |
 
+`ci.yml` also asks for the label `presidentscroob`. Measured on 2026-11-12, the gate
+took 27 seconds there against about two and a half minutes on ROI-IT-RHICKS (a
+runner inside WSL), so pull request jobs go to that PC only. ROI-IT-RHICKS keeps
+its runner for the manual `sbdb-index.yml`. If PresidentScroob will be off for a
+while, delete `CI_RUNNER` so jobs run on GitHub instead of waiting.
+
 `check` is the name to watch (and to require, if branch protection is ever
 turned on): it passes when the gate passed and the browser tests passed or
 were not needed.

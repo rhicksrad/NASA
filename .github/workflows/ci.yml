@@ -23,7 +23,7 @@ env:
 jobs:
   gate:
     name: gate
-    runs-on: ${{ vars.CI_RUNNER == 'local' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","web-trusted"]') || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNER == 'local' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","web-trusted","presidentscroob"]') || 'ubuntu-latest' }}
     timeout-minutes: 10
     outputs:
       site: ${{ steps.changed.outputs.site }}
@@ -73,7 +73,7 @@ jobs:
     name: e2e
     needs: gate
     if: needs.gate.outputs.site == 'true'
-    runs-on: ${{ vars.CI_RUNNER == 'local' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","web-trusted","playwright"]') || 'ubuntu-latest' }}
+    runs-on: ${{ vars.CI_RUNNER == 'local' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","web-trusted","playwright","presidentscroob"]') || 'ubuntu-latest' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
