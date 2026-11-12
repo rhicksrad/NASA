@@ -34,13 +34,14 @@ src/lib/            Small shared helpers: dom, markdown, toast, julian, icons, p
 src/orbits/         Kepler and universal-conic propagation (AU, days, heliocentric ecliptic J2000).
 src/shell/          Site navigation behaviour shared by every page.
 src/pages/<page>/   One folder per page; main.ts is the entry the HTML loads.
-  hub/              index.html: hash router for home, Images Explorer, EPIC, Mars, About.
+  hub/              index.html: hash router for home (home/), Images Explorer, EPIC, Mars, About.
   neo3d/            Heliocentric scene (scene/), SBDB search (sbdb/, React), panel logic.
   sat3d/            SGP4 satellite tracker around a day/night Earth.
   storm/ events/ exo/   CME reports, EONET map (Leaflet), exoplanet archive queries.
 src/styles/         All CSS. base.css (tokens, theme, components) loads on every page.
 tests/              smoke.spec.ts plus support/mockApi.ts, the fixture server for every upstream.
 data/sbdb-source/   Raw MPC dumps used by scripts/build_sbdb_index.py. Never shipped.
+src/assets/         Generated data modules (world land outline from scripts/build_world_land.mjs).
 public/             Copied verbatim into the build (favicon, sbdb-index.json).
 worker.js           Cloudflare Worker source. Deployed by hand; not part of the site build.
 ```
