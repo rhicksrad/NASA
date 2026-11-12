@@ -47,6 +47,8 @@ public/art/         Illustration set (WebP): one plate and one icon per explorer
                     ui/ empty and offline states. Flat gouache, five colours (ink, bone, NASA red,
                     insignia blue, ochre). New art must match that set; `stateArt()` in src/lib/dom.ts
                     renders the ui/ states and `.page-banner` (src/styles/header.css) the page plates.
+tools/ci/           Self-hosted runner setup and the CI manual (README.md). The repo variable
+                    CI_RUNNER=local sends trusted jobs to Ryan's PCs; unset means GitHub's runners.
 worker.js           Cloudflare Worker source. Deployed by hand; not part of the site build.
 ```
 

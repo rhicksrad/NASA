@@ -33,8 +33,8 @@ export function mountAboutPage(host: HTMLElement): void {
     <header>
       <h1>About this project</h1>
       <p>
-        NASA Open APIs Visualization Hub is a project by <strong>Ryan Hicks</strong>, built with AI coding assistants. It exists
-        to show how much a plain web page can do with data that NASA and JPL give away.
+        NASA Open APIs Visualization Hub is a project by <strong>Ryan Hicks</strong>, built with AI coding assistants on
+        public NASA and JPL data.
       </p>
     </header>
     <section aria-labelledby="about-data-heading">
