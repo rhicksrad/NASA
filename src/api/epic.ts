@@ -1,5 +1,6 @@
-/* src/api/epic.ts */
-import { getTextOrJSON, HttpError } from './base';
+/** DSCOVR EPIC "blue marble" imagery. */
+import { fetchJson, HttpError } from './worker';
+
 export interface EpicItem {
   identifier: string; // e.g. "20241001123456"
   caption: string;
@@ -7,7 +8,6 @@ export interface EpicItem {
   version?: string;
   date: string; // "YYYY-MM-DD HH:MM:SS"
   centroid_coordinates?: { lat: number; lon: number };
-  coords?: unknown; // ignore for now
 }
 
 export interface EpicDay {
@@ -15,51 +15,52 @@ export interface EpicDay {
   items: EpicItem[];
 }
 
-const EPIC_API_BASE = 'https://epic.gsfc.nasa.gov/api/natural';
-const EPIC_META_LATEST = EPIC_API_BASE;
-const EPIC_META_BY_DATE = (date: string) => `${EPIC_API_BASE}/date/${date}`;
+const EPIC_ARCHIVE = 'https://epic.gsfc.nasa.gov';
 
-// Build direct EPIC image URL (images are NOT on api.nasa.gov)
-const EPIC_IMG_URL = (date: string, imageBase: string) => {
-  // date is "YYYY-MM-DD HH:MM:SS"
-  const [d] = date.split(' ');
-  const [Y, M, D] = d.split('-');
-  // Direct archive host (no API key needed; public CDN)
-  return `https://epic.gsfc.nasa.gov/archive/natural/${Y}/${M}/${D}/png/${imageBase}.png`;
-};
-
-async function getEpicJSON<T>(path: string): Promise<T> {
-  const payload = await getTextOrJSON(path);
-  if (typeof payload === 'string') {
-    throw new Error(`EPIC ${path} returned non-JSON payload`);
-  }
-  return payload as T;
-}
-
-export async function fetchEpicLatest(): Promise<EpicItem[]> {
-  return getEpicJSON<EpicItem[]>(EPIC_META_LATEST);
-}
-
-export async function fetchEpicByDate(date: string): Promise<EpicDay> {
+/**
+ * Metadata comes through the worker's `/epic/*` route (api.nasa.gov). That
+ * mirror has a history of lagging behind or going dark, so a failed lookup
+ * falls back to the EPIC team's own public API, which sends CORS headers.
+ */
+async function fetchEpicList(path: string, signal?: AbortSignal): Promise<EpicItem[]> {
   try {
-    const items = await getEpicJSON<EpicItem[]>(EPIC_META_BY_DATE(date));
+    const items = await fetchJson<EpicItem[]>(`/epic/natural${path}`, { signal });
+    if (Array.isArray(items)) return items;
+    throw new Error('EPIC returned a non-list payload');
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const url = `${EPIC_ARCHIVE}/api/natural${path}`;
+    const response = await fetch(url, { credentials: 'omit', signal });
+    if (!response.ok) throw new HttpError(url, response.status, await response.text());
+    const items = (await response.json()) as EpicItem[];
+    return Array.isArray(items) ? items : [];
+  }
+}
+
+export function fetchEpicLatest(signal?: AbortSignal): Promise<EpicItem[]> {
+  return fetchEpicList('', signal);
+}
+
+export async function fetchEpicByDate(date: string, signal?: AbortSignal): Promise<EpicDay> {
+  try {
+    const items = await fetchEpicList(`/date/${date}`, signal);
     return { date, items: items.sort((a, b) => a.date.localeCompare(b.date)) };
-  } catch (err) {
-    if (err instanceof HttpError && (err.status === 404 || err.status === 503)) {
+  } catch (error) {
+    if (error instanceof HttpError && (error.status === 404 || error.status === 503)) {
       return { date, items: [] };
     }
-    throw err;
+    throw error;
   }
 }
 
+/** Full-disc PNGs live on the EPIC archive host; they are plain `<img>` loads, no API key. */
 export function buildEpicImageUrl(item: EpicItem): string {
-  return EPIC_IMG_URL(item.date, item.image);
+  const [year, month, day] = item.date.split(' ')[0].split('-');
+  return `${EPIC_ARCHIVE}/archive/natural/${year}/${month}/${day}/png/${item.image}.png`;
 }
 
+/** Items may span several days; returns the most recent `YYYY-MM-DD`. */
 export function extractLatestDate(items: EpicItem[]): string | null {
-  // items may span multiple days; choose max(date)
-  const dates = Array.from(new Set(items.map(it => it.date.split(' ')[0])));
-  if (!dates.length) return null;
-  dates.sort(); // asc
-  return dates[dates.length - 1];
+  const dates = items.map((item) => item.date.split(' ')[0]).sort();
+  return dates.at(-1) ?? null;
 }
