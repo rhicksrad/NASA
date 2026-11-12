@@ -8,48 +8,30 @@ body {
   flex-direction: column;
 }
 
+/* Page body: same measure as the header and the banner above it. */
 main.page-shell {
   flex: 1;
-  width: min(1200px, calc(100% - 48px));
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: var(--space-8) var(--space-4) var(--space-6);
-  display: grid;
-  gap: var(--space-6);
+  padding: clamp(28px, 5vh, 48px) var(--page-pad) clamp(56px, 9vh, 104px);
 }
 
+main.page-shell > .main-wrap {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A titled block that opens with a hairline rule, as on the home page. */
 .page-section {
-  display: grid;
-  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line-1);
 }
 
-.meta {
-  font-size: var(--fs-0);
-  color: var(--c-muted);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-input,
-select,
-textarea {
-  font: inherit;
-  color: var(--c-text-1);
-  background: var(--c-surface-2);
-  border: 1px solid var(--c-line-1);
-  border-radius: var(--radius-0);
-  padding: 8px 10px;
-}
-
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--c-accent);
-  outline-offset: 1px;
-}
-
-@media (max-width: 720px) {
-  main.page-shell {
-    width: 100%;
-    padding-inline: var(--space-4);
-  }
+.page-section > h2 {
+  margin: 0 0 var(--space-4);
+  font-size: clamp(20px, 1.8vw, 26px);
+  font-weight: 700;
+  font-stretch: 80%;
 }

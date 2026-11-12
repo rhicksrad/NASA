@@ -2,10 +2,13 @@
 import { fetchJson, fetchText } from './worker';
 
 export interface CmeAnalysis {
+  isMostAccurate?: boolean;
   speed?: number | null;
   cmeSpeed?: number | null;
   halfAngle?: number | null;
   angularWidth?: number | null;
+  /** WSA-ENLIL model runs that started from this measurement. */
+  enlilList?: EnlilRun[] | null;
 }
 
 export interface ShockArrival {
@@ -14,6 +17,11 @@ export interface ShockArrival {
 }
 
 export interface EnlilRun {
+  /** Modelled arrival at Earth; null when the run has the cloud missing us. */
+  estimatedShockArrivalTime?: string | null;
+  isEarthGB?: boolean | null;
+  kp_135?: number | null;
+  kp_180?: number | null;
   estimatedShockArrivals?: ShockArrival[] | null;
   impactList?: ShockArrival[] | null;
   kp_90?: number | null;
@@ -33,7 +41,15 @@ export interface GeomagneticStorm {
 }
 
 export interface StormReport {
-  cme?: { activityID?: string; sourceLocation?: string | null; activeRegionNum?: number | null } | null;
+  cme?: {
+    activityID?: string;
+    startTime?: string | null;
+    sourceLocation?: string | null;
+    activeRegionNum?: number | null;
+    note?: string | null;
+    link?: string | null;
+    instruments?: Array<{ displayName?: string }> | null;
+  } | null;
   analyses?: CmeAnalysis[] | null;
   enlil?: EnlilRun[] | null;
   ips?: InterplanetaryShock[] | null;
@@ -43,6 +59,8 @@ export interface StormReport {
 export interface CmeListing {
   activityID: string;
   startTime?: string | null;
+  sourceLocation?: string | null;
+  activeRegionNum?: number | null;
   note?: string;
 }
 

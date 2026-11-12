@@ -12,13 +12,6 @@ a {
   color: var(--c-accent);
 }
 
-.btn--primary {
-  border-color: var(--c-text-1);
-  background: var(--c-text-1);
-  box-shadow: none;
-  color: var(--c-bg-0);
-}
-
 .site-header {
   position: sticky;
   top: 0;
@@ -27,7 +20,7 @@ a {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-6);
-  padding: 14px max(clamp(16px, 4vw, 48px), calc((100vw - 1320px) / 2 + clamp(16px, 4vw, 48px)));
+  padding: 14px max(var(--page-pad), calc((100vw - var(--page-max)) / 2 + var(--page-pad)));
   border-bottom: 1px solid var(--c-line-1);
   background: var(--c-bg-0);
 }
@@ -153,12 +146,13 @@ body {
 
 .page-banner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
   gap: clamp(24px, 4vw, 56px);
   align-items: end;
-  max-width: 1200px;
+  width: 100%;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: clamp(28px, 5vh, 56px) var(--space-4) 0;
+  padding: clamp(28px, 5vh, 56px) var(--page-pad) 0;
 }
 
 .page-banner__text {
@@ -191,9 +185,6 @@ body {
   outline-offset: -1px;
 }
 
-.page-banner + main.page-shell > .main-wrap {
-  padding-top: var(--space-6);
-}
 
 @media (max-width: 720px) {
   .page-banner {

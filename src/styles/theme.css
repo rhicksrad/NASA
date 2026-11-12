@@ -10,9 +10,9 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 .main-wrap {
-  max-width: 1200px;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: var(--space-8) var(--space-4);
+  padding: var(--space-8) var(--page-pad);
 }
 h1,h2,h3 { letter-spacing: 0.02em; text-transform: none; color: var(--c-text-1); margin: 0 0 var(--space-4); }
 h1 { font-size: var(--fs-5); }
@@ -53,9 +53,3 @@ a:hover { text-decoration: underline; }
 *::-webkit-scrollbar-thumb { background: var(--c-line-1); }
 :focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
 /* === END PHASE2: SCROLLBAR + FOCUS === */
-
-/* === BEGIN PHASE2: DENSITY === */
-:root { --space-y: var(--space-4); }
-.card { padding: var(--space-y); }
-.table th, .table td { padding: calc(var(--space-y) - 4px) var(--space-3); }
-/* === END PHASE2: DENSITY === */

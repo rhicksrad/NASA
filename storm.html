@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <!-- @include site-head -->
-    <title>CME Explorer — NASA Open APIs Visualization Hub</title>
+    <title>Solar storms — NASA Open APIs Visualization Hub</title>
     <link rel="stylesheet" href="/src/styles/storm.css" />
   </head>
   <body class="page--explorer theme-cme">
@@ -16,67 +16,69 @@
       <img src="/art/storm.webp" alt="" width="1536" height="1024" decoding="async" />
     </section>
 
-    <main class="page-shell">
-      <div class="main-wrap">
-      <section class="controls card">
-        <form id="idForm" class="row">
-          <label for="id">Activity ID</label>
-          <input id="id" name="id" placeholder="YYYY-MM-DDTHH:MM:SS-CME-001" size="40" autocomplete="off" />
-          <button id="loadBtn" type="submit" class="btn btn--primary">Load</button>
-        </form>
+    <main class="page-shell storm">
+      <article id="md" class="storm-report" aria-live="polite"></article>
 
-        <section class="examples">
-          <h2>Featured CME reports</h2>
-          <p class="meta">Jump straight to one of NASA's notable DONKI events.</p>
-          <ul class="examples-list">
+      <aside class="storm-index" aria-label="Choose an eruption">
+        <section class="storm-index__group">
+          <h2>This week</h2>
+          <ul id="recent" class="storm-list">
+            <li class="storm-list__note">Asking DONKI for the past seven days.</li>
+          </ul>
+        </section>
+
+        <section class="storm-index__group">
+          <h2>Storms to remember</h2>
+          <ul class="storm-list">
             <li>
-              <button type="button" class="btn btn--ghost" data-activity-id="2024-05-10T07:12:00-CME-001">
-                <span class="title">2024 May 10 · AR 13664 X3.9 flare halo</span>
-                <span class="description">Bright asymmetrical halo with strong EUV wave and post-eruptive arcades.</span>
+              <button type="button" data-activity-id="2024-05-10T07:12:00-CME-001">
+                <span class="storm-list__when">10 May 2024</span>
+                <span class="storm-list__what">An X3.9 flare from the active region whose storms took aurora to Mexico and Florida that week.</span>
               </button>
             </li>
             <li>
-              <button type="button" class="btn btn--ghost" data-activity-id="2024-05-10T21:28:00-CME-001">
-                <span class="title">2024 May 10 · Long southern filament eruption</span>
-                <span class="description">Narrow, faint CME tied to the sprawling S35 filament near AR 3664.</span>
+              <button type="button" data-activity-id="2024-05-10T21:28:00-CME-001">
+                <span class="storm-list__when">10 May 2024, later</span>
+                <span class="storm-list__what">A long filament in the Sun’s south lets go: narrow, faint and slow.</span>
               </button>
             </li>
             <li>
-              <button type="button" class="btn btn--ghost" data-activity-id="2021-11-01T02:00:00-CME-001">
-                <span class="title">2021 Nov 1 · AR 2887 M1.5 eruption</span>
-                <span class="description">Earth-facing eruption with dimming, EUV wave, and post-eruptive loops.</span>
+              <button type="button" data-activity-id="2021-11-01T02:00:00-CME-001">
+                <span class="storm-list__when">1 November 2021</span>
+                <span class="storm-list__what">An Earth-facing eruption with coronal dimming and a wave across the disc.</span>
               </button>
             </li>
             <li>
-              <button type="button" class="btn btn--ghost" data-activity-id="2017-09-10T16:09:00-CME-001">
-                <span class="title">2017 Sep 10 · X-class flare storm</span>
-                <span class="description">Fast halo launched with the renowned September 2017 solar storm.</span>
+              <button type="button" data-activity-id="2017-09-10T16:09:00-CME-001">
+                <span class="storm-list__when">10 September 2017</span>
+                <span class="storm-list__what">One of the fastest of its solar cycle, thrown off by an X8.2 flare.</span>
               </button>
             </li>
             <li>
-              <button type="button" class="btn btn--ghost" data-activity-id="2012-07-23T02:48:00-CME-001">
-                <span class="title">2012 Jul 23 · Carrington-class near miss</span>
-                <span class="description">Legendary farside blast often compared to the 1859 Carrington Event.</span>
+              <button type="button" data-activity-id="2012-07-23T02:48:00-CME-001">
+                <span class="storm-list__when">23 July 2012</span>
+                <span class="storm-list__what">The Carrington-class blast that crossed Earth’s orbit about a week after we had passed.</span>
               </button>
             </li>
           </ul>
         </section>
 
-        <details class="finder">
-          <summary>Find CMEs by date</summary>
-          <form id="findForm" class="row">
-            <label for="start">Start</label>
-            <input id="start" name="start" type="date" required />
-            <label for="end">End</label>
-            <input id="end" name="end" type="date" required />
-            <button type="submit" class="btn btn--primary">Search</button>
+        <section class="storm-index__group">
+          <h2>Any other dates</h2>
+          <form id="findForm" class="storm-form">
+            <label class="field">From <input id="start" name="start" type="date" required /></label>
+            <label class="field">To <input id="end" name="end" type="date" required /></label>
+            <button type="submit" class="btn">Search</button>
           </form>
-          <ul id="results" class="list"></ul>
-        </details>
-      </section>
-
-      <article id="md" class="markdown card"></article>
-      </div>
+          <ul id="results" class="storm-list"></ul>
+          <form id="idForm" class="storm-form storm-form--id">
+            <label class="field">DONKI activity ID
+              <input id="id" name="id" placeholder="2024-05-10T07:12:00-CME-001" autocomplete="off" spellcheck="false" />
+            </label>
+            <button id="loadBtn" type="submit" class="btn">Open</button>
+          </form>
+        </section>
+      </aside>
     </main>
 
     <script type="module" src="/src/pages/storm/main.ts"></script>
