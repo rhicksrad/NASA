@@ -35,6 +35,13 @@ jobs:
       - uses: actions/checkout@v6
       - name: The two redirect pages must match
         run: cmp pages-redirect/index.html pages-redirect/404.html
+      # Old page addresses answer 200 rather than falling through to 404.html.
+      - name: Copy the redirect to every old page name
+        run: |
+          for page in *.html; do
+            [ "$page" = index.html ] || cp pages-redirect/index.html "pages-redirect/$page"
+          done
+          ls pages-redirect
       - uses: actions/upload-pages-artifact@v4
         with:
           path: ./pages-redirect
