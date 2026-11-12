@@ -52,7 +52,7 @@ const PAGE_META: Record<string, { path: string; description: string }> = {
   'neo3d.html': {
     path: '/neo3d',
     description:
-      'The solar system in 3D with the asteroids and comets passing Earth, propagated from JPL orbital elements. Search 1.4 million small bodies.',
+      'The solar system in 3D with the asteroids and comets passing Earth, propagated from JPL orbital elements. Look up any numbered asteroid or comet in JPL\u2019s small-body database.',
   },
   'sat3d.html': {
     path: '/sat3d',
