@@ -14,7 +14,8 @@ export const KM_TO_UNITS = 0.001;
 export const EARTH_RADIUS_UNITS = EARTH_RADIUS_KM * KM_TO_UNITS;
 const MAX_SATELLITES = 5000;
 const ISS_ID = 25544;
-const ISS_BASE_SCALE = 2.4;
+// Far larger than life (the real station would be a speck) but small enough to read as an object in orbit.
+const ISS_BASE_SCALE = 1.25;
 const CAMERA_NEAR = EARTH_RADIUS_UNITS * 0.0003;
 const CAMERA_FAR = EARTH_RADIUS_UNITS * 160;
 const DEFAULT_DISTANCE_Y = EARTH_RADIUS_UNITS * 2.1;

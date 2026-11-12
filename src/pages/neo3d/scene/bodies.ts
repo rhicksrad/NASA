@@ -127,7 +127,7 @@ export function buildSampleOrbitPoints(
 export function makeOrbitLine(points: Float32Array, color: number, closed: boolean): THREE.Line {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
-  const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.45 });
+  const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.26 });
   return closed ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material);
 }
 
@@ -238,7 +238,7 @@ export function createBodyMesh(spec: SmallBodySpec): THREE.Mesh {
   return mesh;
 }
 
-export function buildCirclePolyline(radiusAU: number, color: number, segments = 256, opacity = 0.25): THREE.LineLoop {
+export function buildCirclePolyline(radiusAU: number, color: number, segments = 256, opacity = 0.5): THREE.LineLoop {
   const pts = new Float32Array((segments + 1) * 3);
   const r = radiusAU * SCALE;
   for (let i = 0; i <= segments; i += 1) {
