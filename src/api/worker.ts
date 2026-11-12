@@ -40,6 +40,8 @@ export interface RequestOptions {
   /** Abort the request after this many milliseconds (default 30s, 0 disables). */
   timeoutMs?: number;
   accept?: string;
+  /** Set false when the caller has its own fallback and should reach it quickly. */
+  retry?: boolean;
 }
 
 /** Builds an absolute worker URL from a worker-relative path and query params. */
@@ -61,8 +63,31 @@ export function isAbortError(error: unknown): boolean {
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/**
+ * Every call is a GET, so a failure that is likely to pass (the upstream hiccuped,
+ * the rate limit window rolled, the connection dropped) is tried again before a
+ * page has to show an error. The waits sit inside the request's own timeout.
+ */
+const RETRY_DELAYS_MS = [500, 1500];
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort);
+      resolve();
+    }, ms);
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, { once: true });
+  });
+}
+
 async function send(path: string, options: RequestOptions, defaultAccept: string): Promise<{ url: string; text: string }> {
-  const { params, signal, timeoutMs = DEFAULT_TIMEOUT_MS, accept = defaultAccept } = options;
+  const { params, signal, timeoutMs = DEFAULT_TIMEOUT_MS, accept = defaultAccept, retry = true } = options;
   const url = workerUrl(path, params).toString();
 
   const controller = new AbortController();
@@ -79,14 +104,26 @@ async function send(path: string, options: RequestOptions, defaultAccept: string
   signal?.addEventListener('abort', forwardAbort, { once: true });
 
   try {
-    const response = await fetch(url, {
-      headers: { Accept: accept },
-      credentials: 'omit',
-      signal: controller.signal,
-    });
-    const text = await response.text();
-    if (!response.ok) throw new HttpError(url, response.status, text);
-    return { url, text };
+    for (let attempt = 0; ; attempt += 1) {
+      const retryIn = retry && attempt < RETRY_DELAYS_MS.length ? RETRY_DELAYS_MS[attempt] : null;
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          headers: { Accept: accept },
+          credentials: 'omit',
+          signal: controller.signal,
+        });
+      } catch (error) {
+        // A dropped connection is worth another go; an abort or timeout is not.
+        if (retryIn === null || controller.signal.aborted) throw error;
+        await pause(retryIn, controller.signal);
+        continue;
+      }
+      const text = await response.text();
+      if (response.ok) return { url, text };
+      if (retryIn === null || !RETRY_STATUSES.has(response.status)) throw new HttpError(url, response.status, text);
+      await pause(retryIn, controller.signal);
+    }
   } catch (error) {
     if (timedOut) {
       const timeoutError = new Error(`Request to ${url} timed out after ${timeoutMs}ms`);

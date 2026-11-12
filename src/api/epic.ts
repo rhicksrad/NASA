@@ -24,7 +24,7 @@ const EPIC_ARCHIVE = 'https://epic.gsfc.nasa.gov';
  */
 async function fetchEpicList(path: string, signal?: AbortSignal): Promise<EpicItem[]> {
   try {
-    const items = await fetchJson<EpicItem[]>(`/epic/natural${path}`, { signal });
+    const items = await fetchJson<EpicItem[]>(`/epic/natural${path}`, { signal, retry: false });
     if (Array.isArray(items)) return items;
     throw new Error('EPIC returned a non-list payload');
   } catch (error) {

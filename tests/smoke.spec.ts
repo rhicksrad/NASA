@@ -180,3 +180,20 @@ test('hub views load on demand and home comes back', async ({ page }) => {
   expect(pageErrors, 'uncaught page errors').toEqual([]);
   expect(api.unhandled, 'requests with no fixture').toEqual([]);
 });
+
+test('a failed API call is tried again before the page gives up', async ({ page }) => {
+  const api = await installMockApi(page);
+  let apodCalls = 0;
+  await page.route(/\/apod(\?|$)/, (route) => {
+    apodCalls += 1;
+    if (apodCalls === 1) {
+      return route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*' }, body: 'upstream down' });
+    }
+    return route.fallback();
+  });
+
+  await page.goto('/NASA/');
+  await expect(page.locator('#hero-caption')).toContainText('Pillars in the Eagle Nebula');
+  expect(apodCalls).toBe(2);
+  expect(api.unhandled, 'requests with no fixture').toEqual([]);
+});
