@@ -694,7 +694,13 @@ export class EarthScene {
     // Open looking at the daylit side, a little past the terminator so both day and night show.
     if (!this.framedToSun) {
       this.framedToSun = true;
-      const distance = this.camera.position.distanceTo(this.controls.target);
+      // Far enough back that the whole disc and a low orbit fit the narrower side of the stage.
+      const halfFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
+      const narrowHalf = Math.atan(Math.tan(halfFov) * Math.min(1, this.camera.aspect || 1));
+      const distance = Math.max(
+        this.camera.position.distanceTo(this.controls.target),
+        (EARTH_RADIUS_UNITS * 1.25) / Math.sin(narrowHalf),
+      );
       const view = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(38));
       view.y += 0.32;
       this.camera.position.copy(this.controls.target).add(view.normalize().multiplyScalar(distance));

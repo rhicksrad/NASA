@@ -161,7 +161,9 @@ async function loadEruptions(tile: HTMLAnchorElement, parts: TileParts, signal: 
     bar.title = `${days[index]}: ${count}`;
     bars.append(bar);
   });
-  parts.viz.replaceChildren(bars);
+  // A week with one eruption or none has no shape worth drawing.
+  if (eruptions.length > 1) parts.viz.replaceChildren(bars);
+  else parts.viz.replaceChildren();
 
   const latest = eruptions
     .map((cme) => ({ cme, time: new Date(cme.startTime ?? '') }))

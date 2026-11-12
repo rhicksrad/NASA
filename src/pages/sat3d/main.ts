@@ -263,7 +263,8 @@ async function loadSample(): Promise<void> {
         : 'The sample satellites are already in the scene.',
     );
     if (satellites.has(ISS_ID) && selectedId === null) {
-      selectSatellite(ISS_ID, { focus: true });
+      // Select the station but leave the camera on the whole Earth; the reader can centre on it.
+      selectSatellite(ISS_ID);
     }
   } finally {
     setSampleLoading(false);
