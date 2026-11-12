@@ -3,6 +3,8 @@
   Cache-Control: public, max-age=31536000, immutable
 /art/*
   Cache-Control: public, max-age=604800
+/textures/*
+  Cache-Control: public, max-age=2592000
 /sbdb-index.json
   Cache-Control: public, max-age=86400
 /og.jpg

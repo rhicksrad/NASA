@@ -394,7 +394,7 @@ function neoFeed(url: URL) {
 }
 
 function handleWorker(route: Route, url: URL) {
-  const path = url.pathname;
+  const path = url.pathname.slice('/api'.length);
   if (path === '/images/search') return json(route, imageSearch(url));
   if (path.startsWith('/images/asset/')) return json(route, imageAsset(decodeURIComponent(path.split('/').pop() ?? 'x')));
   if (path === '/neo/browse') return json(route, neoBrowse(url));
@@ -454,7 +454,8 @@ export async function installMockApi(page: Page): Promise<MockApi> {
     }
     log.external.push(request.url());
 
-    if (url.hostname === WORKER_HOST) return handleWorker(route, url);
+    // Anything outside /api at that address is the site, not data, so it counts as unhandled.
+    if (url.hostname === WORKER_HOST && url.pathname.startsWith('/api/')) return handleWorker(route, url);
     if (url.hostname === 'epic.gsfc.nasa.gov' && url.pathname.startsWith('/api/')) return json(route, EPIC_ITEMS);
     if (url.hostname === 'unpkg.com' && url.pathname.includes('leaflet')) {
       const file = url.pathname.endsWith('.css') ? 'leaflet/dist/leaflet.css' : 'leaflet/dist/leaflet.js';

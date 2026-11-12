@@ -5,7 +5,8 @@
  * `worker.js` at the repo root), so pages never call third-party APIs directly
  * and the NASA API key never reaches the client.
  */
-export const WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
+/** The Worker's API lives under /api; everything else at that address is the site itself. */
+export const WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev/api';
 
 /**
  * Where API calls go. On Cloudflare the Worker serves the site too, so the
@@ -16,7 +17,7 @@ const API_BASE: string = import.meta.env.VITE_API_BASE || WORKER_BASE;
 
 function apiUrl(path: string): URL {
   const rooted = path.startsWith('/') ? path : `/${path}`;
-  if (/^https?:/.test(API_BASE)) return new URL(rooted, API_BASE);
+  if (/^https?:/.test(API_BASE)) return new URL(`${API_BASE.replace(/\/$/, '')}${rooted}`);
   return new URL(`${API_BASE.replace(/\/$/, '')}${rooted}`, window.location.origin);
 }
 

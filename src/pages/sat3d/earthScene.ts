@@ -112,8 +112,9 @@ function loadEarthTexture(url: string, uniform: { value: THREE.Texture }): void 
   );
 }
 
-const DAY_TEXTURE = 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg';
-const NIGHT_TEXTURE = 'https://threejs.org/examples/textures/planets/earth_lights_2048.png';
+// Served from this site (public/textures): the day map and city lights from the three.js examples.
+const DAY_TEXTURE = `${import.meta.env.BASE_URL}textures/earth-day.jpg`;
+const NIGHT_TEXTURE = `${import.meta.env.BASE_URL}textures/earth-night.jpg`;
 
 const ATMOSPHERE_VERTEX = /* glsl */ `
   varying vec3 vNormal;
