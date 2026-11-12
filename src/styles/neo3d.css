@@ -1,0 +1,405 @@
+@import './page-shell.css';
+
+/*
+ * NEO 3D. The scene takes the width of the page; a transport bar under it runs the clock; the
+ * lists of what is in the scene sit below as two plain columns.
+ */
+
+main.page-shell.neo3d {
+  padding-top: clamp(20px, 3vh, 32px);
+}
+
+/* ---------- Stage ---------- */
+
+.neo3d-stage-wrap {
+  position: relative;
+}
+
+.neo3d-stage {
+  position: relative;
+  height: clamp(420px, 66vh, 820px);
+  overflow: hidden;
+  background: #05060a;
+  outline: 1px solid var(--c-line-2);
+  outline-offset: -1px;
+}
+
+.neo3d-map-controls {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.neo3d-map-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-template-rows: repeat(3, 30px);
+  gap: 1px;
+}
+
+.neo3d-map-dpad > #neo3d-pan-up { grid-column: 2; grid-row: 1; }
+.neo3d-map-dpad > #neo3d-pan-left { grid-column: 1; grid-row: 2; }
+.neo3d-map-dpad > #neo3d-reset-view { grid-column: 2; grid-row: 2; }
+.neo3d-map-dpad > #neo3d-pan-right { grid-column: 3; grid-row: 2; }
+.neo3d-map-dpad > #neo3d-pan-down { grid-column: 2; grid-row: 3; }
+
+.neo3d-map-zoom {
+  display: grid;
+  gap: 1px;
+}
+
+.neo3d-map-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--c-line-1);
+  border-radius: 0;
+  background: hsl(225 16% 5% / 0.82);
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.neo3d-map-button:hover,
+.neo3d-map-button:focus-visible {
+  border-color: var(--c-text-1);
+  color: var(--c-text-1);
+}
+
+.neo3d-map-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ---------- Transport ---------- */
+
+.neo3d-transport {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) minmax(140px, 220px);
+  gap: var(--space-4) clamp(20px, 3vw, 40px);
+  align-items: center;
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--c-line-1);
+}
+
+.neo3d-playback-buttons {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.neo3d-playback-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 92px;
+  padding: 9px 14px;
+  border: 1px solid var(--c-text-1);
+  border-radius: 0;
+  background: var(--c-text-1);
+  color: var(--c-bg-0);
+  font: 600 14px/1.2 var(--font-sans);
+  cursor: pointer;
+}
+
+.neo3d-playback-buttons button:disabled {
+  border-color: var(--c-line-1);
+  background: transparent;
+  color: var(--c-muted);
+  cursor: default;
+}
+
+.neo3d-clock {
+  display: grid;
+  gap: 2px;
+}
+
+.neo3d-clock__time {
+  font-size: clamp(24px, 2.6vw, 36px);
+  font-weight: 750;
+  font-stretch: 70%;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--c-text-1);
+}
+
+.neo3d-clock__zone,
+.neo3d-field-label {
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.neo3d-field {
+  display: grid;
+  gap: 2px;
+}
+
+.neo3d-field-label b {
+  margin-left: 0.4em;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-1);
+}
+
+/* ---------- Options ---------- */
+
+.neo3d-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) clamp(20px, 3vw, 40px);
+  align-items: end;
+  padding: var(--space-4) 0 0;
+}
+
+.neo3d-options .field {
+  flex: 0 1 230px;
+}
+
+.neo3d-check,
+.neo3d-select-all {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: 15px;
+  color: var(--c-text-1);
+  cursor: pointer;
+}
+
+.neo3d-check {
+  align-items: flex-start;
+  padding-bottom: 6px;
+}
+
+.neo3d-check input {
+  margin-top: 3px;
+}
+
+.neo3d-check small {
+  display: block;
+  font-size: 13px;
+  color: var(--c-muted);
+}
+
+.neo3d-toggle-label {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.neo3d-toggle-label svg {
+  display: none;
+}
+
+/* ---------- Lists ---------- */
+
+.neo3d-control-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
+  margin-top: clamp(40px, 6vh, 64px);
+}
+
+.neo3d-neo-panel,
+.neo3d-sbdb-panel {
+  min-width: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line-1);
+}
+
+.neo3d-neo-panel h2,
+.neo3d-sbdb-panel h2 {
+  margin: 0;
+  font-size: clamp(20px, 1.8vw, 26px);
+  font-weight: 700;
+  font-stretch: 80%;
+}
+
+.neo3d-neo-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.neo3d-neo-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+}
+
+.neo3d-summary {
+  max-width: 40rem;
+  margin: var(--space-2) 0 var(--space-3);
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--c-text-2);
+}
+
+.neo3d-load-more {
+  margin-bottom: var(--space-3);
+}
+
+.neo3d-load-more svg {
+  width: 14px;
+  height: 14px;
+}
+
+.neo3d-neo-list {
+  max-height: 620px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid var(--c-line-2);
+}
+
+.neo3d-neo-item {
+  position: relative;
+  padding: 10px 40px 11px 0;
+  border-bottom: 1px solid var(--c-line-2);
+}
+
+.neo3d-neo-entry {
+  display: grid;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.neo3d-neo-name {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--c-text-1);
+}
+
+.neo3d-neo-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.neo3d-neo-meta,
+.neo3d-neo-hazard {
+  padding-left: 54px;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-muted);
+}
+
+.neo3d-neo-hazard {
+  font-weight: 600;
+  color: var(--c-signal);
+}
+
+.neo3d-neo-remove {
+  position: absolute;
+  top: 6px;
+  right: 4px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  background: none;
+  color: var(--c-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.neo3d-neo-remove:hover,
+.neo3d-neo-remove:focus-visible {
+  color: var(--c-text-1);
+}
+
+.neo3d-empty {
+  padding: var(--space-4) 0;
+  font-family: var(--font-serif);
+  color: var(--c-muted);
+}
+
+.neo3d-sbdb-loaded {
+  margin-top: var(--space-6);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line-1);
+}
+
+.neo3d-sbdb-loaded h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--c-text-1);
+}
+
+.neo3d-sbdb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sbdb-chip {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: 4px 8px 4px 10px;
+  border: 1px solid var(--c-line-1);
+  font-size: 14px;
+  color: var(--c-text-1);
+}
+
+.sbdb-chip__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--orbit-c, var(--c-accent));
+}
+
+.sbdb-chip button {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: var(--c-muted);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sbdb-chip button:hover {
+  color: var(--c-text-1);
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 1000px) {
+  .neo3d-transport {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .neo3d-field--time,
+  .neo3d-field--speed {
+    grid-column: 1 / -1;
+  }
+
+  .neo3d-control-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .neo3d-stage {
+    height: clamp(340px, 58vh, 520px);
+  }
+
+  .neo3d-neo-meta,
+  .neo3d-neo-hazard {
+    padding-left: 0;
+  }
+}

@@ -44,7 +44,7 @@ const TRAIL_INTERVAL_MS = 2000;
 const ORBIT_CACHE_WINDOW_MS = 60_000;
 const INFO_REFRESH_MS = 250;
 const CLICK_SLOP_PX = 5;
-const SAMPLE_IDLE_LABEL = 'Load sample satellites';
+const SAMPLE_IDLE_LABEL = 'Load a sample of well-known satellites';
 
 initSiteNav();
 
@@ -102,7 +102,7 @@ function updateTimeReadout(): void {
 function updateRenderStatus(): void {
   const total = satellites.size;
   if (total === 0) {
-    ui.renderStatus.textContent = 'Tip: load the sample set or search by name/ID to populate the scene.';
+    ui.renderStatus.textContent = 'Load the sample or search by name to put satellites in the scene.';
     return;
   }
   const parts: string[] = [];
@@ -111,7 +111,7 @@ function updateRenderStatus(): void {
   }
   parts.push(
     selectedId
-      ? 'Double-click a satellite or use “Focus Selected” to center the camera.'
+      ? 'Double-click a satellite to centre the view on it.'
       : 'Tip: double-click any satellite to center the camera.',
   );
   ui.renderStatus.textContent = parts.join(' ');
@@ -140,7 +140,7 @@ function markSelectedResult(): void {
 function renderInfoPanel(): void {
   const entry = selectedId === null ? undefined : satellites.get(selectedId);
   if (!entry) {
-    ui.infoPanel.innerHTML = '<h2>No satellite selected</h2><p>Click a satellite to view telemetry.</p>';
+    ui.infoPanel.innerHTML = '<h2>No satellite selected</h2><p>Click a satellite to follow it.</p>';
     return;
   }
   const geodetic = eciToLngLatAlt(new Date(simTimeMs), entry.positionKm);
@@ -150,17 +150,18 @@ function renderInfoPanel(): void {
       ? `${formatUtc(equatorCrossing.timeMs)} @ ${equatorCrossing.longitude.toFixed(1)}°`
       : 'n/a';
   const rows: Array<[string, string]> = [
-    ['NORAD', String(entry.id)],
     ['Altitude', `${geodetic.altitude.toFixed(1)} km`],
-    ['Velocity', `${speed.toFixed(2)} km/s`],
+    ['Speed', `${speed.toFixed(2)} km/s`],
     ['Latitude', `${geodetic.latitude.toFixed(2)}°`],
     ['Longitude', `${normalizeLongitude(geodetic.longitude).toFixed(2)}°`],
-    ['Next equator pass', crossing],
-    ['TLE age', formatTleAge(Math.max(0, tleAgeDays(entry.epoch, new Date())))],
+    ['Next equator crossing', crossing],
+    ['Catalogue number', String(entry.id)],
+    ['Orbit data age', formatTleAge(Math.max(0, tleAgeDays(entry.epoch, new Date())))],
   ];
   ui.infoPanel.innerHTML =
-    `<h2>${escapeHtml(entry.name)}</h2>` +
-    rows.map(([label, value]) => `<p><strong>${label}:</strong> ${escapeHtml(value)}</p>`).join('');
+    `<h2>${escapeHtml(entry.name)}</h2><dl class="sat3d-facts">` +
+    rows.map(([label, value]) => `<div><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`).join('') +
+    '</dl>';
 }
 
 /* ---------- Selection ---------- */

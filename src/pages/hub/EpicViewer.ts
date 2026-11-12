@@ -1,5 +1,6 @@
 import { fetchEpicLatest, fetchEpicByDate, buildEpicImageUrl, extractLatestDate, type EpicItem } from '../../api/epic';
 import { icon, type IconName } from '../../lib/icons';
+import { hubBanner } from './banner';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -49,27 +50,24 @@ function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Attrs = {}, ...
   return el;
 }
 
-function createIcon(name: IconName, extraClass?: string): SVGElement {
-  const tpl = document.createElement('template');
-  tpl.innerHTML = icon(name);
-  const svg = tpl.content.firstElementChild;
-  if (!(svg instanceof SVGElement)) {
-    throw new Error(`Failed to render icon: ${name}`);
-  }
-  if (extraClass) {
-    svg.classList.add(extraClass);
-  }
-  return svg;
-}
-
-function makeLabelHeading(text: string, name: IconName): HTMLElement {
+function makeLabelHeading(text: string): HTMLElement {
   const heading = document.createElement('span');
   heading.className = 'epic-label-heading';
-  heading.append(createIcon(name, 'epic-label-icon'));
-  const span = document.createElement('span');
-  span.textContent = text;
-  heading.append(span);
+  heading.textContent = text;
   return heading;
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "2026-11-10" as "10 November 2026". */
+function longDate(isoDay: string): string {
+  const [year, month, day] = isoDay.split('-').map(Number);
+  return `${day} ${MONTHS[month - 1] ?? ''} ${year}`;
+}
+
+function describePoint(lat: number, lon: number): string {
+  const part = (value: number, positive: string, negative: string) => `${Math.abs(value).toFixed(1)}° ${value >= 0 ? positive : negative}`;
+  return `${part(lat, 'N', 'S')}, ${part(lon, 'E', 'W')}`;
 }
 
 function buttonContent(label: string, name: IconName): string {
@@ -86,6 +84,8 @@ export class EpicViewer {
   private loadBtn!: HTMLButtonElement;
   private fpsSel!: HTMLSelectElement;
   private metaEl!: HTMLDivElement;
+  private countEl!: HTMLSpanElement;
+  private noteEl!: HTMLParagraphElement;
 
   private state: State = { startDate: '', endDate: '', items: [], idx: 0, playing: false, fps: 4 };
   private rafId: number | null = null;
@@ -103,33 +103,32 @@ export class EpicViewer {
   private renderShell() {
     const rangeControls = h('div', { class: 'epic-range-group' });
 
-    const startLabel = h('label', { class: 'epic-label epic-label-stack', for: 'epic-start' }) as HTMLLabelElement;
-    startLabel.append(makeLabelHeading('Start (UTC)', 'calendar'));
+    const startLabel = h('label', { class: 'field', for: 'epic-start' }) as HTMLLabelElement;
+    startLabel.append(makeLabelHeading('From'));
     this.startInput = h('input', { type: 'date', class: 'epic-date', id: 'epic-start' }) as HTMLInputElement;
     startLabel.append(this.startInput);
 
-    const endLabel = h('label', { class: 'epic-label epic-label-stack', for: 'epic-end' }) as HTMLLabelElement;
-    endLabel.append(makeLabelHeading('End (UTC)', 'calendar'));
+    const endLabel = h('label', { class: 'field', for: 'epic-end' }) as HTMLLabelElement;
+    endLabel.append(makeLabelHeading('To'));
     this.endInput = h('input', { type: 'date', class: 'epic-date', id: 'epic-end' }) as HTMLInputElement;
     endLabel.append(this.endInput);
 
-    this.loadBtn = h('button', { class: 'epic-btn epic-btn-secondary', type: 'button' }) as HTMLButtonElement;
-    this.setLoadButtonLabel('Load Range');
+    this.loadBtn = h('button', { class: 'btn', type: 'button' }) as HTMLButtonElement;
+    this.setLoadButtonLabel('Load these days');
 
     rangeControls.append(startLabel, endLabel, this.loadBtn);
 
     const controls = h(
       'div',
       { class: 'epic-controls' },
-      rangeControls,
-      (this.playBtn = h('button', { class: 'epic-btn', type: 'button' }) as HTMLButtonElement),
+      (this.playBtn = h('button', { class: 'btn btn--primary', type: 'button' }) as HTMLButtonElement),
       (() => {
-        const label = h('label', { class: 'epic-label epic-label-inline', for: 'epic-fps' });
-        label.append(makeLabelHeading('Speed', 'speed'));
+        const label = h('label', { class: 'field epic-speed', for: 'epic-fps' });
+        label.append(makeLabelHeading('Speed'));
         this.fpsSel = h(
           'select',
           { class: 'epic-fps', id: 'epic-fps' },
-          ...[2, 4, 8, 12, 24].map(v => h('option', { value: String(v) }, String(v), ' fps')),
+          ...[2, 4, 8, 12, 24].map(v => h('option', { value: String(v) }, String(v), ' frames a second')),
         ) as HTMLSelectElement;
         label.append(this.fpsSel);
         return label;
@@ -139,24 +138,38 @@ export class EpicViewer {
     const timeline = h(
       'div',
       { class: 'epic-timeline' },
-      (this.slider = h('input', { type: 'range', min: '0', max: '0', value: '0', class: 'epic-slider' }) as HTMLInputElement),
+      (this.slider = h('input', { type: 'range', min: '0', max: '0', value: '0', class: 'epic-slider', 'aria-label': 'Frame' }) as HTMLInputElement),
+      (this.countEl = h('span', { class: 'epic-count' })),
     );
 
     const stage = h(
       'div',
       { class: 'epic-stage' },
-      (this.imgEl = h('img', { alt: 'EPIC Earth', class: 'epic-image' }) as HTMLImageElement),
-      (this.metaEl = h('div', { class: 'epic-meta' })),
+      (this.imgEl = h('img', { alt: 'Earth photographed by the EPIC camera', class: 'epic-image' }) as HTMLImageElement),
     );
 
-    const note = h(
-      'p',
-      { class: 'epic-note' },
-      'On 16 July 2025, DSCOVR suffered a software bus anomaly, which put it offline without an estimated date for recovery.',
+    this.metaEl = h('div', { class: 'epic-meta', 'aria-live': 'polite' });
+    this.noteEl = h('p', { class: 'epic-note', hidden: '' });
+
+    const side = h(
+      'div',
+      { class: 'epic-side' },
+      this.metaEl,
+      timeline,
+      controls,
+      h('div', { class: 'epic-range' }, h('h2', {}, 'Choose the days'), rangeControls),
+      this.noteEl,
     );
 
-    const wrap = h('div', { class: 'epic-wrap' }, stage, timeline, controls, note);
-    this.host.replaceChildren(wrap);
+    const wrap = h('div', { class: 'epic-wrap' }, stage, side);
+    this.host.replaceChildren(
+      hubBanner(
+        'EPIC Earth',
+        'The whole sunlit face of Earth, photographed from the DSCOVR spacecraft 1.5 million km towards the Sun. Play a span of days and watch the planet turn.',
+        'epic',
+      ),
+      wrap,
+    );
 
     // Wire events
     this.refreshPlayButton();
@@ -190,12 +203,18 @@ export class EpicViewer {
       if (this.destroyed) return;
       const latestDate = extractLatestDate(latest);
       const end = latestDate ?? new Date().toISOString().slice(0, 10);
-      this.startInput.value = end;
+      // Open on the latest two days so there is a turning Earth to play straight away.
+      const start = new Date(Date.parse(`${end}T00:00:00Z`) - DAY_MS).toISOString().slice(0, 10);
+      this.startInput.value = start;
       this.endInput.value = end;
       this.startInput.max = end;
       this.endInput.max = end;
       this.syncRangeInputs();
-      await this.loadRange(end, end);
+      if (latestDate && Date.now() - Date.parse(`${latestDate}T00:00:00Z`) > 10 * DAY_MS) {
+        this.noteEl.textContent = `The newest pictures in the archive are from ${longDate(latestDate)}. Nothing newer has come down from the spacecraft yet.`;
+        this.noteEl.hidden = false;
+      }
+      await this.loadRange(start, end);
       this.setFps(4);
     } catch (err) {
       if (!this.destroyed) this.error(String(err));
@@ -232,7 +251,8 @@ export class EpicViewer {
     this.slider.max = '0';
     this.slider.value = '0';
     this.imgEl.src = '';
-    this.metaEl.textContent = 'Loading EPIC imagery…';
+    this.metaEl.textContent = 'Fetching the pictures.';
+    this.countEl.textContent = '';
     this.loadBtn.disabled = true;
     this.setLoadButtonLabel('Loading…');
 
@@ -255,7 +275,7 @@ export class EpicViewer {
       this.updateControlsForItems();
 
       if (collected.length === 0) {
-        this.metaEl.textContent = `No EPIC images between ${normalizedStart} and ${normalizedEnd}.`;
+        this.metaEl.textContent = `There are no pictures between ${longDate(normalizedStart)} and ${longDate(normalizedEnd)}.`;
         return;
       }
 
@@ -267,7 +287,7 @@ export class EpicViewer {
     } finally {
       if (token === this.loadToken) {
         this.loadBtn.disabled = false;
-        this.setLoadButtonLabel('Load Range');
+        this.setLoadButtonLabel('Load these days');
       }
     }
   }
@@ -285,11 +305,14 @@ export class EpicViewer {
     if (!url) return;
     this.imgEl.referrerPolicy = 'no-referrer';
     this.imgEl.src = url; // <img> can load cross-origin fine
-    const t = it.date;
-    const loc = it.centroid_coordinates
-      ? `lat ${it.centroid_coordinates.lat.toFixed(2)}, lon ${it.centroid_coordinates.lon.toFixed(2)}`
-      : '';
-    this.metaEl.textContent = `${t}  ${loc}  —  ${it.caption || it.identifier}`;
+    const [day, clock = ''] = it.date.split(' ');
+    const centre = it.centroid_coordinates;
+    this.metaEl.replaceChildren(
+      h('p', { class: 'epic-meta__time' }, clock.slice(0, 5), h('span', {}, ' UTC')),
+      h('p', { class: 'epic-meta__day' }, longDate(day)),
+      h('p', { class: 'epic-meta__where' }, centre ? `Looking straight down on ${describePoint(centre.lat, centre.lon)}.` : ''),
+    );
+    this.countEl.textContent = `${idx + 1} of ${this.state.items.length}`;
     this.slider.value = String(idx);
     // Preload ahead a little
     this.preloadWindow(idx + 1, Math.min(idx + 6, this.state.items.length - 1));

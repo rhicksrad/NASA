@@ -74,7 +74,7 @@ const PRESET_METADATA: Record<
   iss: { label: 'ISS', icon: 'earth', query: 'International Space Station mission' },
   curiosity: { label: 'Curiosity', icon: 'mars', query: 'Curiosity rover mission' },
   artemis: { label: 'Artemis', icon: 'ringed', query: 'Artemis mission' },
-  custom: { label: 'Custom', icon: 'sparkle', query: '' },
+  custom: { label: 'Everything', icon: 'sparkle', query: '' },
 };
 
 function presetToQuery(preset: Preset): string {
@@ -374,13 +374,20 @@ export default function ImagesExplorer() {
 
   return (
     <div className="images-explorer">
-      <h1 className="images-explorer__heading">Mission Image Explorer</h1>
+      <section className="page-banner">
+        <div className="page-banner__text">
+          <h1>Mission images</h1>
+          <p>NASA’s photograph archive from Project Mercury to Artemis. Pick a programme or search by subject, year and keyword.</p>
+        </div>
+        <img src={`${import.meta.env.BASE_URL}art/images.webp`} alt="" width={1536} height={1024} decoding="async" />
+      </section>
 
       <div className="images-explorer__presets">
         {PRESET_ORDER.map(current => (
           <button
             key={current}
             className={`images-explorer__preset${preset === current ? ' is-active' : ''}`}
+            aria-pressed={preset === current}
             onClick={() => {
               setPreset(current);
               const baseQuery = presetToQuery(current);
@@ -395,7 +402,7 @@ export default function ImagesExplorer() {
             }}
             type="button"
           >
-            <IconLabel name={PRESET_METADATA[current].icon} text={PRESET_METADATA[current].label} />
+            {PRESET_METADATA[current].label}
           </button>
         ))}
       </div>
@@ -407,43 +414,57 @@ export default function ImagesExplorer() {
           setPage(1);
         }}
       >
-        <input
-          className="images-explorer__input"
-          value={q}
-          onChange={event => setQ(event.target.value)}
-          placeholder="Search..."
-        />
-        <input
-          className="images-explorer__input"
-          value={ys ?? ''}
-          onChange={event => {
-            const value = event.target.value.trim();
-            setYs(value ? Number(value) : undefined);
-          }}
-          placeholder="Year start"
-        />
-        <input
-          className="images-explorer__input"
-          value={ye ?? ''}
-          onChange={event => {
-            const value = event.target.value.trim();
-            setYe(value ? Number(value) : undefined);
-          }}
-          placeholder="Year end"
-        />
-        <input
-          className="images-explorer__input"
-          value={kwInput}
-          onChange={event => setKwInput(event.target.value)}
-          placeholder="Keywords (comma-separated)"
-        />
-        <button className="images-explorer__submit" type="submit">
-          <IconLabel name="search" text="Apply" />
+        <label className="field images-explorer__field--wide">
+          Search for
+          <input
+            className="images-explorer__input"
+            value={q}
+            onChange={event => setQ(event.target.value)}
+            placeholder="Saturn V, spacewalk, Europa"
+          />
+        </label>
+        <label className="field">
+          From year
+          <input
+            className="images-explorer__input"
+            inputMode="numeric"
+            value={ys ?? ''}
+            onChange={event => {
+              const value = event.target.value.trim();
+              setYs(value ? Number(value) : undefined);
+            }}
+            placeholder="1958"
+          />
+        </label>
+        <label className="field">
+          To year
+          <input
+            className="images-explorer__input"
+            inputMode="numeric"
+            value={ye ?? ''}
+            onChange={event => {
+              const value = event.target.value.trim();
+              setYe(value ? Number(value) : undefined);
+            }}
+            placeholder={String(new Date().getFullYear())}
+          />
+        </label>
+        <label className="field">
+          Keywords
+          <input
+            className="images-explorer__input"
+            value={kwInput}
+            onChange={event => setKwInput(event.target.value)}
+            placeholder="moon, launch"
+          />
+        </label>
+        <button className="btn btn--primary images-explorer__submit" type="submit">
+          Search
         </button>
       </form>
 
       <div className="images-explorer__status" role="status" aria-live="polite">
-        {loading ? 'Loading…' : error ? error : `${total.toLocaleString()} results`}
+        {loading ? 'Searching the archive.' : error ? error : `${total.toLocaleString('en-US')} ${total === 1 ? 'photograph' : 'photographs'}`}
       </div>
 
       {!loading && !error && items.length === 0 && (
@@ -479,7 +500,7 @@ export default function ImagesExplorer() {
               <div className="images-explorer__card-title">{item.title}</div>
               <div className="images-explorer__card-meta">
                 {formatMetaDate(item.date_created)}
-                {item.photographer ? ` • ${item.photographer}` : ''}
+                {item.photographer ? ` · ${item.photographer}` : ''}
               </div>
             </div>
           </button>
@@ -488,16 +509,16 @@ export default function ImagesExplorer() {
 
       <div className="images-explorer__pagination">
         <button
-          className="images-explorer__page-button"
+          className="btn images-explorer__page-button"
           disabled={!hasPrev || loading}
           onClick={() => setPage(current => Math.max(1, current - 1))}
           type="button"
         >
-          <IconLabel name="arrowLeft" text="Prev" />
+          <IconLabel name="arrowLeft" text="Previous" />
         </button>
         <span className="images-explorer__page-indicator">Page {page}</span>
         <button
-          className="images-explorer__page-button"
+          className="btn images-explorer__page-button"
           disabled={!hasNext || loading}
           onClick={() => setPage(current => current + 1)}
           type="button"
@@ -528,10 +549,10 @@ export default function ImagesExplorer() {
               </strong>
               <span className="images-explorer__modal-meta">
                 {formatMetaDate(selected.date_created)}
-                {selected.photographer ? ` • ${selected.photographer}` : ''}
+                {selected.photographer ? ` · ${selected.photographer}` : ''}
               </span>
               <button
-                className="images-explorer__modal-close"
+                className="btn images-explorer__modal-close"
                 onClick={() => setSelected(null)}
                 ref={closeButtonRef}
                 type="button"
@@ -547,7 +568,7 @@ export default function ImagesExplorer() {
                   alt={selected.title}
                 />
               ) : (
-                <div className="images-explorer__modal-loading">Loading full-resolution…</div>
+                <div className="images-explorer__modal-loading">Fetching the full-size picture.</div>
               )}
               {selected.description && (
                 <p className="images-explorer__modal-description" id="images-explorer-modal-description">
