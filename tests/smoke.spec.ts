@@ -20,8 +20,12 @@ const PAGES: PageCase[] = [
     name: 'home',
     path: '/NASA/',
     ready: async (page) => {
-      await expect(page.locator('#hourly-title')).not.toHaveText(/loading/i);
-      await expect(page.locator('#hourly-media img')).toBeVisible();
+      await expect(page.locator('#hero-media.is-loaded img')).toBeVisible();
+      await expect(page.locator('#tile-neo [data-value]')).toHaveText('6');
+      await expect(page.locator('#tile-events.is-ready')).toBeVisible();
+      await expect(page.locator('#tile-cme.is-ready')).toBeVisible();
+      await expect(page.locator('#iss-map .iss-map__dot')).toBeVisible();
+      await expect(page.locator('#iss-stats [data-stat="alt"]')).toHaveText(/km/);
     },
   },
   {
@@ -110,7 +114,7 @@ for (const { name, path, ready } of PAGES) {
 
     if (SHOT_DIR) {
       mkdirSync(SHOT_DIR, { recursive: true });
-      await page.screenshot({ path: join(SHOT_DIR, `${name}.png`) });
+      await page.screenshot({ path: join(SHOT_DIR, `${name}.png`), fullPage: true });
     }
   });
 }

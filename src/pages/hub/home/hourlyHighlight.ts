@@ -1,4 +1,4 @@
-import { largestAssetUrl, searchImages, type NasaImageItem } from '../../api/images';
+import { largestAssetUrl, searchImages, type NasaImageItem } from '../../../api/images';
 
 function ensureNotAborted(signal?: AbortSignal): void {
   if (!signal) return;

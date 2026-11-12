@@ -1,5 +1,5 @@
 /** NeoWs catalogue of near-Earth objects, proxied by the worker. */
-import type { NeoBrowse } from './neoTypes';
+import type { NeoBrowse, NeoItem } from './neoTypes';
 import { fetchJson, type RequestOptions } from './worker';
 
 export type * from './neoTypes';
@@ -13,4 +13,15 @@ export function getNeoBrowse(
     ...options,
     params: { size: params.size ?? 20, page: params.page },
   });
+}
+
+export interface NeoFeed {
+  element_count: number;
+  /** Close approaches keyed by `YYYY-MM-DD`. */
+  near_earth_objects: Record<string, NeoItem[]>;
+}
+
+/** Objects making a close approach to Earth between two dates (at most 7 days apart). */
+export function getNeoFeed(startDate: string, endDate: string, signal?: AbortSignal): Promise<NeoFeed> {
+  return fetchJson<NeoFeed>('/neo/feed', { params: { start_date: startDate, end_date: endDate }, signal });
 }

@@ -4,56 +4,166 @@
     <!-- @include site-head -->
     <title>NASA Open APIs Visualization Hub</title>
   </head>
-  <body class="page--hub">
+  <body class="page--hub is-home">
     <!-- @include site-header -->
     <main>
       <section class="hero section--grid">
         <div class="main-wrap">
           <div id="page-host">
-            <section class="hero-hourly" id="hourly-hero">
-              <figure class="hero-hourly__figure">
-                <div class="hero-hourly__frame" id="hourly-media">
-                  <div class="hero-hourly__status" aria-live="polite">
-                    <span class="sr-only">Loading hourly highlight…</span>
-                    <div class="skeleton">
-                      <div class="skel-row"></div>
-                      <div class="skel-row"></div>
-                      <div class="skel-row"></div>
-                    </div>
+            <div class="home">
+              <section class="home-hero" id="home-hero">
+                <div class="home-hero__media" id="hero-media" aria-hidden="true"></div>
+                <div class="home-hero__content">
+                  <p class="home-eyebrow">Built entirely on free, public NASA APIs</p>
+                  <h1>The solar system, live in your browser</h1>
+                  <p class="home-hero__lede">
+                    Track the space station, watch asteroids pass Earth, follow solar storms and search sixty years of
+                    mission photography. Every number on this page is real and updating right now.
+                  </p>
+                  <div class="home-hero__actions">
+                    <a class="btn btn--primary" href="neo3d.html">Fly the solar system</a>
+                    <a class="btn" href="sat3d.html">Track the ISS live</a>
                   </div>
                 </div>
-                <figcaption class="hero-hourly__caption">
-                  <p class="hero-hourly__title" id="hourly-title">Discover the latest mission imagery</p>
-                  <p class="hero-hourly__meta" id="hourly-meta">A new image arrives every hour. Stay tuned.</p>
-                  <p class="hero-hourly__credit" id="hourly-credit" hidden></p>
-                </figcaption>
-              </figure>
-              <div class="hero-hourly__copy">
-                <h1>Welcome to the NASA Open APIs Visualization Hub</h1>
-                <p>
-                  Dive into interactive explorers, heliocentric visualizations, and curated mission datasets—all powered by NASA's
-                  public APIs and our Cloudflare Worker proxy.
-                </p>
-                <p>
-                  The rotating mission highlight refreshes every hour with a new image from the archives, giving you a quick peek at
-                  the discoveries waiting inside the Mission Image Explorer.
-                </p>
-                <a class="btn btn--primary hero-hourly__cta" id="hero-explorer-link" href="#/images/explorer">
-                  <svg class="ui-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
-                    <rect x="4.5" y="5.5" width="15" height="13" rx="2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></rect>
-                    <path d="m8.5 13.5 2.5-2.5 3 3 2.5-2.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
-                    <circle cx="9" cy="9" r="1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></circle>
-                  </svg>
-                  <span>Launch Mission Image Explorer</span>
-                </a>
-              </div>
-            </section>
+                <a class="home-hero__credit" id="hero-credit" href="https://apod.nasa.gov/apod/astropix.html" target="_blank" rel="noopener" hidden></a>
+              </section>
+
+              <section class="home-section" aria-labelledby="live-heading">
+                <header class="home-section__header">
+                  <h2 id="live-heading"><span class="live-dot" aria-hidden="true"></span>Happening right now</h2>
+                  <p>Pulled live from NASA and JPL as this page loaded.</p>
+                </header>
+                <div class="live-grid">
+                  <a class="live-tile live-tile--iss" id="tile-iss" href="sat3d.html">
+                    <div class="live-tile__label">International Space Station</div>
+                    <div class="iss-map" id="iss-map" role="img" aria-label="Map of the space station's current position"></div>
+                    <p class="live-tile__detail">
+                      A crew is circling the planet once every 92 minutes. The dashed line is where they go next, and the
+                      shaded side of the map is night.
+                    </p>
+                    <dl class="live-tile__stats" id="iss-stats">
+                      <div><dt>Latitude</dt><dd data-stat="lat">—</dd></div>
+                      <div><dt>Longitude</dt><dd data-stat="lon">—</dd></div>
+                      <div><dt>Altitude</dt><dd data-stat="alt">—</dd></div>
+                      <div><dt>Speed</dt><dd data-stat="speed">—</dd></div>
+                    </dl>
+                  </a>
+                  <a class="live-tile" id="tile-neo" href="neo3d.html">
+                    <div class="live-tile__label">Asteroids passing Earth today</div>
+                    <div class="live-tile__value" data-value>—</div>
+                    <div class="live-tile__viz" data-viz></div>
+                    <p class="live-tile__detail" data-detail>Checking today's close approaches…</p>
+                  </a>
+                  <a class="live-tile" id="tile-events" href="events.html">
+                    <div class="live-tile__label">Natural events in progress</div>
+                    <div class="live-tile__value" data-value>—</div>
+                    <div class="live-tile__viz" data-viz></div>
+                    <p class="live-tile__detail" data-detail>Asking the Earth Observatory…</p>
+                  </a>
+                  <a class="live-tile" id="tile-cme" href="storm.html">
+                    <div class="live-tile__label">Solar eruptions this week</div>
+                    <div class="live-tile__value" data-value>—</div>
+                    <div class="live-tile__viz" data-viz></div>
+                    <p class="live-tile__detail" data-detail>Checking the Sun…</p>
+                  </a>
+                </div>
+              </section>
+
+              <section class="home-section" aria-labelledby="explorers-heading">
+                <header class="home-section__header">
+                  <h2 id="explorers-heading">Eight ways in</h2>
+                  <p>Each explorer is a plain web page talking to a free API. No accounts, no paywalls.</p>
+                </header>
+                <div class="explorer-grid">
+                  <a class="explorer-card explorer-card--neo" href="neo3d.html">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="12" rx="8" ry="5.5"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18" cy="9" r="1.1" fill="currentColor"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>NEO 3D</h3>
+                      <p>Fly through the solar system and watch near-Earth asteroids and comets on their real orbits.</p>
+                      <span class="explorer-card__api">NeoWs · JPL Horizons · SBDB</span>
+                    </div>
+                  </a>
+                  <a class="explorer-card explorer-card--sat" href="sat3d.html">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5.5"/><path d="M7 7.5 4.5 5M17 17l2.5 2.5M7 17l-2.5 2.5M17 7.5 19.5 5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>Satellite 3D</h3>
+                      <p>Follow the space station and thousands of satellites around a day-and-night Earth, live.</p>
+                      <span class="explorer-card__api">TLE API · SGP4</span>
+                    </div>
+                  </a>
+                  <a class="explorer-card explorer-card--epic" href="#/epic" data-preview="epic">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M8 11.5c1.5-1 2.5-.5 3.5-2.5 1 2 .5 2 2 2.5 1.5.5 1.5 1.5 1 2.5-.5 1-1.5.5-2.5 1s-1 .5-1.5 1.5"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>EPIC Earth</h3>
+                      <p>The whole sunlit Earth, photographed every day from a million miles away.</p>
+                      <span class="explorer-card__api">DSCOVR EPIC</span>
+                    </div>
+                  </a>
+                  <a class="explorer-card explorer-card--images" href="#/images/explorer" data-preview="images">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="5.5" width="15" height="13" rx="2"/><path d="m8.5 13.5 2.5-2.5 3 3 2.5-2.5"/><circle cx="9" cy="9" r="1.5"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>Images Explorer</h3>
+                      <p>Search six decades of mission photography, from Mercury to Webb.</p>
+                      <span class="explorer-card__api">NASA Image and Video Library</span>
+                    </div>
+                  </a>
+                  <a class="explorer-card explorer-card--mars" href="#/mars" data-preview="mars">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M8.5 9c1.5-.5 2 0 3 .5s1.5.5 2-.5M9 14.5c1 .5 2 .5 3 0s1.5-.5 2.5 0"/><circle cx="9" cy="9" r="0.9" fill="currentColor"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>Mars Images</h3>
+                      <p>Stand on Mars with the rovers. Browse by rover, camera and sol.</p>
+                      <span class="explorer-card__api">NASA Image and Video Library</span>
+                    </div>
+                  </a>
+                  <a class="explorer-card explorer-card--cme" href="storm.html">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 3v2.5M12 18.5V21M4.5 12H7M17 12h2.5M6.2 6.2 7.9 7.9M16.1 16.1l1.7 1.7M16.1 7.9l1.7-1.7M6.2 17.8 7.9 16.1"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>CME Explorer</h3>
+                      <p>Solar eruptions, when they reach Earth and how far south the aurora may show.</p>
+                      <span class="explorer-card__api">DONKI</span>
+                    </div>
+                  </a>
+                  <a class="explorer-card explorer-card--eonet" href="events.html">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5.5 4.5 18h15L12 5.5Z"/><path d="M12 10.5v3"/><circle cx="12" cy="16.5" r="0.9" fill="currentColor"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>EONET Explorer</h3>
+                      <p>Wildfires, storms and volcanoes happening on Earth right now, on a map.</p>
+                      <span class="explorer-card__api">EONET</span>
+                    </div>
+                  </a>
+                  <a class="explorer-card explorer-card--exo" href="exo.html">
+                    <div class="explorer-card__media">
+                      <svg class="explorer-card__icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5a5.5 5.5 0 1 1-5.5 5.5A5.5 5.5 0 0 1 12 6.5Z"/><path d="M4 12c0-1.5 3.6-3.5 8-3.5s8 2 8 3.5-3.6 3.5-8 3.5-8-2-8-3.5Z"/></svg>
+                    </div>
+                    <div class="explorer-card__body">
+                      <h3>Exoplanet Explorer</h3>
+                      <p>Query thousands of confirmed worlds around other stars and chart what you find.</p>
+                      <span class="explorer-card__api">NASA Exoplanet Archive</span>
+                    </div>
+                  </a>
+                </div>
+              </section>
+            </div>
           </div>
         </div>
       </section>
     </main>
     <footer class="site-footer">
-      <p>Powered by public NASA datasets and a Cloudflare Worker proxy.</p>
+      <p>Powered by public NASA and JPL data through a single Cloudflare Worker. Not affiliated with NASA. <a href="#/about">How it was built</a></p>
     </footer>
     <script type="module" src="/src/pages/hub/main.ts"></script>
   </body>

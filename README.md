@@ -9,7 +9,7 @@ _Rendered by the smoke tests against placeholder fixtures, so imagery is stand-i
 
 | Page | What it shows |
 | --- | --- |
-| Home | An hourly rotating highlight from the NASA image archive |
+| Home | Astronomy Picture of the Day, the live ISS position, today's asteroid flybys, open natural events and this week's solar eruptions |
 | Images Explorer | Search across the NASA Image and Video Library |
 | EPIC Earth | Daily full-disc Earth imagery from DSCOVR, with playback |
 | Mars Images | Rover imagery by rover, instrument, sol and year |

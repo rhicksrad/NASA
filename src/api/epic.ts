@@ -53,10 +53,14 @@ export async function fetchEpicByDate(date: string, signal?: AbortSignal): Promi
   }
 }
 
-/** Full-disc PNGs live on the EPIC archive host; they are plain `<img>` loads, no API key. */
-export function buildEpicImageUrl(item: EpicItem): string {
+/**
+ * Full-disc images live on the EPIC archive host; they are plain `<img>` loads, no API key.
+ * `png` is the 2048px original, `jpg` a 1080px copy and `thumbs` a small preview.
+ */
+export function buildEpicImageUrl(item: EpicItem, variant: 'png' | 'jpg' | 'thumbs' = 'png'): string {
   const [year, month, day] = item.date.split(' ')[0].split('-');
-  return `${EPIC_ARCHIVE}/archive/natural/${year}/${month}/${day}/png/${item.image}.png`;
+  const extension = variant === 'png' ? 'png' : 'jpg';
+  return `${EPIC_ARCHIVE}/archive/natural/${year}/${month}/${day}/${variant}/${item.image}.${extension}`;
 }
 
 /** Items may span several days; returns the most recent `YYYY-MM-DD`. */

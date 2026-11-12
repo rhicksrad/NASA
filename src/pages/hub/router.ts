@@ -1,7 +1,7 @@
 import { setCurrentNav } from '../../shell/nav';
 import { mountAboutPage } from './about';
 import { mountEpicPage } from './epic';
-import { mountHome } from './home';
+import { mountHome } from './home/index';
 import { initImagesExplorerPage } from './imagesExplorer';
 import { mountMarsPage } from './mars';
 

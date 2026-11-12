@@ -366,11 +366,49 @@ const EPIC_ITEMS = Array.from({ length: 6 }, (_, index) => ({
   centroid_coordinates: { lat: 4.2 - index, lon: 150 - index * 30 },
 }));
 
+function neoFeed(url: URL) {
+  const day = url.searchParams.get('start_date') ?? '2026-01-01';
+  const flyby = (name: string, lunar: number, metres: number, hazardous = false) => ({
+    id: name,
+    name: `(${name})`,
+    is_potentially_hazardous_asteroid: hazardous,
+    estimated_diameter: { meters: { estimated_diameter_min: metres * 0.8, estimated_diameter_max: metres * 1.2 } },
+    close_approach_data: [
+      {
+        close_approach_date: day,
+        relative_velocity: { kilometers_per_second: '12.4' },
+        miss_distance: { lunar: String(lunar), kilometers: String(lunar * 384_400) },
+        orbiting_body: 'Earth',
+      },
+    ],
+  });
+  const objects = [
+    flyby('2026 AB', 3.4, 18),
+    flyby('2026 CD4', 0.8, 9),
+    flyby('2019 XK', 41.2, 320, true),
+    flyby('2024 QR', 12.9, 55),
+    flyby('2011 MD', 77.5, 140),
+    flyby('2026 EF1', 152.3, 610, true),
+  ];
+  return { element_count: objects.length, near_earth_objects: { [day]: objects } };
+}
+
 function handleWorker(route: Route, url: URL) {
   const path = url.pathname;
   if (path === '/images/search') return json(route, imageSearch(url));
   if (path.startsWith('/images/asset/')) return json(route, imageAsset(decodeURIComponent(path.split('/').pop() ?? 'x')));
   if (path === '/neo/browse') return json(route, neoBrowse(url));
+  if (path === '/neo/feed') return json(route, neoFeed(url));
+  if (path === '/apod') {
+    return json(route, {
+      date: '2026-01-01',
+      title: 'Pillars in the Eagle Nebula',
+      explanation: 'A fixture entry.',
+      media_type: 'image',
+      url: 'https://apod.nasa.gov/apod/image/fixture/pillars.jpg',
+      copyright: 'Fixture Observatory',
+    });
+  }
   if (path === '/horizons') return json(route, horizons(url));
   if (path === '/sbdb' || path === '/sbdb/object') return json(route, sbdb(url));
   if (path === '/sbdb/search' || path === '/sbdb/suggest') return json(route, { items: [], list: [] });
