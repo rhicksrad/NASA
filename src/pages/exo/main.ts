@@ -62,6 +62,7 @@ let sortState: SortState = { key: null, dir: 'asc' };
 let selectedName = '';
 let presetNote = '';
 let activeQuery: AbortController | null = null;
+let chartCompact = false;
 
 // --- Filters ---------------------------------------------------------------
 
@@ -232,7 +233,9 @@ function renderSummary(): void {
     loadedRows.map((planet) => planet[key]).filter((value): value is number => value !== null);
   byId('sumCount').textContent = loadedRows.length.toLocaleString('en-US');
   byId('sumR').textContent = formatNumber(median(present('rade')), 2, '–');
-  byId('sumT').textContent = formatTemperature(median(present('eqt')), '–');
+  const medianTemperature = median(present('eqt'));
+  byId('sumT').textContent =
+    medianTemperature === null ? '–' : Math.round(kelvinToFahrenheit(medianTemperature)).toLocaleString('en-US');
   byId('sumMass').textContent = String(present('masse').length);
   byId('sumDistLy').textContent = formatLightYears(median(present('distanceLy')));
 }
@@ -240,7 +243,8 @@ function renderSummary(): void {
 // --- Selected planet ---------------------------------------------------------
 
 function renderChart(): void {
-  massRadiusEl.replaceChildren(massRadiusChart(visibleRows, selectedName));
+  chartCompact = massRadiusEl.clientWidth > 0 && massRadiusEl.clientWidth < 520;
+  massRadiusEl.replaceChildren(massRadiusChart(visibleRows, selectedName, chartCompact));
   const plotted = visibleRows.filter((planet) => planet.masse !== null && planet.rade !== null).length;
   massRadiusNote.textContent = plotted
     ? `${plotted.toLocaleString('en-US')} of ${visibleRows.length.toLocaleString('en-US')} planets here have both a measured mass and radius. Both axes are logarithmic; the crosses mark Earth, Neptune and Jupiter.`
@@ -374,6 +378,12 @@ byId('btnShare').addEventListener('click', async () => {
 });
 
 byId('btnCSV').addEventListener('click', exportCsv);
+
+// Redraw when the column crosses the width where the chart changes shape.
+new ResizeObserver(() => {
+  const compact = massRadiusEl.clientWidth > 0 && massRadiusEl.clientWidth < 520;
+  if (compact !== chartCompact && visibleRows.length) renderChart();
+}).observe(massRadiusEl);
 
 massRadiusEl.addEventListener('click', (event) => {
   const planet = planetFromEvent(event, 'circle[data-index]');
