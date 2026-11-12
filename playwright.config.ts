@@ -1,5 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
+// CI sets E2E_PORT so runs on a shared PC do not collide with other projects.
+const port = Number(process.env.E2E_PORT ?? 4173);
+
 export default defineConfig({
   testDir: './tests',
   timeout: 60_000,
@@ -9,12 +12,12 @@ export default defineConfig({
   reporter: 'list',
   use: {
     viewport: { width: 1600, height: 900 },
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: `http://127.0.0.1:${port}`,
     ignoreHTTPSErrors: true,
   },
   webServer: {
-    command: 'pnpm exec vite dev --host 0.0.0.0 --port 4173 --strictPort',
-    url: 'http://127.0.0.1:4173/NASA/neo3d.html',
+    command: `pnpm exec vite dev --host 127.0.0.1 --port ${port} --strictPort`,
+    url: `http://127.0.0.1:${port}/NASA/neo3d.html`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

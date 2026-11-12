@@ -1,5 +1,9 @@
 name: Deploy Pages
 
+# Builds on Ryan's PCs when the repo variable CI_RUNNER is `local` (pushes to
+# main are trusted), and always deploys from a GitHub runner so the deploy
+# token never reaches the PCs.
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -10,16 +14,16 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
+# A deployment that is halfway through is finished, not cancelled, by the next push.
 concurrency:
-  group: deploy
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER == 'local' && fromJSON('["self-hosted","web-trusted"]') || 'ubuntu-latest' }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
@@ -29,16 +33,23 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - uses: actions/upload-pages-artifact@v4
         with:
           path: ./dist
+      - name: Clean the workspace
+        if: always() && runner.environment == 'self-hosted'
+        run: git clean -ffdx
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

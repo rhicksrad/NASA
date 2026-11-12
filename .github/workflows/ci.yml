@@ -1,18 +1,74 @@
 name: CI
 
+# Fast gate for every pull request, plus the browser tests when the site itself
+# changed. Jobs run on Ryan's PCs when the repo variable CI_RUNNER is `local`
+# and the pull request comes from this repository; everything else, including
+# every fork, runs on GitHub's runners. See tools/ci/README.md.
+
 on:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Its own port, so a run here never collides with another repo on the same PC.
+  E2E_PORT: 4317
+
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  gate:
+    name: gate
+    runs-on: ${{ vars.CI_RUNNER == 'local' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","web-trusted"]') || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    outputs:
+      site: ${{ steps.changed.outputs.site }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9
+          run_install: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          # The PCs keep one pnpm store on disk; only hosted runs need GitHub's cache.
+          cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
+      - name: Did the site change?
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "$BASE_SHA" ]; then
+            echo "site=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          if grep -Eq '^(src/|tests/|public/|partials/|[^/]+\.html$|package\.json$|pnpm-lock\.yaml$|vite\.config\.ts$|playwright\.config\.ts$|tsconfig\.json$|\.github/workflows/ci\.yml$)' <<< "$changed"; then
+            echo "site=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "site=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Clean the workspace
+        if: always() && runner.environment == 'self-hosted'
+        run: git clean -ffdx
+
+  e2e:
+    name: e2e
+    needs: gate
+    if: needs.gate.outputs.site == 'true'
+    runs-on: ${{ vars.CI_RUNNER == 'local' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && fromJSON('["self-hosted","web-trusted","playwright"]') || 'ubuntu-latest' }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v5
@@ -22,10 +78,32 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium (hosted, with system libraries)
+        if: runner.environment == 'github-hosted'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium (self-hosted, libraries are already on the PC)
+        if: runner.environment == 'self-hosted'
+        run: pnpm exec playwright install chromium
       - run: pnpm test
+      - name: Clean the workspace
+        if: always() && runner.environment == 'self-hosted'
+        run: git clean -ffdx
+
+  # One stable name to watch: passes when the gate passed and the browser tests
+  # passed or were not needed.
+  check:
+    name: check
+    needs: [gate, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - env:
+          GATE: ${{ needs.gate.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          echo "gate=$GATE e2e=$E2E"
+          [ "$GATE" = "success" ] || exit 1
+          [ "$E2E" = "success" ] || [ "$E2E" = "skipped" ] || exit 1
