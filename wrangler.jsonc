@@ -1,0 +1,17 @@
+{
+  // One Worker serves both the built site (static assets) and the NASA/JPL API
+  // proxy. Requests that match a file in dist/ are answered from assets without
+  // running any code; everything else, including /api/*, reaches worker.js.
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "lively-haze-4b2c",
+  "main": "worker.js",
+  "compatibility_date": "2025-06-01",
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": "./dist",
+    "run_worker_first": ["/api/*"]
+  }
+  // The NASA_API secret is set on the Worker itself (wrangler secret put NASA_API)
+  // and is kept across deploys.
+}

@@ -88,5 +88,7 @@ names a `-nasa` runner.
   On the PCs Chromium is installed without `--with-deps`, which needs sudo.
 - Every self-hosted job ends with `git clean -ffdx`, and checkout cleans again
   before the next one.
+- `cloudflare.yml` publishes the site and the API Worker to Cloudflare from a hosted
+  runner once the repo variable `CF_DEPLOY` is `on`; same-repo pull requests get a preview.
 - The browser tests use port 4317 (`E2E_PORT`) and bind to 127.0.0.1, so they
   do not collide with another repo's tests and are not visible on the LAN.

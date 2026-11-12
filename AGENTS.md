@@ -49,7 +49,9 @@ public/art/         Illustration set (WebP): one plate and one icon per explorer
                     renders the ui/ states and `.page-banner` (src/styles/header.css) the page plates.
 tools/ci/           Self-hosted runner setup and the CI manual (README.md). The repo variable
                     CI_RUNNER=local sends trusted jobs to Ryan's PCs; unset means GitHub's runners.
-worker.js           Cloudflare Worker source. Deployed by hand; not part of the site build.
+worker.js           Cloudflare Worker source: the API proxy. `wrangler.jsonc` deploys it together
+                    with dist/ as static assets (`pnpm deploy:cf`), with the API under /api/*.
+                    The NASA_API secret lives on the Worker, never in the repo.
 ```
 
 ## Conventions
