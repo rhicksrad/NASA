@@ -317,60 +317,140 @@
   background: var(--c-line-1);
 }
 
-/* ---------- Index ---------- */
+/* ---------- Index: a sheet of illustrated plates ---------- */
 
-.home-index {
+.plates {
   display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  gap: var(--col-gap);
-  align-items: start;
-}
-
-.index-list {
-  margin: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-8) var(--col-gap);
+  margin: var(--space-6) 0 0;
   padding: 0;
   list-style: none;
-  border-bottom: 1px solid var(--c-line-2);
 }
 
-.index-list a {
+.plate {
   display: grid;
-  grid-template-columns: 9.5rem minmax(0, 1fr) auto;
-  gap: var(--space-2) var(--space-6);
-  align-items: baseline;
-  padding: 15px 0;
-  border-top: 1px solid var(--c-line-2);
+  gap: 6px;
   text-decoration: none;
 }
 
-.index-list a:hover {
+.plate:hover {
   text-decoration: none;
 }
 
-.index-list__name {
+.plate img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: var(--space-2);
+  outline: 1px solid var(--c-line-2);
+  outline-offset: -1px;
+}
+
+.plate__name {
   font-size: 20px;
   font-weight: 700;
   font-stretch: 85%;
   color: var(--c-text-1);
 }
 
-.index-list a:hover .index-list__name {
+.plate:hover .plate__name {
   text-decoration: underline;
+  text-decoration-color: var(--c-signal);
   text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
 
-.index-list__what {
+.plate__what {
   font-family: var(--font-serif);
-  font-size: 16px;
+  font-size: 15.5px;
   line-height: 1.45;
   color: var(--c-text-2);
 }
 
-.index-list__source {
-  max-width: 11rem;
+.plate__source {
   font-size: 13px;
-  text-align: right;
+  color: var(--c-muted);
+}
+
+/* ---------- Today's Earth ---------- */
+
+.home-today {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--col-gap);
+  align-items: end;
+  margin-top: clamp(56px, 9vh, 104px);
+  padding-top: var(--space-4);
+  border-top: var(--rule);
+}
+
+.home-today__text {
+  max-width: 34rem;
+  padding-bottom: var(--space-2);
+}
+
+.home-today__text p {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+
+.home-today__text .home-today__note {
+  font-size: 15.5px;
+  color: var(--c-muted);
+}
+
+.home-today__text a {
+  color: var(--c-text-1);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Footer: the lunar horizon closes the page ---------- */
+
+.site-footer--horizon {
+  position: relative;
+  margin-top: clamp(56px, 9vh, 104px);
+  padding: 0;
+  border-top: 0;
+  background: #0b0c0f;
+}
+
+.site-footer--horizon img {
+  display: block;
+  width: 100%;
+  height: clamp(220px, 34vw, 520px);
+  object-fit: cover;
+  object-position: 50% 100%;
+}
+
+body:not(.is-home) .site-footer--horizon {
+  margin-top: 0;
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--c-line-1);
+  background: none;
+}
+
+body:not(.is-home) .site-footer--horizon img {
+  display: none;
+}
+
+body:not(.is-home) .site-footer--horizon p {
+  position: static;
+}
+
+.site-footer--horizon p {
+  position: absolute;
+  top: var(--space-6);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: 13px;
+  text-align: center;
   color: var(--c-muted);
 }
 
@@ -401,8 +481,12 @@
 @media (max-width: 900px) {
   .home-lead,
   .home-now__grid,
-  .home-index {
+  .home-today {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .home-earth {
@@ -411,14 +495,8 @@
 }
 
 @media (max-width: 620px) {
-  .index-list a {
+  .plates {
     grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
-  }
-
-  .index-list__source {
-    max-width: none;
-    text-align: left;
   }
 
   .reading {

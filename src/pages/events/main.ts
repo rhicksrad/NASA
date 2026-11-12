@@ -10,7 +10,7 @@ import {
   type EonetEvent,
 } from '../../api/eonet';
 import { isAbortError } from '../../api/worker';
-import { byId, escapeHtml } from '../../lib/dom';
+import { byId, escapeHtml, stateArt } from '../../lib/dom';
 import { renderMarkdown } from '../../lib/markdown';
 import { initSiteNav } from '../../shell/nav';
 
@@ -203,10 +203,7 @@ async function selectEvent(event: EonetEvent, { centerOnMap = true } = {}): Prom
     if (!controller.signal.aborted) detailEl.innerHTML = renderMarkdown(markdown);
   } catch (error) {
     if (controller.signal.aborted || isAbortError(error)) return;
-    const failure = document.createElement('p');
-    failure.className = 'error';
-    failure.textContent = `Failed to load event (${errorMessage(error)}).`;
-    detailEl.replaceChildren(failure);
+    detailEl.replaceChildren(stateArt('offline', `The event could not be loaded (${errorMessage(error)}).`));
   }
 }
 

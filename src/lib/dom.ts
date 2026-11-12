@@ -39,3 +39,22 @@ export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
+
+/**
+ * Builds an illustrated placeholder: `empty` for a search that matched nothing,
+ * `offline` for a feed that could not be reached.
+ */
+export function stateArt(kind: 'empty' | 'offline', message: string): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'state-art';
+  wrap.setAttribute('role', 'status');
+  const img = document.createElement('img');
+  img.src = `${import.meta.env.BASE_URL}art/ui/${kind}.webp`;
+  img.alt = '';
+  img.width = 1536;
+  img.height = 1024;
+  const text = document.createElement('p');
+  text.textContent = message;
+  wrap.append(img, text);
+  return wrap;
+}

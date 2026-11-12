@@ -43,6 +43,10 @@ tests/              smoke.spec.ts plus support/mockApi.ts, the fixture server fo
 data/sbdb-source/   Raw MPC dumps used by scripts/build_sbdb_index.py. Never shipped.
 src/assets/         Generated data modules (world land outline from scripts/build_world_land.mjs).
 public/             Copied verbatim into the build (favicon, sbdb-index.json).
+public/art/         Illustration set (WebP): one plate and one icon per explorer, bg/ backgrounds,
+                    ui/ empty and offline states. Flat gouache, five colours (ink, bone, NASA red,
+                    insignia blue, ochre). New art must match that set; `stateArt()` in src/lib/dom.ts
+                    renders the ui/ states and `.page-banner` (src/styles/header.css) the page plates.
 worker.js           Cloudflare Worker source. Deployed by hand; not part of the site build.
 ```
 

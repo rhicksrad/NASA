@@ -116,6 +116,15 @@ for (const { name, path, ready } of PAGES) {
 
     if (SHOT_DIR) {
       mkdirSync(SHOT_DIR, { recursive: true });
+      // Lazy images only load once scrolled near, so walk the page before capturing it.
+      await page.evaluate(async () => {
+        for (let y = 0; y < document.body.scrollHeight; y += 600) {
+          window.scrollTo(0, y);
+          await new Promise((resolve) => setTimeout(resolve, 60));
+        }
+        window.scrollTo(0, 0);
+      });
+      await page.waitForLoadState('networkidle');
       await page.screenshot({ path: join(SHOT_DIR, `${name}.png`), fullPage: true });
     }
   });

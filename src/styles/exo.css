@@ -1,19 +1,5 @@
 @import './page-shell.css';
 
-.page-header {
-  border-bottom: 1px solid var(--c-line-1);
-  background: linear-gradient(180deg, var(--c-bg-0), var(--c-bg-1));
-}
-
-.page-header .main-wrap {
-  padding: var(--space-6) var(--space-4);
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: var(--fs-4);
-}
-
 main.page-shell .main-wrap {
   display: grid;
   gap: var(--space-6);

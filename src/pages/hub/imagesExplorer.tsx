@@ -447,7 +447,10 @@ export default function ImagesExplorer() {
       </div>
 
       {!loading && !error && items.length === 0 && (
-        <div className="images-explorer__empty">No results. Adjust your filters and try again.</div>
+        <div className="state-art" role="status">
+          <img src={`${import.meta.env.BASE_URL}art/ui/empty.webp`} alt="" width={1536} height={1024} />
+          <p>Nothing in the archive matches. Adjust the filters and try again.</p>
+        </div>
       )}
 
       <div className="images-explorer__grid">
