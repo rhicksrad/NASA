@@ -151,7 +151,9 @@ async function xfer(upstreamUrl, origin, {
       const ct = r.headers.get('content-type') || 'application/octet-stream';
       // NeoWs echoes the request's api_key back inside its `links` URLs.
       const text = scrub(await r.text().catch(()=> ''));
-      const outHeaders = { 'Content-Type': ct, ...sec(), ...cors(origin) };
+      // EONET labels its JSON as application/rss+xml; say what the body is.
+      const looksJson = /^\s*[\[{]/.test(text) && !/json/i.test(ct) && /json/i.test(headers.Accept || '');
+      const outHeaders = { 'Content-Type': looksJson ? 'application/json; charset=utf-8' : ct, ...sec(), ...cors(origin) };
       if (diagHeader) outHeaders[diagHeader] = publicUrl(url);
 
       if (!r.ok) {
@@ -448,7 +450,8 @@ async function handle(event) {
 
   // The site is served from this Worker's static assets and calls the API under
   // /api/*; the bare paths still answer for older callers.
-  if (u.pathname === '/api' || u.pathname.startsWith('/api/')) {
+  const isApi = u.pathname === '/api' || u.pathname.startsWith('/api/');
+  if (isApi) {
     u.pathname = u.pathname.slice(4) || '/';
   }
 
@@ -766,5 +769,10 @@ async function handle(event) {
     return xfer(upstream, origin, { cacheOK: true, diagHeader: 'x-upstream-exo', init: { method: 'GET' }, timeoutMs: 20000 }, event);
   }
 
-  return json(404, { ok:false, message:'Not Found', path:u.pathname, hint:'See / for routes; /diag for bindings' }, origin);
+  // Not an API route. A page address that does not exist gets the site's 404 page
+  // from the static assets (not_found_handling in wrangler.jsonc).
+  if (!isApi && typeof ASSETS !== 'undefined' && (req.method === 'GET' || req.method === 'HEAD')) {
+    try { return await ASSETS.fetch(req); } catch { /* fall through to the JSON answer */ }
+  }
+  return json(404, { ok:false, message:'Not Found', path:u.pathname, hint:'See /api for routes; /api/diag for bindings' }, origin);
 }

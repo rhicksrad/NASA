@@ -10,6 +10,10 @@
   "preview_urls": true,
   "assets": {
     "directory": "./dist",
+    // worker.js hands addresses it does not know back to the assets, which
+    // answer with dist/404.html and status 404.
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
     "run_worker_first": ["/api/*"]
   }
   // The NASA_API secret is set on the Worker itself (wrangler secret put NASA_API)
