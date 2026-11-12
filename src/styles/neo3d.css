@@ -5,7 +5,7 @@
  * lists of what is in the scene sit below as two plain columns.
  */
 
-main.page-shell.neo3d {
+.page-shell.neo3d {
   padding-top: clamp(20px, 3vh, 32px);
 }
 

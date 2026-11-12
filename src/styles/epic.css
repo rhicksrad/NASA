@@ -149,3 +149,13 @@
     min-height: 0;
   }
 }
+
+@media (max-width: 620px) {
+  .epic-range-group {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .epic-range-group .btn {
+    grid-column: 1 / -1;
+  }
+}

@@ -8,6 +8,7 @@
   <body class="page--explorer theme-events">
     <!-- @include site-header current="events" -->
 
+    <main>
     <section class="page-banner">
       <div class="page-banner__text">
         <h1>Earth events</h1>
@@ -16,7 +17,7 @@
       <img src="/art/events.webp" alt="" width="1536" height="1024" decoding="async" />
     </section>
 
-    <main class="page-shell events">
+      <div class="page-shell events">
       <form id="filters" class="events-filters">
         <label class="field">Status
           <select id="status" name="status">
@@ -53,6 +54,7 @@
         <section class="events-list" aria-label="Events, newest first">
           <ul id="list" class="list"></ul>
         </section>
+      </div>
       </div>
     </main>
 

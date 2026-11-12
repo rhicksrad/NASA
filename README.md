@@ -3,7 +3,7 @@
 Interactive explorers built on public NASA and JPL data, served by one Cloudflare Worker: the static
 site and the API proxy together, at https://lively-haze-4b2c.hicksrch.workers.dev/.
 
-![Every page of the site](docs/preview.png)
+![The Solar storms report page](docs/preview.png)
 
 _Rendered by the smoke tests against placeholder fixtures, so imagery is stand-in art._
 

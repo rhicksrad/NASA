@@ -100,7 +100,7 @@ a {
   height: 1.05em;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1080px) {
   .site-header {
     flex-wrap: wrap;
     align-items: center;

@@ -156,7 +156,8 @@ function renderGrid(context: RenderContext, items: NasaImageItem[]): void {
     const meta = document.createElement('div');
     meta.className = 'mars-meta';
 
-    const titleEl = document.createElement('h3');
+    const titleEl = document.createElement('span');
+    titleEl.className = 'mars-title';
     titleEl.textContent = title;
     meta.appendChild(titleEl);
 

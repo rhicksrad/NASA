@@ -2,7 +2,7 @@
 
 /* Solar storms: the report reads like an article; the index of eruptions sits beside it. */
 
-main.page-shell.storm {
+.page-shell.storm {
   display: grid;
   grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
   gap: clamp(32px, 5vw, 72px);
@@ -317,7 +317,7 @@ main.page-shell.storm {
 /* ---------- Small screens ---------- */
 
 @media (max-width: 900px) {
-  main.page-shell.storm {
+  .page-shell.storm {
     grid-template-columns: minmax(0, 1fr);
   }
 

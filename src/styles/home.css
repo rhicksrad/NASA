@@ -134,6 +134,10 @@
   opacity: 1;
 }
 
+.home-photo__frame.is-small img {
+  object-fit: none;
+}
+
 .home-photo__credit {
   display: block;
   margin-top: 4px;

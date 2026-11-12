@@ -1,6 +1,6 @@
 /* Satellite 3D: the globe on the left; the chosen satellite, the clock and the search beside it. */
 
-main.page-shell.sat3d {
+.page-shell.sat3d {
   padding-top: clamp(20px, 3vh, 32px);
 }
 

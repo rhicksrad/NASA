@@ -8,6 +8,7 @@
 <body class="page--explorer theme-exo">
     <!-- @include site-header current="exo" -->
 
+    <main>
     <section class="page-banner">
       <div class="page-banner__text">
         <h1>Exoplanets</h1>
@@ -16,7 +17,7 @@
       <img src="/art/exo.webp" alt="" width="1536" height="1024" decoding="async" />
     </section>
 
-  <main class="page-shell exo">
+      <div class="page-shell exo">
     <section class="exo-presets" aria-label="Kinds of planet">
       <h2>Start from a kind of planet</h2>
       <div class="exo-example-buttons" id="exampleButtons" role="group" aria-label="Kinds of planet"></div>
@@ -100,7 +101,8 @@
         <pre id="adql" class="exo-adql-code"></pre>
       </details>
     </section>
-  </main>
+      </div>
+    </main>
 
     <!-- @include site-footer -->
 <script type="module" src="/src/pages/exo/main.ts"></script>

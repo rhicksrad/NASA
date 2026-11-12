@@ -209,7 +209,7 @@ export function DetailsPanel({ open, identifier, onClose, onAddToScene }: Detail
         aria-labelledby="sbdb-details-title"
       >
         <div className="sbdb-details__header">
-          <h2 id="sbdb-details-title">{title}</h2>
+          <h2 id="sbdb-details-title">{title || 'Small body details'}</h2>
           <div className="sbdb-details__header-actions">
             <button type="button" onClick={onClose} className="sbdb-details__icon-btn">
               <span dangerouslySetInnerHTML={{ __html: icon('close', { label: 'Close details' }) }} />
