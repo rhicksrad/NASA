@@ -92,21 +92,6 @@ interface CandidateNode {
   state: VisualState;
 }
 
-function drawRoundedRect(ctx: CanvasRenderingContext2D, width: number, height: number, radius: number): void {
-  const r = Math.min(radius, Math.min(width, height) / 2);
-  ctx.beginPath();
-  ctx.moveTo(r, 0);
-  ctx.lineTo(width - r, 0);
-  ctx.quadraticCurveTo(width, 0, width, r);
-  ctx.lineTo(width, height - r);
-  ctx.quadraticCurveTo(width, height, width - r, height);
-  ctx.lineTo(r, height);
-  ctx.quadraticCurveTo(0, height, 0, height - r);
-  ctx.lineTo(0, r);
-  ctx.quadraticCurveTo(0, 0, r, 0);
-  ctx.closePath();
-}
-
 function createLabelSprite(text: string, scale: number): THREE.Sprite {
   if (typeof document === 'undefined') {
     const fallbackMaterial = new THREE.SpriteMaterial({
@@ -143,7 +128,7 @@ function createLabelSprite(text: string, scale: number): THREE.Sprite {
   const ratio = Math.min(window.devicePixelRatio || 1, 2.5);
   const padding = 36;
   const fontSize = 60;
-  const font = `600 ${fontSize}px "Inter", "Segoe UI", "Helvetica Neue", sans-serif`;
+  const font = `600 ${fontSize}px "Archivo Variable", "Helvetica Neue", Arial, sans-serif`;
   context.font = font;
   const textWidth = context.measureText(text).width;
   const boxWidth = textWidth + padding * 2;
@@ -169,13 +154,9 @@ function createLabelSprite(text: string, scale: number): THREE.Sprite {
 
   ctx.scale(ratio, ratio);
   ctx.font = font;
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
-  drawRoundedRect(ctx, boxWidth, boxHeight, 28);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.55)';
-  ctx.lineWidth = 2.4;
-  ctx.stroke();
-  ctx.fillStyle = '#f8fafc';
+  ctx.fillStyle = 'rgba(5, 6, 10, 0.72)';
+  ctx.fillRect(0, 0, boxWidth, boxHeight);
+  ctx.fillStyle = '#f0ece2';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, padding, boxHeight / 2);
 
@@ -251,7 +232,7 @@ function buildCandidate(spec: CandidateSpec, radius: number): CandidateNode {
   anchor.receiveShadow = false;
   anchor.name = `${spec.label} Anchor`;
 
-  const labelScale = radius * 0.14;
+  const labelScale = radius * 0.24;
   const label = createLabelSprite(spec.label, labelScale);
   const up = new THREE.Vector3(0, 1, 0);
   const right = new THREE.Vector3().crossVectors(up, normal);
@@ -342,16 +323,14 @@ export function createWowSignalLayer(refs: WowSceneRefs): WowSignalLayer {
     fontSize: '13px',
     lineHeight: '18px',
     fontWeight: '500',
-    color: '#f8fafc',
-    background: 'rgba(15, 23, 42, 0.88)',
-    borderRadius: '8px',
-    boxShadow: '0 10px 24px rgba(15, 23, 42, 0.45)',
+    color: '#0b0c10',
+    background: '#f0ece2',
+    borderRadius: '0',
     whiteSpace: 'pre-line',
     opacity: '0',
     transition: 'opacity 0.16s ease',
     zIndex: '1200',
     transform: 'translate(-9999px, -9999px)',
-    border: '1px solid rgba(148, 163, 184, 0.55)',
     maxWidth: '320px',
   });
   refs.host.appendChild(tooltip);

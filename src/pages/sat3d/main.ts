@@ -66,6 +66,8 @@ const ui = {
 };
 
 const earthScene = new EarthScene(byId('canvas-holder'));
+// Dev-only handle for inspecting the scene from the console.
+if (import.meta.env.DEV) (window as unknown as { __sat3d?: EarthScene }).__sat3d = earthScene;
 const canvas = earthScene.renderer.domElement;
 
 let playing = true;

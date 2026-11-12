@@ -118,18 +118,6 @@ function toPlanet(row: TapRow): Planet | null {
   };
 }
 
-/** The archive's TAP service drops the odd request; one quiet second attempt hides most of them. */
-async function queryWithRetry(adql: string, signal: AbortSignal): Promise<TapRow[]> {
-  try {
-    return await queryExoplanetArchive(adql, signal);
-  } catch (error) {
-    if (signal.aborted || isAbortError(error)) throw error;
-    await new Promise((resolve) => window.setTimeout(resolve, 1200));
-    if (signal.aborted) throw error;
-    return queryExoplanetArchive(adql, signal);
-  }
-}
-
 function showOffline(): void {
   statusEl.textContent = '';
   loadedRows = [];
@@ -164,7 +152,7 @@ async function runQuery(): Promise<void> {
   statusEl.textContent = 'Asking the archive…';
   let rows: TapRow[];
   try {
-    rows = await queryWithRetry(adql, controller.signal);
+    rows = await queryExoplanetArchive(adql, controller.signal);
   } catch (error) {
     if (controller.signal.aborted || isAbortError(error)) return;
     console.error('Exoplanet query failed', error);
