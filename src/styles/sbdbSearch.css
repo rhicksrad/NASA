@@ -184,7 +184,7 @@
 .sbdb-search__collection-button:hover,
 .sbdb-search__collection-button:focus-visible {
   border-color: var(--c-accent);
-  box-shadow: 0 0 0 1px hsl(185 72% 55% / 0.35);
+  box-shadow: 0 0 0 1px hsl(214 70% 55% / 0.35);
   outline: none;
 }
 
@@ -306,7 +306,7 @@
 .sbdb-search__empty-button:hover,
 .sbdb-search__empty-button:focus-visible {
   border-color: var(--c-accent);
-  box-shadow: 0 0 0 1px hsl(185 72% 55% / 0.35);
+  box-shadow: 0 0 0 1px hsl(214 70% 55% / 0.35);
   outline: none;
 }
 
@@ -341,13 +341,13 @@
 .sbdb-row:hover,
 .sbdb-row:focus-visible {
   border-color: var(--c-accent);
-  box-shadow: 0 0 0 1px hsl(185 72% 55% / 0.25);
+  box-shadow: 0 0 0 1px hsl(214 70% 55% / 0.25);
   outline: none;
 }
 
 .sbdb-row.is-selected {
   border-color: var(--c-accent);
-  box-shadow: 0 0 0 1px hsl(185 72% 55% / 0.45);
+  box-shadow: 0 0 0 1px hsl(214 70% 55% / 0.45);
   background: hsl(210 30% 25% / 0.55);
 }
 

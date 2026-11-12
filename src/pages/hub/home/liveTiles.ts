@@ -3,7 +3,7 @@ import { findCmes } from '../../../api/donki';
 import { fetchEonetEvents } from '../../../api/eonet';
 import { getNeoFeed, type NeoItem } from '../../../api/neo';
 import { svgEl } from '../../../lib/dom';
-import { countUp, describeSize, formatAgo, formatInt, isoDay } from './format';
+import { describeSize, formatAgo, formatInt, isoDay } from './format';
 
 const DAY_MS = 86_400_000;
 
@@ -33,8 +33,8 @@ async function fillTile(
     if (!signal.aborted) tile.classList.add('is-ready');
   } catch {
     if (signal.aborted) return;
-    parts.value.textContent = '—';
-    parts.detail.textContent = 'This feed is not answering right now. Open the explorer to try again.';
+    parts.value.textContent = '–';
+    parts.detail.textContent = 'This feed is not answering right now. The explorer may still load.';
     tile.classList.add('is-unavailable');
   }
 }
@@ -79,7 +79,7 @@ function flybyStrip(flybys: Flyby[]): SVGSVGElement {
     svgEl('line', { class: 'strip__tick', x1: xFor(1), y1: 12, x2: xFor(1), y2: 28 }),
     svgEl('text', { class: 'strip__label', x: 2, y: 42 }, 'Earth'),
     svgEl('text', { class: 'strip__label', x: xFor(1), y: 42, 'text-anchor': 'middle' }, 'Moon'),
-    svgEl('text', { class: 'strip__label', x: xFor(100), y: 42, 'text-anchor': 'middle' }, '100× Moon'),
+    svgEl('text', { class: 'strip__label', x: xFor(100), y: 42, 'text-anchor': 'middle' }, '100 × Moon'),
   );
   for (const flyby of [...flybys].sort((a, b) => b.lunarDistances - a.lunarDistances)) {
     const radius = Math.min(5, Math.max(1.8, Math.log10(Math.max(flyby.diameterM, 2)) * 1.6));
@@ -101,26 +101,13 @@ async function loadAsteroids(_tile: HTMLAnchorElement, parts: TileParts, signal:
   const flybys = (feed.near_earth_objects?.[today] ?? Object.values(feed.near_earth_objects ?? {}).flat())
     .map(toFlyby)
     .filter((flyby): flyby is Flyby => flyby !== null);
-  countUp(parts.value, flybys.length);
+  parts.value.textContent = formatInt(flybys.length);
   if (!flybys.length) {
     parts.detail.textContent = 'No catalogued close approaches today.';
     return;
   }
   const closest = flybys.reduce((best, flyby) => (flyby.lunarDistances < best.lunarDistances ? flyby : best));
-  const nearest = document.createElement('ol');
-  nearest.className = 'flyby-list';
-  for (const flyby of [...flybys].sort((x, y) => x.lunarDistances - y.lunarDistances).slice(0, 4)) {
-    const row = document.createElement('li');
-    row.classList.toggle('is-hazard', flyby.hazardous);
-    const name = document.createElement('span');
-    name.textContent = flyby.name;
-    const facts = document.createElement('span');
-    const width = Number.isFinite(flyby.diameterM) ? `${formatInt(flyby.diameterM)} m wide · ` : '';
-    facts.textContent = `${width}${flyby.lunarDistances.toFixed(1)}× Moon`;
-    row.append(name, facts);
-    nearest.append(row);
-  }
-  parts.viz.replaceChildren(flybyStrip(flybys), nearest);
+  parts.viz.replaceChildren(flybyStrip(flybys));
   const size = Number.isFinite(closest.diameterM) ? `, about ${describeSize(closest.diameterM)}` : '';
   const distance =
     closest.lunarDistances < 1
@@ -132,15 +119,13 @@ async function loadAsteroids(_tile: HTMLAnchorElement, parts: TileParts, signal:
 
 /* ---------- Natural events ---------- */
 
-const CATEGORY_COLORS = ['var(--c-warn)', 'var(--c-accent)', 'var(--c-info)', 'hsl(45 95% 60%)', 'var(--c-muted)'];
-
 async function loadEvents(_tile: HTMLAnchorElement, parts: TileParts, signal: AbortSignal): Promise<void> {
   const now = new Date();
   const events = await fetchEonetEvents(
     { status: 'open', start: isoDay(new Date(now.getTime() - 30 * DAY_MS)), end: isoDay(now) },
     signal,
   );
-  countUp(parts.value, events.length);
+  parts.value.textContent = formatInt(events.length);
   if (!events.length) {
     parts.detail.textContent = 'Nothing new reported in the last 30 days.';
     return;
@@ -151,30 +136,10 @@ async function loadEvents(_tile: HTMLAnchorElement, parts: TileParts, signal: Ab
     const category = event.categories?.[0]?.title ?? 'Other';
     counts.set(category, (counts.get(category) ?? 0) + 1);
   }
-  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  const top = ranked.slice(0, 4);
-  const rest = ranked.slice(4).reduce((sum, [, count]) => sum + count, 0);
-  if (rest) top.push(['Other', rest]);
-
-  const bar = document.createElement('div');
-  bar.className = 'stack-bar';
-  const legend = document.createElement('ul');
-  legend.className = 'stack-legend';
-  top.forEach(([title, count], index) => {
-    const color = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
-    const segment = document.createElement('span');
-    segment.style.flexGrow = String(count);
-    segment.style.background = color;
-    bar.append(segment);
-    const item = document.createElement('li');
-    item.style.setProperty('--swatch', color);
-    item.textContent = `${title} ${count}`;
-    legend.append(item);
-  });
-  parts.viz.replaceChildren(bar, legend);
-
-  const latest = events[0]?.title;
-  parts.detail.textContent = latest ? `Most recent: ${latest}.` : 'Tracked by NASA’s Earth Observatory.';
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const breakdown = ranked.map(([title, count]) => `${title} (${count})`).join(', ');
+  const latest = events[0]?.title?.replace(/[.\s]+$/, '');
+  parts.detail.textContent = `${breakdown}.${latest ? ` Most recent: ${latest}.` : ''}`;
 }
 
 /* ---------- Solar eruptions ---------- */
@@ -183,7 +148,7 @@ async function loadEruptions(tile: HTMLAnchorElement, parts: TileParts, signal: 
   const now = new Date();
   const days = Array.from({ length: 7 }, (_, index) => isoDay(new Date(now.getTime() - (6 - index) * DAY_MS)));
   const eruptions = await findCmes(days[0], days[6], signal);
-  countUp(parts.value, eruptions.length);
+  parts.value.textContent = formatInt(eruptions.length);
 
   const perDay = days.map((day) => eruptions.filter((cme) => (cme.startTime ?? cme.activityID).startsWith(day)).length);
   const peak = Math.max(1, ...perDay);
@@ -207,7 +172,7 @@ async function loadEruptions(tile: HTMLAnchorElement, parts: TileParts, signal: 
     return;
   }
   tile.href = `storm.html?id=${encodeURIComponent(latest.cme.activityID)}`;
-  parts.detail.textContent = `The latest left the Sun ${formatAgo(latest.time, now)}. Open it to see where it is headed.`;
+  parts.detail.textContent = `The most recent left the Sun ${formatAgo(latest.time, now)}. Its report shows where it is headed.`;
 }
 
 export function mountLiveTiles(host: HTMLElement, signal: AbortSignal): void {

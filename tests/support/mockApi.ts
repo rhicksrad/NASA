@@ -403,7 +403,7 @@ function handleWorker(route: Route, url: URL) {
     return json(route, {
       date: '2026-01-01',
       title: 'Pillars in the Eagle Nebula',
-      explanation: 'A fixture entry.',
+      explanation: 'These towers of cold gas and dust are light-years tall. New stars are forming inside them. A fixture entry that runs on for a third sentence so the caption has to be trimmed somewhere sensible.',
       media_type: 'image',
       url: 'https://apod.nasa.gov/apod/image/fixture/pillars.jpg',
       copyright: 'Fixture Observatory',
