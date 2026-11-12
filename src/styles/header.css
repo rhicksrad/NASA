@@ -196,6 +196,59 @@ body {
   }
 }
 
+/* ---------- Compact title for the pages where the scene itself should be above the fold ---------- */
+.app-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  align-items: baseline;
+  margin-bottom: var(--space-4);
+}
+
+.app-head h1 {
+  margin: 0;
+  font-size: clamp(30px, 3.4vw, 46px);
+  font-weight: 750;
+  font-stretch: 75%;
+  line-height: 1;
+}
+
+.app-head p {
+  flex: 1 1 320px;
+  max-width: 46rem;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 16.5px;
+  line-height: 1.45;
+  color: var(--c-text-2);
+}
+
+/* ---------- Footer: the lunar horizon closes every page ---------- */
+
+.site-footer {
+  margin-top: auto;
+  padding: var(--space-6) 0 0;
+  border-top: 1px solid var(--c-line-1);
+  background: #0b0c0f;
+}
+
+.site-footer p {
+  margin: 0;
+  padding: 0 var(--page-pad);
+  font-size: 13px;
+  text-align: center;
+  color: var(--c-muted);
+}
+
+.site-footer img {
+  display: block;
+  width: 100%;
+  height: clamp(180px, 26vw, 400px);
+  margin-top: var(--space-2);
+  object-fit: cover;
+  object-position: 50% 100%;
+}
+
 /* ---------- Illustrated empty and offline states ---------- */
 
 .state-art {

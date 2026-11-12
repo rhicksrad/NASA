@@ -63,7 +63,7 @@ export function renderSearchResults(
 
     const meta = document.createElement('div');
     meta.className = 'result-meta';
-    meta.textContent = [`TLE age: ${formatTleAge(ageDays)}`, loaded ? 'Loaded' : ''].filter(Boolean).join(' • ');
+    meta.textContent = [`Orbit data ${formatTleAge(ageDays)} old`, loaded ? 'in the scene' : ''].filter(Boolean).join(' · ');
 
     entry.append(name, meta);
     entry.addEventListener('click', () => onPick(item));

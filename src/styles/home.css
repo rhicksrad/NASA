@@ -4,14 +4,16 @@
  */
 
 .hub-host {
-  max-width: 1200px;
+  max-width: var(--page-max);
   margin: 0 auto;
-  padding: var(--space-8) var(--space-4);
+  padding: 0 var(--page-pad) clamp(56px, 9vh, 104px);
 }
 
-.is-home .hub-host {
-  max-width: 1320px;
-  padding: 0 clamp(16px, 4vw, 48px) clamp(56px, 9vh, 104px);
+/* Explorers mounted inside the hub open with the same banner as the standalone pages. */
+.hub-host .page-banner {
+  max-width: none;
+  padding-inline: 0;
+  margin-bottom: clamp(28px, 5vh, 48px);
 }
 
 .home {
@@ -399,51 +401,6 @@
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
-}
-
-/* ---------- Footer: the lunar horizon closes the page ---------- */
-
-.site-footer--horizon {
-  position: relative;
-  margin-top: clamp(56px, 9vh, 104px);
-  padding: 0;
-  border-top: 0;
-  background: #0b0c0f;
-}
-
-.site-footer--horizon img {
-  display: block;
-  width: 100%;
-  height: clamp(220px, 34vw, 520px);
-  object-fit: cover;
-  object-position: 50% 100%;
-}
-
-body:not(.is-home) .site-footer--horizon {
-  margin-top: 0;
-  padding: var(--space-6) 0;
-  border-top: 1px solid var(--c-line-1);
-  background: none;
-}
-
-body:not(.is-home) .site-footer--horizon img {
-  display: none;
-}
-
-body:not(.is-home) .site-footer--horizon p {
-  position: static;
-}
-
-.site-footer--horizon p {
-  position: absolute;
-  top: var(--space-6);
-  left: 0;
-  right: 0;
-  margin: 0;
-  padding: 0 var(--space-4);
-  font-size: 13px;
-  text-align: center;
-  color: var(--c-muted);
 }
 
 .home-earth__frame {
