@@ -34,20 +34,3 @@ export function describeSize(metres: number): string {
 }
 
 export const isoDay = (date: Date): string => date.toISOString().slice(0, 10);
-
-/** Animates an integer readout from zero. Jumps straight to the value when motion is reduced. */
-export function countUp(element: HTMLElement, target: number, durationMs = 900): void {
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced || target <= 0) {
-    element.textContent = formatInt(target);
-    return;
-  }
-  const start = performance.now();
-  const step = (now: number) => {
-    const progress = Math.min(1, (now - start) / durationMs);
-    const eased = 1 - (1 - progress) ** 3;
-    element.textContent = formatInt(target * eased);
-    if (progress < 1 && element.isConnected) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}

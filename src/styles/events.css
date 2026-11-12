@@ -119,8 +119,8 @@ main.page-shell {
 }
 
 .list li.active {
-  border-color: hsl(185 72% 45%);
-  box-shadow: 0 0 0 1px hsl(185 72% 45% / 45%);
+  border-color: hsl(214 70% 45%);
+  box-shadow: 0 0 0 1px hsl(214 70% 45% / 45%);
 }
 
 .detail.card {

@@ -1,8 +1,7 @@
 :root { color-scheme: dark; }
 html, body {
   margin: 0;
-  background: radial-gradient(1200px 600px at 70% -10%, hsl(230 40% 10% / 35%), transparent),
-              linear-gradient(to bottom, var(--c-bg-0), var(--c-bg-1));
+  background: var(--c-bg-0);
   color: var(--c-text-1);
   font-family: var(--font-sans);
   font-size: var(--fs-1);
@@ -31,22 +30,6 @@ a:hover { text-decoration: underline; }
 .theme-sat3d { --c-accent: var(--c-accent-neo); }
 /* === END PHASE2: THEME SWITCH === */
 
-/* Subtle telemetry grid overlay for large sections */
-.section--grid {
-  position: relative;
-  background:
-    linear-gradient(to right, var(--c-line-2) 1px, transparent 1px) 0 0/40px 40px,
-    linear-gradient(to bottom, var(--c-line-2) 1px, transparent 1px) 0 0/40px 40px;
-}
-.section--grid::after {
-  content: "";
-  position: absolute; inset: 0;
-  background:
-    radial-gradient(800px 400px at 20% -10%, hsl(230 40% 6% / 50%), transparent),
-    radial-gradient(600px 300px at 120% 20%, hsl(230 40% 6% / 35%), transparent);
-  pointer-events: none;
-}
-
 /* Utility */
 .container { max-width: 1200px; margin: 0 auto; padding: var(--space-8) var(--space-4); }
 .stack > * + * { margin-top: var(--space-4); }
@@ -59,22 +42,8 @@ a:hover { text-decoration: underline; }
 }
 
 /* === BEGIN PHASE2: HUB VS EXPLORER + NOISE === */
-.page--hub .hero {
-  background:
-    linear-gradient(180deg, hsl(230 55% 6% /.9), hsl(230 55% 4% /.9)),
-    radial-gradient(900px 360px at 70% -20%, hsl(200 80% 40% /.12), transparent);
-}
 .page--explorer main {
-  background: linear-gradient(to bottom, var(--c-bg-0), var(--c-bg-1));
-}
-.hero{ position: relative; }
-.hero::before{
-  content:""; position:absolute; inset:0; pointer-events:none; opacity:.08;
-  background-image: url("data:image/svg+xml;utf8,\
-<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64'>\
-<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/></filter>\
-<rect width='100%' height='100%' filter='url(%23n)' opacity='0.5'/></svg>");
-  background-size: 256px 256px;
+  background: var(--c-bg-0);
 }
 /* === END PHASE2: HUB VS EXPLORER + NOISE === */
 

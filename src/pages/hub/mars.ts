@@ -1,4 +1,5 @@
 import '../../styles/mars.css';
+import { stateArt } from '../../lib/dom';
 import { HttpError } from '../../api/worker';
 import {
   IMAGES_PAGE_SIZE,
@@ -128,9 +129,7 @@ type RenderContext = {
 function renderGrid(context: RenderContext, items: NasaImageItem[]): void {
   context.gridEl.replaceChildren();
   if (!items.length) {
-    const empty = document.createElement('p');
-    empty.textContent = 'No images found for this query.';
-    context.gridEl.appendChild(empty);
+    context.gridEl.appendChild(stateArt('empty', 'No images found for this query.'));
     return;
   }
 

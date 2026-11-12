@@ -1,29 +1,52 @@
-/** The landing page: an Astronomy Picture of the Day hero, live tiles and a card per explorer. */
+/** The landing page: today's astronomy picture, what is happening right now, and an index of explorers. */
 import '../../../styles/home.css';
 import { apodImageUrl, fetchApod } from '../../../api/apod';
 import { buildEpicImageUrl, fetchEpicLatest } from '../../../api/epic';
-import { searchImages } from '../../../api/images';
 import { getHourlyHighlight } from './hourlyHighlight';
 import { mountIssTile } from './issTile';
 import { mountLiveTiles } from './liveTiles';
 
-interface HeroImage {
+const longDate = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+const shortDate = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+interface LeadPhoto {
   url: string;
-  caption: string;
   link: string;
+  /** Caption parts: a bold lead-in, body text and a credit line. */
+  title: string;
+  text: string;
+  credit: string;
 }
 
-/** Today's APOD, or the hourly archive pick when APOD is a video without a still or is down. */
-async function pickHeroImage(signal: AbortSignal): Promise<HeroImage | null> {
+/** The first sentences of a passage, up to roughly `limit` characters. */
+function leadSentences(text: string, limit = 260): string {
+  const sentences = text.replace(/\s+/g, ' ').trim().match(/[^.!?]+[.!?]+/g) ?? [];
+  let lead = '';
+  for (const sentence of sentences) {
+    if (lead && lead.length + sentence.length > limit) break;
+    lead += sentence;
+  }
+  return lead.trim();
+}
+
+/** Today's APOD, or the hourly archive pick when APOD has no still image or is down. */
+async function pickLeadPhoto(signal: AbortSignal): Promise<LeadPhoto | null> {
   try {
     const apod = await fetchApod(signal);
     const url = apodImageUrl(apod);
     if (url) {
-      const credit = apod.copyright ? ` · © ${apod.copyright.trim().replace(/\s+/g, ' ')}` : '';
       return {
         url,
-        caption: `Astronomy Picture of the Day: ${apod.title}${credit}`,
         link: 'https://apod.nasa.gov/apod/astropix.html',
+        title: apod.title,
+        text: leadSentences(apod.explanation ?? ''),
+        credit: `Astronomy Picture of the Day${apod.copyright ? `, © ${apod.copyright.replace(/\s+/g, ' ').trim()}` : ''}`,
       };
     }
   } catch {
@@ -34,71 +57,75 @@ async function pickHeroImage(signal: AbortSignal): Promise<HeroImage | null> {
     const query = new URLSearchParams({ preset: 'custom', q: highlight.query, page: String(highlight.page) });
     return {
       url: highlight.assetUrl,
-      caption: `From the NASA archive: ${highlight.item.title}`,
       link: `#/images/explorer?${query}`,
+      title: highlight.item.title,
+      text: leadSentences(highlight.item.description ?? ''),
+      credit: 'From the NASA Image and Video Library',
     };
   } catch {
     return null;
   }
 }
 
-async function mountHero(host: HTMLElement, signal: AbortSignal): Promise<void> {
-  const media = host.querySelector<HTMLElement>('#hero-media');
-  const credit = host.querySelector<HTMLAnchorElement>('#hero-credit');
-  if (!media) return;
-  const hero = await pickHeroImage(signal);
-  if (!hero || signal.aborted) return;
-
+function showPhoto(frame: HTMLElement, url: string, alt: string): void {
   const img = new Image();
-  img.alt = '';
+  img.alt = alt;
   img.decoding = 'async';
-  img.addEventListener('load', () => media.classList.add('is-loaded'), { once: true });
-  img.src = hero.url;
-  media.replaceChildren(img);
+  img.addEventListener('load', () => frame.classList.add('is-loaded'), { once: true });
+  img.src = url;
+  frame.replaceChildren(img);
+}
 
-  if (credit) {
-    credit.textContent = hero.caption;
-    credit.href = hero.link;
-    if (hero.link.startsWith('#')) credit.removeAttribute('target');
-    credit.hidden = false;
+async function mountLeadPhoto(host: HTMLElement, signal: AbortSignal): Promise<void> {
+  const frame = host.querySelector<HTMLAnchorElement>('#hero-media');
+  const caption = host.querySelector<HTMLElement>('#hero-caption');
+  if (!frame || !caption) return;
+  const photo = await pickLeadPhoto(signal);
+  if (signal.aborted) return;
+  if (!photo) {
+    caption.textContent = 'Today’s picture is not available right now.';
+    return;
+  }
+
+  showPhoto(frame, photo.url, photo.title);
+  frame.href = photo.link;
+  if (photo.link.startsWith('#')) frame.removeAttribute('target');
+
+  const title = document.createElement('strong');
+  title.textContent = photo.title;
+  const credit = document.createElement('span');
+  credit.className = 'home-photo__credit';
+  credit.textContent = photo.credit;
+  caption.replaceChildren(title, photo.text ? ` ${photo.text} ` : ' ', credit);
+}
+
+async function mountEarth(host: HTMLElement, signal: AbortSignal): Promise<void> {
+  const frame = host.querySelector<HTMLElement>('#earth-media');
+  const caption = host.querySelector<HTMLElement>('#earth-caption');
+  if (!frame) return;
+  const items = await fetchEpicLatest(signal);
+  const latest = items[items.length - 1];
+  if (!latest || signal.aborted) return;
+  showPhoto(frame, buildEpicImageUrl(latest, 'jpg'), 'The sunlit side of Earth');
+  const taken = new Date(`${latest.date.replace(' ', 'T')}Z`);
+  if (caption && !Number.isNaN(taken.getTime())) {
+    caption.textContent = `Earth on ${shortDate.format(taken)}, photographed by the DSCOVR spacecraft from 1.5 million km sunward. There is a new set every day.`;
   }
 }
 
-/** Swaps an explorer card's icon art for a real photo once one is available. */
-function setCardPreview(host: HTMLElement, name: string, url: string | null | undefined, alt: string): void {
-  const media = host.querySelector<HTMLElement>(`.explorer-card[data-preview="${name}"] .explorer-card__media`);
-  if (!media || !url) return;
-  const img = new Image();
-  img.alt = alt;
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  img.addEventListener('load', () => media.classList.add('has-photo'), { once: true });
-  img.src = url;
-  media.append(img);
-}
-
-function mountCardPreviews(host: HTMLElement, signal: AbortSignal): void {
-  const quietly = (task: Promise<void>) => void task.catch(() => undefined);
-  const hourIndex = Math.floor(Date.now() / 3_600_000);
-
-  quietly(
-    fetchEpicLatest(signal).then((items) => {
-      const latest = items[items.length - 1];
-      if (latest) setCardPreview(host, 'epic', buildEpicImageUrl(latest, 'jpg'), 'Earth from the DSCOVR spacecraft');
-    }),
-  );
-  quietly(
-    searchImages({ q: 'James Webb Space Telescope nebula', page: 1 }, { signal }).then(({ items }) => {
-      const pick = items[hourIndex % Math.max(1, items.length)];
-      setCardPreview(host, 'images', pick?.thumb, pick?.title ?? 'NASA archive image');
-    }),
-  );
-  quietly(
-    searchImages({ q: 'Curiosity Mastcam', page: 1 }, { signal }).then(({ items }) => {
-      const pick = items[hourIndex % Math.max(1, items.length)];
-      setCardPreview(host, 'mars', pick?.thumb, pick?.title ?? 'Mars rover image');
-    }),
-  );
+/** Shows today's date and a UTC clock, the time base every feed on the page uses. */
+function mountDateline(host: HTMLElement, signal: AbortSignal): void {
+  const date = host.querySelector<HTMLElement>('#home-date');
+  const clock = host.querySelector<HTMLElement>('#home-clock');
+  if (!date || !clock) return;
+  const tick = () => {
+    const now = new Date();
+    date.textContent = longDate.format(now);
+    clock.textContent = `${now.toISOString().slice(11, 19)} UTC`;
+  };
+  tick();
+  const timer = window.setInterval(tick, 1000);
+  signal.addEventListener('abort', () => window.clearInterval(timer), { once: true });
 }
 
 /**
@@ -110,14 +137,18 @@ export function mountHome(host: HTMLElement): () => void {
   const { signal } = controller;
   document.body.classList.add('is-home');
 
-  void mountHero(host, signal);
+  mountDateline(host, signal);
+  void mountLeadPhoto(host, signal);
+  void mountEarth(host, signal).catch(() => undefined);
   mountLiveTiles(host, signal);
-  mountCardPreviews(host, signal);
 
-  const issTile = host.querySelector<HTMLElement>('#tile-iss');
-  if (issTile) {
-    mountIssTile(issTile, signal).catch(() => {
-      if (!signal.aborted) issTile.classList.add('is-unavailable');
+  const iss = host.querySelector<HTMLElement>('#tile-iss');
+  if (iss) {
+    mountIssTile(iss, signal).catch(() => {
+      if (signal.aborted) return;
+      iss.classList.add('is-unavailable');
+      const caption = iss.querySelector('figcaption');
+      if (caption) caption.textContent = 'The station’s orbit data is not answering right now.';
     });
   }
 

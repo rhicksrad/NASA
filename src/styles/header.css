@@ -1,0 +1,231 @@
+/* Site header, navigation and the type rules every page shares. */
+
+h1,
+h2,
+h3 {
+  font-stretch: 88%;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+a {
+  color: var(--c-accent);
+}
+
+.btn--primary {
+  border-color: var(--c-text-1);
+  background: var(--c-text-1);
+  box-shadow: none;
+  color: var(--c-bg-0);
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: 14px max(clamp(16px, 4vw, 48px), calc((100vw - 1320px) / 2 + clamp(16px, 4vw, 48px)));
+  border-bottom: 1px solid var(--c-line-1);
+  background: var(--c-bg-0);
+}
+
+.site-brand {
+  flex: none;
+  font-size: 17px;
+  font-weight: 700;
+  font-stretch: 88%;
+  letter-spacing: -0.005em;
+  color: var(--c-text-1);
+  text-decoration: none;
+}
+
+.site-brand span {
+  font-weight: 400;
+  color: var(--c-muted);
+}
+
+.site-brand:hover {
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px clamp(12px, 1.8vw, 26px);
+}
+
+.site-nav a {
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  font-size: 15px;
+  color: var(--c-text-2);
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a:focus-visible {
+  color: var(--c-text-1);
+  text-decoration: none;
+}
+
+.site-nav a[aria-current='page'] {
+  border-bottom-color: var(--c-signal);
+  color: var(--c-text-1);
+}
+
+.site-nav__toggle {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  border: 1px solid var(--c-line-1);
+  border-radius: var(--radius-0);
+  background: none;
+  color: var(--c-text-1);
+  font: inherit;
+  cursor: pointer;
+}
+
+.site-nav__icon {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.site-nav__icon span {
+  width: 18px;
+  height: 2px;
+  background: currentColor;
+}
+
+.ui-icon {
+  width: 1.05em;
+  height: 1.05em;
+}
+
+@media (max-width: 900px) {
+  .site-header {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .site-nav__toggle {
+    display: inline-flex;
+  }
+
+  .site-nav {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    gap: 0;
+    padding-top: var(--space-2);
+  }
+
+  .site-nav[data-open='true'] {
+    display: flex;
+  }
+
+  .site-nav a {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--c-line-2);
+    font-size: 17px;
+  }
+
+  .site-nav a[aria-current='page'] {
+    border-bottom-color: var(--c-line-2);
+    box-shadow: inset 3px 0 0 var(--c-signal);
+    padding-left: var(--space-3);
+  }
+}
+
+/* ---------- Paper grain under every page ---------- */
+
+body {
+  background-image: url('/art/bg/paper.webp');
+  background-size: 512px;
+}
+
+/* ---------- Page banner: title on the left, the page's illustration on the right ---------- */
+
+.page-banner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: end;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: clamp(28px, 5vh, 56px) var(--space-4) 0;
+}
+
+.page-banner__text {
+  padding-bottom: var(--space-4);
+}
+
+.page-banner h1 {
+  margin: 0 0 var(--space-3, 12px);
+  font-size: clamp(40px, 5vw, 68px);
+  font-weight: 750;
+  font-stretch: 75%;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.page-banner p {
+  max-width: 34rem;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.page-banner img {
+  display: block;
+  width: 100%;
+  height: auto;
+  outline: 1px solid var(--c-line-2);
+  outline-offset: -1px;
+}
+
+.page-banner + main.page-shell > .main-wrap {
+  padding-top: var(--space-6);
+}
+
+@media (max-width: 720px) {
+  .page-banner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-banner img {
+    order: -1;
+  }
+}
+
+/* ---------- Illustrated empty and offline states ---------- */
+
+.state-art {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+.state-art img {
+  display: block;
+  width: min(360px, 100%);
+  height: auto;
+}
+
+.state-art p {
+  max-width: 28rem;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}

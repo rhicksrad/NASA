@@ -1,22 +1,23 @@
 :root {
   /* Neutral deep-space surfaces */
-  --c-bg-0: hsl(230 50% 5%);
-  --c-bg-1: hsl(230 42% 8%);
-  --c-surface-1: hsl(230 38% 12%);
-  --c-surface-2: hsl(230 34% 16%);
+  --c-bg-0: hsl(225 16% 5%);
+  --c-bg-1: hsl(225 14% 7%);
+  --c-surface-1: hsl(225 11% 11%);
+  --c-surface-2: hsl(225 10% 14%);
   /* Text */
-  --c-text-1: hsl(220 60% 96%);
-  --c-text-2: hsl(220 20% 75%);
-  --c-muted:  hsl(220 10% 60%);
+  --c-text-1: hsl(42 24% 93%);
+  --c-text-2: hsl(42 8% 74%);
+  --c-muted:  hsl(42 5% 56%);
   /* Accents */
-  --c-accent: hsl(185 72% 45%);   /* oxygen teal */
+  --c-accent: hsl(214 90% 68%);   /* NASA insignia blue, lifted for dark backgrounds */
+  --c-signal: hsl(8 97% 56%);     /* NASA red: live markers and warnings only */
   --c-warn:   hsl(16 100% 57%);   /* solar orange */
   --c-info:   hsl(258 100% 70%);  /* ion violet */
   /* Borders & gridlines */
-  --c-line-1: hsl(230 25% 24% / 60%);
-  --c-line-2: hsl(230 20% 18% / 60%);
+  --c-line-1: hsl(225 8% 26% / 80%);
+  --c-line-2: hsl(225 8% 18% / 80%);
   /* Shadows */
-  --sh-1: 0 0 0 1px hsl(230 40% 3% / 60%), 0 6px 18px hsl(230 80% 2% / 70%);
+  --sh-1: 0 0 0 1px hsl(225 12% 3% / 60%), 0 6px 18px hsl(225 24% 2% / 70%);
   /* Sizing */
   --radius-0: 2px;     /* square, instrumentation feel */
   --radius-1: 4px;
@@ -28,7 +29,8 @@
   --space-6: 24px;
   --space-8: 32px;
   /* Typography */
-  --font-sans: ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, Apple Color Emoji, Segoe UI Emoji;
+  --font-sans: 'Archivo Variable', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-serif: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --fs-0: clamp(12px, 0.78vw, 13px);  /* micro */
   --fs-1: clamp(14px, 0.9vw, 15px);   /* body */
@@ -40,8 +42,8 @@
 
 /* === BEGIN PHASE2: PAGE ACCENTS === */
 :root {
-  --c-accent: hsl(185 72% 45%);
-  --c-accent-neo: hsl(185 72% 45%);   /* NEO cyan-teal */
+  --c-accent: hsl(214 90% 68%);
+  --c-accent-neo: hsl(214 90% 68%);
   --c-accent-epic: hsl(258 100% 70%); /* EPIC ion violet */
   --c-accent-cme:  hsl(16 100% 57%);  /* CME solar orange */
   --c-accent-exo:  hsl(200 95% 60%);  /* Exoplanet cerulean */

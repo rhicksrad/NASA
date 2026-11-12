@@ -4,16 +4,20 @@
     <!-- @include site-head -->
     <title>EONET Explorer — NASA Open APIs Visualization Hub</title>
   </head>
-  <body>
+  <body class="page--explorer theme-events">
     <!-- @include site-header current="events" -->
+
+    <section class="page-banner">
+      <div class="page-banner__text">
+        <h1>Earth events</h1>
+        <p>Wildfires, severe storms, volcanoes and sea ice as NASA’s EONET catalogue records them, on a map you can filter by kind and date.</p>
+      </div>
+      <img src="/art/events.webp" alt="" width="1536" height="1024" decoding="async" />
+    </section>
 
     <main class="page-shell">
       <div class="main-wrap">
         <section class="controls card">
-          <div>
-            <h1>EONET Explorer</h1>
-            <p class="meta">Discover active and historical natural events sourced from NASA's EONET catalog.</p>
-          </div>
           <form id="filters" class="row">
             <label>
               Status

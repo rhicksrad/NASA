@@ -1,4 +1,8 @@
-/* Shared by every page: design tokens, the dark theme, and common components. */
+/* Shared by every page: fonts, design tokens, the dark theme, common components and the header. */
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/source-serif-4/opsz.css';
+@import '@fontsource-variable/source-serif-4/opsz-italic.css';
 @import './tokens.css';
 @import './theme.css';
 @import './components.css';
+@import './header.css';

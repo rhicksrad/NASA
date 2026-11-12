@@ -2,7 +2,7 @@
 import { fetchStormMarkdown, fetchStormReport, findCmes, type StormReport } from '../../api/donki';
 import { searchImages } from '../../api/images';
 import { isAbortError } from '../../api/worker';
-import { byId, escapeHtml } from '../../lib/dom';
+import { byId, escapeHtml, stateArt } from '../../lib/dom';
 import { renderMarkdown } from '../../lib/markdown';
 import { initSiteNav } from '../../shell/nav';
 import { auroraLatitude, formatHours, summarizeStorm, type StormSummary } from './analysis';
@@ -189,7 +189,7 @@ async function loadById(activityId: string): Promise<void> {
     setQueryId(activityId);
   } catch (error) {
     if (signal.aborted) return;
-    showError(`Failed to load report (${errorMessage(error)}).`);
+    reportEl.replaceChildren(stateArt('offline', `The report could not be loaded (${errorMessage(error)}).`));
   }
 }
 
