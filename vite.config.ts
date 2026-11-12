@@ -115,6 +115,14 @@ function pageMeta(): Plugin {
                 `<meta name="twitter:card" content="summary_large_image" />`,
               ]),
         ];
+        // The two faces every page sets text in. Preloading them means headings and
+        // body copy paint in their own type instead of swapping a moment later.
+        const base = process.env.SITE_BASE ?? '/NASA/';
+        for (const name of Object.keys(ctx.bundle ?? {})) {
+          if (/(archivo-latin-wdth-normal|source-serif-4-latin-opsz-normal)-[\w-]+\.woff2$/.test(name)) {
+            tags.push(`<link rel="preload" href="${base}${name}" as="font" type="font/woff2" crossorigin />`);
+          }
+        }
         return html.replace('</head>', `    ${tags.join('\n    ')}\n  </head>`);
       },
     },
@@ -134,8 +142,6 @@ export default defineConfig({
     // into pages that never use it.
     chunkSizeWarningLimit: 600,
     rollupOptions: {
-      output: {
-      },
       input: {
         index: 'index.html',
         neo3d: 'neo3d.html',
