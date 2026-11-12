@@ -1,5 +1,6 @@
-import { WORKER_BASE, HttpError } from './base';
-import { findManualSbdb } from '../data/manualSbdb';
+import { createPersistentCache } from '../lib/persistentCache';
+import { findManualSbdb } from './manualSbdb';
+import { fetchJson, HttpError } from './worker';
 
 const DEG2RAD = Math.PI / 180;
 
@@ -14,9 +15,12 @@ export type SbdbLookup = {
     orbit_class?: { code?: string; name?: string };
     pha?: boolean;
     neo?: boolean;
+    [key: string]: unknown;
   };
   orbit?: {
+    epoch?: string | number;
     elements?: Array<{ name: string; label: string; value: string | number }>;
+    [key: string]: unknown;
   };
   phys_par?: Array<{ name: string; value: string | number }>;
 };
@@ -25,6 +29,7 @@ export type SbdbRow = {
   id: string;
   name: string;
   type: 'Asteroid' | 'Comet' | 'Other';
+  orbitClass?: string;
   H?: number;
   pv?: number;
   estDiameterKm?: number;
@@ -36,142 +41,11 @@ export type SbdbRow = {
 
 export type SbdbSuggestResult = { items: string[]; fallback: boolean };
 
-type PersistentCache = {
-  get(key: string): Promise<unknown | undefined>;
-  set(key: string, value: unknown): Promise<void>;
-};
-
 const lookupCache = new Map<string, SbdbLookup>();
-const persistentCache = createPersistentCache();
+// The database and store names predate this module; keep them so existing caches stay valid.
+const persistentCache = createPersistentCache('sbdb-cache', 'lookups');
 
-function createPersistentCache(): PersistentCache {
-  if (typeof window === 'undefined') {
-    return { get: async () => undefined, set: async () => {} };
-  }
-
-  const fallback = createLocalStorageCache();
-
-  if (!('indexedDB' in window)) {
-    return fallback;
-  }
-
-  let dbPromise: Promise<IDBDatabase | null> | null = null;
-  const openDb = (): Promise<IDBDatabase | null> => {
-    if (dbPromise) return dbPromise;
-    dbPromise = new Promise((resolve) => {
-      try {
-        const request = window.indexedDB.open('sbdb-cache', 1);
-        request.onupgradeneeded = () => {
-          const db = request.result;
-          if (!db.objectStoreNames.contains('lookups')) {
-            db.createObjectStore('lookups');
-          }
-        };
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => resolve(null);
-      } catch {
-        resolve(null);
-      }
-    });
-    return dbPromise;
-  };
-
-  return {
-    async get(key) {
-      const db = await openDb();
-      if (!db) return fallback.get(key);
-      return new Promise<unknown | undefined>((resolve) => {
-        try {
-          const tx = db.transaction('lookups', 'readonly');
-          const store = tx.objectStore('lookups');
-          const request = store.get(key);
-          request.onsuccess = () => {
-            resolve(request.result ?? undefined);
-          };
-          request.onerror = () => resolve(undefined);
-          tx.onabort = () => resolve(undefined);
-        } catch {
-          resolve(undefined);
-        }
-      });
-    },
-    async set(key, value) {
-      const db = await openDb();
-      if (!db) {
-        await fallback.set(key, value);
-        return;
-      }
-      const ok = await new Promise<boolean>((resolve) => {
-        try {
-          const tx = db.transaction('lookups', 'readwrite');
-          const store = tx.objectStore('lookups');
-          let settled = false;
-          const finish = (result: boolean) => {
-            if (!settled) {
-              settled = true;
-              resolve(result);
-            }
-          };
-          tx.oncomplete = () => finish(true);
-          tx.onerror = () => finish(false);
-          tx.onabort = () => finish(false);
-          store.put(value, key);
-        } catch {
-          resolve(false);
-        }
-      });
-      if (!ok) {
-        await fallback.set(key, value);
-      }
-    },
-  };
-}
-
-function createLocalStorageCache(): PersistentCache {
-  const prefix = 'sbdb-cache:';
-  if (typeof window === 'undefined') {
-    return { get: async () => undefined, set: async () => {} };
-  }
-  return {
-    async get(key) {
-      try {
-        const storage = window.localStorage;
-        const raw = storage.getItem(prefix + key);
-        if (!raw) return undefined;
-        const parsed = JSON.parse(raw) as { value?: unknown };
-        return parsed.value;
-      } catch {
-        return undefined;
-      }
-    },
-    async set(key, value) {
-      try {
-        const storage = window.localStorage;
-        const payload = JSON.stringify({ value });
-        storage.setItem(prefix + key, payload);
-      } catch {
-        // ignore
-      }
-    },
-  };
-}
-
-async function fetchJSON<T = unknown>(path: string): Promise<T> {
-  const url = `${WORKER_BASE}${path}`;
-  const response = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    credentials: 'omit',
-  });
-  const text = await response.text();
-  if (!response.ok) {
-    throw new HttpError(url, response.status, text);
-  }
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new HttpError(url, response.status, `Invalid JSON: ${text.slice(0, 200)}`);
-  }
-}
+const fetchJSON = <T>(path: string) => fetchJson<T>(path);
 
 const buildSbdbKey = (query: string, fullPrec: boolean): string => {
   const params = new URLSearchParams({ sstr: query });
@@ -402,12 +276,7 @@ export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}
   const considerCandidate = async (variant: string, key: string, data: SbdbLookup): Promise<boolean> => {
     const evaluation = evaluateLookupMatch(sstr, variant, data);
     if (evaluation.perfect || evaluation.score >= GOOD_MATCH_THRESHOLD) {
-      if (key !== originalKey) {
-        await cacheLookup(originalKey, data);
-      } else {
-        lookupCache.set(originalKey, data);
-        await persistentCache.set(originalKey, data);
-      }
+      await cacheLookup(originalKey, data);
       bestMatch = { key, variant, data, score: evaluation.score };
       return true;
     }
@@ -502,15 +371,12 @@ export async function sbdbLookup(sstr: string, opts: { fullPrec?: boolean } = {}
     }
   }
 
-  if (bestMatch) {
-    if (bestMatch.key !== originalKey) {
-      await cacheLookup(originalKey, bestMatch.data);
-    } else {
-      lookupCache.set(originalKey, bestMatch.data);
-      await persistentCache.set(originalKey, bestMatch.data);
-    }
-    if (bestMatch.score > 0) {
-      return bestMatch.data;
+  // Assigned inside `considerCandidate`, which control-flow analysis cannot see through.
+  const fallback = bestMatch as Candidate | null;
+  if (fallback) {
+    await cacheLookup(originalKey, fallback.data);
+    if (fallback.score > 0) {
+      return fallback.data;
     }
   }
 
@@ -595,6 +461,7 @@ export function normalizeRow(s: SbdbLookup, fallbackId: string): SbdbRow {
     id: canonicalId,
     name,
     type,
+    orbitClass: s.object?.orbit_class?.name,
     H: Number.isFinite(H) ? H : undefined,
     pv: Number.isFinite(pv) ? pv : undefined,
     estDiameterKm: Number.isFinite(estDiameterKm) ? estDiameterKm : undefined,
@@ -665,7 +532,7 @@ export async function loadSBDBConic(
     const w = toNum(map.get('w')) * DEG2RAD;
     let epoch = toNum(map.get('epoch'));
     if (!Number.isFinite(epoch)) {
-      epoch = toNum((data.orbit as { epoch?: unknown } | undefined)?.epoch);
+      epoch = toNum(data.orbit?.epoch);
     }
     let maDeg = toNum(map.get('ma'));
     if (!Number.isFinite(maDeg)) {

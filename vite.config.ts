@@ -1,61 +1,61 @@
-import { defineConfig, type Plugin } from 'vite';
-import { cpSync, existsSync, rmSync, statSync, createReadStream } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { defineConfig, type Plugin } from 'vite';
 
-function staticStylesPlugin(): Plugin {
-  const projectRoot = fileURLToPath(new URL('.', import.meta.url));
-  const stylesDir = resolve(projectRoot, 'styles');
-  const distDir = resolve(projectRoot, 'dist/styles');
-  const prefix = '/NASA/styles/';
+const root = fileURLToPath(new URL('.', import.meta.url));
+
+/**
+ * Expands `<!-- @include name key="value" -->` comments in the HTML entry
+ * points with the matching file from `partials/`, so every page shares one
+ * copy of the document head and site header.
+ *
+ * `current="<id>"` marks the nav link with id `nav-<id>` as the active page.
+ */
+function htmlPartials(): Plugin {
+  const partialsDir = resolve(root, 'partials');
+  const pattern = /<!--\s*@include\s+([\w-]+)((?:\s+[\w-]+="[^"]*")*)\s*-->/g;
 
   return {
-    name: 'static-styles',
-    closeBundle() {
-      if (!existsSync(stylesDir)) {
-        return;
-      }
-      rmSync(distDir, { recursive: true, force: true });
-      cpSync(stylesDir, distDir, { recursive: true });
+    name: 'html-partials',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        return html.replace(pattern, (_match, name: string, rawAttrs: string) => {
+          let partial = readFileSync(resolve(partialsDir, `${name}.html`), 'utf8').trimEnd();
+          const current = /current="([^"]*)"/.exec(rawAttrs)?.[1];
+          if (current) {
+            partial = partial.replace(`id="nav-${current}"`, `id="nav-${current}" aria-current="page"`);
+          }
+          return partial;
+        });
+      },
     },
-    configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (!req.url || (req.method && req.method !== 'GET' && req.method !== 'HEAD')) {
-          next();
-          return;
-        }
-        const [pathName] = req.url.split('?');
-        if (!pathName || !pathName.startsWith(prefix)) {
-          next();
-          return;
-        }
-        const relative = pathName.slice(prefix.length);
-        if (!relative) {
-          next();
-          return;
-        }
-        const filePath = join(stylesDir, decodeURIComponent(relative));
-        if (!existsSync(filePath) || !statSync(filePath).isFile()) {
-          res.statusCode = 404;
-          res.end();
-          return;
-        }
-        res.setHeader('Content-Type', 'text/css; charset=utf-8');
-        createReadStream(filePath).pipe(res);
-        return;
-      });
+    handleHotUpdate({ file, server }) {
+      if (file.startsWith(partialsDir)) {
+        server.ws.send({ type: 'full-reload' });
+      }
     },
   };
 }
 
 export default defineConfig({
-  plugins: [staticStylesPlugin()],
+  plugins: [htmlPartials()],
   base: '/NASA/',
   build: {
     outDir: 'dist',
     sourcemap: true,
     emptyOutDir: true,
+    // three.js alone is ~520 kB minified and is only loaded by the two 3D pages.
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('/node_modules/three/')) return 'three';
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
+          return undefined;
+        },
+      },
       input: {
         index: 'index.html',
         neo3d: 'neo3d.html',
@@ -69,12 +69,5 @@ export default defineConfig({
   server: {
     strictPort: true,
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8787',
-        changeOrigin: true,
-        rewrite: p => p.replace(/^\/api/, ''),
-      },
-    },
   },
 });

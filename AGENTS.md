@@ -1,230 +1,85 @@
-## Mission Profile
+This codebase is yours; what it's for and how it's built are your call, and you'll keep building on it.
 
-Static Vite + TypeScript orbital visualization portal. GitHub Pages hosts the site; a **single Cloudflare Worker** (`worker.js`) is the only backend/proxy. The Worker fronts:
+# NASA Open APIs Visualization Hub
 
-* **NASA REST** (NEO/EPIC/Mars/Images) at `https://api.nasa.gov` using secret **`NASA_API`**.
-* **JPL Horizons** via `/horizons` → `https://ssd.jpl.nasa.gov/api/horizons.api`.
-* **JPL SBDB** via `/sbdb` → `https://ssd-api.jpl.nasa.gov/sbdb/api/sbdb`.
+A static, multi-page site that turns public NASA and JPL data into interactive explorers. GitHub
+Pages serves the site from `/NASA/`. One Cloudflare Worker (`worker.js`) is the only backend: it
+holds the NASA API key, proxies NASA/JPL/DONKI/EONET/TLE/Exoplanet Archive, and renders a few
+Markdown reports. The browser talks to the Worker and nothing else, with one deliberate exception
+(EPIC falls back to `epic.gsfc.nasa.gov` when the Worker route fails).
 
-The frontend renders a **Three.js** heliocentric ecliptic J2000 scene with:
+## Commands
 
-* Planets sampled from Horizons vectors (interpolated).
-* NEOs/comets from SBDB orbital elements propagated by a universal conic solver (elliptic/parabolic/hyperbolic).
-* “Add 3I/ATLAS” pulls **C/2025 N1 (ATLAS)** via `/sbdb?sstr=3I`.
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Vite dev server on :5173 |
+| `pnpm typecheck` | `tsc --noEmit` (strict, no unused locals or parameters) |
+| `pnpm lint` | ESLint over the repo |
+| `pnpm build` | Production bundle in `dist/` |
+| `pnpm test` | Playwright smoke test of every page against mocked network |
+| `pnpm screenshots` | Same run, also writing a PNG per page to `artifacts/screenshots/` |
+| `pnpm check` | typecheck, lint, build and test, in that order |
 
-**Single origin rule:** the browser only talks to the Worker origin.
+Node 20+, pnpm 9+. CI (`.github/workflows/ci.yml`) runs `pnpm check` on every pull request;
+`pages.yml` builds and deploys `main`.
 
-```ts
-// src/api/base.ts (conceptual)
-export const BASE = [https://lively-haze-4b2c.hicksrch.workers.dev/];
-```
-
----
-
-## Agent Mandates
-
-### SCREENSHOT_AGENT
-
-* Every pull request **must** include a preview screenshot covering the rendered UI alongside the diff summary.
-* If generating the screenshot fails because of build or runtime errors, resolve the errors and capture the screenshot before committing or opening the PR.
-* No pushes, commits, or PRs are considered complete without the screenshot.
-
-### PLAN_AGENT
-
-* Defines module map across `src/api/`, `src/orbits/`, `src/visuals/neo3d.ts`, `src/utils/`.
-* Enforces strict TS config; ships typed stubs for Horizons, SBDB, NASA endpoints.
-* Locks physical constants/units: AU, AU/day, UTC, k = 0.01720209895 (AU³/day²).
-
-### PIPELINE_AGENT
-
-* Tooling: Node 20.x, pnpm ≥ 8, Vite 5.x. Canonical scripts:
-
-  * `pnpm install --frozen-lockfile`
-  * `pnpm lint`
-  * `pnpm build`
-  * `pnpm preview`
-* Worker healthcheck after build: `curl $WORKER_URL/diag` must show `{ ok:true, hasNASA_API:true }`.
-
-### FETCH_AGENT
-
-* All fetchers live in `src/api/*` and **must** build URLs from `BASE`.
-* Normalizes errors to `HttpError(url, status, body)`.
-* NASA endpoints: Worker injects `api_key`; NEO **401** is surfaced and treated as non-fatal by UI.
-* Caching policy: browser may cache in IndexedDB/localStorage; Worker caches only keyless 2xx (SBDB/Images/Horizons) per its logic.
-
-### UI_AGENT
-
-* Curates controls (Time Scale, UTC Date, Add 3I/ATLAS) and route state under `src/components/` + `src/routes/`.
-* Displays status toasts for fetch faults (401, 404, 5xx) without blocking the render loop.
-
-### VIS_AGENT
-
-* Owns **Three.js** renderer (`src/visuals/neo3d.ts`) + `OrbitControls`.
-* Planet providers interpolate horizons daily vectors; small bodies use conic propagation.
-* Orbit line cache: key on `(segments, spanDays, a,e,i,Ω,ω,M,epoch)`.
-* Finite-value guards: non-finite states hide meshes & lines for that frame.
-* Camera: oblique 3-view (approx `(6,6,10) * SCALE`), target at `(0,0,0)`.
-
-### ACTIONS_AGENT
-
-* Maintains `.github/workflows/pages.yml` (GitHub Pages deploy).
-* Concurrency guard `{ group: deploy, cancel-in-progress: true }`.
-* pnpm cache; deterministic artifact verification.
-* Post-build Worker healthcheck.
-
-### META_AGENT
-
-* Documents Worker usage, required `NASA_API` secret, and public dataset attributions.
-* Ensures SEO/robots minimal footprint; no secrets in repo.
-
----
-
-## Canonical Stack
-
-* **Runtime:** Node 20.x • **Package:** pnpm ≥ 8 • **Bundler:** Vite 5.x
-* **Lang:** TypeScript (strict) • **Renderer:** **Three.js** (OrbitControls)
-* **Lint/Format:** eslint + prettier
-* **Hosting:** GitHub Pages (`gh-pages` branch)
-* **Backend:** Cloudflare Worker (classic) with secret **`NASA_API`**
-
-`vite.config.ts` base path: `/NASA/`
-Build output: `dist/` → GitHub Pages
+## Layout
 
 ```
-src/
-  api/
-  orbits/
-  visuals/
-  neo3d/
-  components/
-  routes/
-  styles/
-  utils/
-assets/
-public/
+*.html              One entry per page. Shared head and header come from partials/.
+partials/           HTML fragments pulled in with <!-- @include name current="id" -->
+                    (expanded by the htmlPartials plugin in vite.config.ts).
+src/api/            Typed clients, one per upstream. Everything goes through api/worker.ts.
+src/lib/            Small shared helpers: dom, markdown, toast, julian, icons, persistentCache.
+src/orbits/         Kepler and universal-conic propagation (AU, days, heliocentric ecliptic J2000).
+src/shell/          Site navigation behaviour shared by every page.
+src/pages/<page>/   One folder per page; main.ts is the entry the HTML loads.
+  hub/              index.html: hash router for home, Images Explorer, EPIC, Mars, About.
+  neo3d/            Heliocentric scene (scene/), SBDB search (sbdb/, React), panel logic.
+  sat3d/            SGP4 satellite tracker around a day/night Earth.
+  storm/ events/ exo/   CME reports, EONET map (Leaflet), exoplanet archive queries.
+src/styles/         All CSS. base.css (tokens, theme, components) loads on every page.
+tests/              smoke.spec.ts plus support/mockApi.ts, the fixture server for every upstream.
+data/sbdb-source/   Raw MPC dumps used by scripts/build_sbdb_index.py. Never shipped.
+public/             Copied verbatim into the build (favicon, sbdb-index.json).
+worker.js           Cloudflare Worker source. Deployed by hand; not part of the site build.
 ```
 
----
+## Conventions
 
-## Data Pipeline Specification
+- **Network:** never call `fetch` from a page. Add or extend a client in `src/api/` and use
+  `fetchJson` / `fetchText` from `api/worker.ts`, which give you timeouts, abort signals and
+  `HttpError(url, status, bodyText)`. Pass an `AbortSignal` for anything a newer request can
+  supersede.
+- **Untrusted text:** API strings go through `escapeHtml` (or `textContent`) before reaching the
+  DOM. `renderMarkdown` escapes first and then formats.
+- **Coordinate frames:** three.js is Y-up; the physics is Z-up. NEO 3D converts in `toScene`
+  (`scene/types.ts`). Satellite 3D takes ECI positions and rotates them inside `EarthScene`
+  (`eciGroup`). Do not hand-swap axes anywhere else.
+- **Units:** heliocentric work is AU and days with Gaussian `k = 0.01720209895`; satellite work is
+  km and km/s; timestamps are UTC.
+- **Debug handles** (`window.__neo3d`, `window.__wow`) exist only in dev builds.
+- **New page:** add `<name>.html` using the two partial includes, a `src/pages/<name>/main.ts`
+  that calls `initSiteNav()`, an input in `vite.config.ts`, a nav link in
+  `partials/site-header.html`, fixtures in `tests/support/mockApi.ts` and a case in
+  `tests/smoke.spec.ts`.
 
-**Authoritative backend:** Cloudflare Worker. The browser only calls the Worker origin.
+## Testing
 
-### Endpoints (browser → worker)
+The smoke tests fail on any uncaught page error and on any request that has no fixture, so a new
+endpoint needs a fixture in `mockApi.ts`. They do not hit the real Worker; check a change that
+depends on live data against the deployed site as well.
 
-* `GET /horizons` → forwards to JPL Horizons with a strict allowlist
-  Allowed params: `COMMAND, EPHEM_TYPE, CENTER, REF_PLANE, REF_SYSTEM, MAKE_EPHEM, OUT_UNITS, START_TIME, STOP_TIME, STEP_SIZE, TLIST, TLIST_TYPE, OBJ_DATA, CSV_FORMAT, VEC_TABLE, VEC_CORR, TIME_TYPE, TIME_DIGITS`.
-  Worker defaults:
-  `format=json, MAKE_EPHEM=YES, OBJ_DATA=NO, EPHEM_TYPE=ELEMENTS, CENTER=500@10, REF_PLANE=ECLIPTIC, REF_SYSTEM=J2000, OUT_UNITS=AU-D`.
+## Pull requests
 
-* `GET /sbdb` → forwards to JPL SBDB.
-  **ATLAS:** call **`/sbdb?sstr=3I`** (no client-side alias loops).
-  Worker may edge-cache successful 2xx.
+Every pull request includes a screenshot of the rendered UI it touches. `pnpm screenshots`
+produces them; refresh `docs/preview.png` when the overall look changes.
 
-* `GET /neo/*`, `/apod`, `/epic/*`, `/mars/*`, `/images/*`
-  Worker injects `api_key` from secret for NASA REST; **401** from NEO is passed through.
+## Worker
 
-### Fetch layer
-
-`src/api/nasaClient.ts`, `src/api/neo3dData.ts`, etc. use `BASE` and throw `HttpError` on non-ok responses. IndexedDB/localStorage optional cache on the client; Worker controls edge cache.
-
----
-
-## Orbital Visualization System
-
-* **Frame:** heliocentric ecliptic **J2000**
-* **Units:** distances **AU**, velocities **AU/day**, timestamps **UTC**
-* **Planets:** Horizons daily vectors → linear interpolation across bracketing samples.
-* **Small bodies (NEOs/comets):** universal conic propagation from SBDB elements.
-
-### Hyperbolic correction (implemented)
-
-For `e > 1`:
-
-* Use `aAbs = |a|` (or derive from `q/(e-1)` if needed)
-* Semilatus: `p = aAbs * (e^2 - 1)`
-* Radius: `r = aAbs * (e * cosh(H) - 1)`
-* Mean motion: `n = sqrt(μ / aAbs^3)` with `μ = k^2`, `k = 0.01720209895`
-
-Elliptic: `p = a * (1 - e^2)`, solve Kepler for `E`.
-Parabolic: Barker’s equation for `D`.
-
-Orbit lines are precomputed Float32 buffers (and cached) to keep the render hot.
-
----
-
-## GitHub Actions Protocol
-
-`.github/workflows/pages.yml`:
-
-1. `actions/checkout@v4`
-2. `pnpm/action-setup@v3` (Node 20 + pnpm; enable pnpm cache)
-3. `pnpm install --frozen-lockfile`
-4. `pnpm lint`
-5. `pnpm build`
-6. `actions/upload-pages-artifact@v3`
-7. `actions/deploy-pages@v4`
-8. **Healthcheck:** `curl $WORKER_URL/diag` must yield `{ ok: true, hasNASA_API: true }`
-
-`concurrency: { group: deploy, cancel-in-progress: true }`
-
----
-
-## Command Charter
-
-* `pnpm dev` – local dev (Vite)
-* `pnpm lint` – eslint + prettier
-* `pnpm build` – production bundle
-* `pnpm preview` – serve `dist/` for QA
-* `pnpm typecheck` – TS only (optional)
-* `pnpm deploy` – optional manual push to `gh-pages` (must match workflow)
-
----
-
-## Execution Order
-
-1. **PLAN_AGENT**
-2. **PIPELINE_AGENT**
-3. **FETCH_AGENT**
-4. **UI_AGENT**
-5. **VIS_AGENT**
-6. **ACTIONS_AGENT**
-7. **META_AGENT**
-
-Any failure loops back to **PIPELINE_AGENT** to re-establish a clean, deterministic build.
-
----
-
-## Simulation Doctrine
-
-* Reference frame: heliocentric ecliptic J2000; UTC timestamps.
-* **Anomaly solvers**:
-
-  * Elliptic Kepler via Newton (|ΔE| < 1e-13)
-  * Hyperbolic Kepler for `H` (|ΔH| < 1e-13), `M = n(t−tp)`
-  * Parabolic Barker with `D = tan(ν/2)`
-* Gravitational constant: Gaussian `k = 0.01720209895` (AU³/day²).
-* Numerical safeguards: clamp steps, reject non-finite states before render, log vector parse anomalies without blocking UI.
-
----
-
-## Deployment Doctrine
-
-* GitHub Pages serves static assets (`gh-pages`).
-* Cloudflare **Worker** is the only backend; configure secret **`NASA_API`**.
-* The site must not leak keys or call NASA/JPL hosts directly from the browser.
-* Build outputs must be deterministic (artifact checksums match locally and in CI).
-
----
-
-## Appendix: Worker Endpoints
-
-* `/` – route samples;
-* `/diag` – `{ ok, hasNASA_API, keyLen, usingDemo, now }`
-* `/apod` – proxied with key
-* `/neo/*` – proxied with key (401 surfaced)
-* `/epic/*`, `/mars/*` – proxied with key
-* `/images/*` – keyless images API
-* `/sbdb` – keyless SBDB
-* `/horizons` – keyless Horizons (strict allowlist + defaults)
-
+`worker.js` is a classic service-worker script deployed manually to
+`https://lively-haze-4b2c.hicksrch.workers.dev` with the secret `NASA_API`. Routes: `/apod`,
+`/neo/*`, `/mars/*`, `/epic/*`, `/images/*`, `/nasa/*`, `/storm/find`, `/storm/{id}.json|.md`,
+`/eonet/*`, `/event/{id}.md`, `/horizons`, `/sbdb`, `/sbdb/object|suggest|search`, `/tle/search`,
+`/tle/{id}`, `/exo/tap`, `/diag`. Changing it means redeploying it in Cloudflare; merging to
+`main` does not.

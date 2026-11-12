@@ -10,26 +10,15 @@ from typing import Iterator
 
 import encodings.cp1252 as cp1252
 
-PARTS = [
-    Path('public/mpcorb_extended.json_1[1].gz'),
-    Path('public/mpcorb_extended.json_2[1].gz'),
-    Path('public/mpcorb_extended.json_3.gz'),
-    Path('public/mpcorb_extended.json_4[1].gz'),
-    Path('public/mpcorb_extended.json_5.gz'),
-    Path('public/mpcorb_extended.json_6.gz'),
-    Path('public/mpcorb_extended.json_7.gz'),
-    Path('public/mpcorb_extended.json_8.gz'),
-    Path('public/mpcorb_extended.json_9.gz'),
-    Path('public/mpcorb_extended.json_10.gz'),
-    Path('public/mpcorb_extended.json_11.gz'),
-    Path('public/mpcorb_extended.json_12.gz'),
-]
+SOURCE_DIR = Path('data/sbdb-source')
+
+PARTS = [SOURCE_DIR / f'mpcorb_extended.json_{n}.gz' for n in range(1, 13)]
 
 CP1252_REVERSE = {ord(ch): i for i, ch in enumerate(cp1252.decoding_table) if ch != '\ufffe'}
 
 ASTEROID_LIMIT = 30_000
 INDEX_TARGET = Path('public/sbdb-index.json')
-COMET_SOURCE = Path('public/allcometels.json.gz')
+COMET_SOURCE = SOURCE_DIR / 'allcometels.json.gz'
 RECOVERED_GZ = Path('mpcorb_extended_recovered.json.gz')
 
 
