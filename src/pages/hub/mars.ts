@@ -1,3 +1,4 @@
+import { hubBanner } from './banner';
 import '../../styles/mars.css';
 import { stateArt } from '../../lib/dom';
 import { HttpError } from '../../api/worker';
@@ -246,12 +247,13 @@ function buildModal(): {
   openLink.textContent = 'Open on NASA';
   openLink.target = '_blank';
   openLink.rel = 'noopener noreferrer';
-  openLink.className = 'button';
+  openLink.className = 'btn btn--primary';
   actions.appendChild(openLink);
 
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.textContent = 'Close';
+  closeBtn.className = 'btn';
   actions.appendChild(closeBtn);
 
   return { overlay, image, title, description, openLink, closeBtn };
@@ -267,10 +269,13 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
   root.id = 'mars-root';
   container.replaceChildren(root);
 
-  const heading = document.createElement('h1');
-  heading.textContent = 'Mars Rover Images';
-  heading.style.marginBottom = '12px';
-  root.appendChild(heading);
+  root.appendChild(
+    hubBanner(
+      'Mars rovers',
+      'Photographs sent back from the surface of Mars. Choose a rover and a camera, then narrow by Martian day or Earth year.',
+      'mars',
+    ),
+  );
 
   const controls = document.createElement('div');
   controls.className = 'mars-controls';
@@ -303,20 +308,20 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
   controls.appendChild(instrumentLabel);
 
   const solLabel = document.createElement('label');
-  solLabel.textContent = 'Sol (keyword match)';
+  solLabel.textContent = 'Martian day (sol)';
   const solInput = document.createElement('input');
   solInput.type = 'number';
   solInput.name = 'sol';
-  solInput.placeholder = 'e.g. 1000';
+  solInput.placeholder = '1000';
   solLabel.appendChild(solInput);
   controls.appendChild(solLabel);
 
   const yearLabel = document.createElement('label');
-  yearLabel.textContent = 'Year';
+  yearLabel.textContent = 'Earth year';
   const yearInput = document.createElement('input');
   yearInput.type = 'number';
   yearInput.name = 'year';
-  yearInput.placeholder = 'YYYY';
+  yearInput.placeholder = '2021';
   yearLabel.appendChild(yearInput);
   controls.appendChild(yearLabel);
 
@@ -326,7 +331,8 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
 
   const prevBtn = document.createElement('button');
   prevBtn.type = 'button';
-  prevBtn.textContent = 'Prev';
+  prevBtn.textContent = 'Previous';
+  prevBtn.className = 'btn';
   pageControls.appendChild(prevBtn);
 
   const pageBadge = document.createElement('span');
@@ -336,6 +342,7 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
   const nextBtn = document.createElement('button');
   nextBtn.type = 'button';
   nextBtn.textContent = 'Next';
+  nextBtn.className = 'btn';
   pageControls.appendChild(nextBtn);
 
   const statusEl = document.createElement('div');
@@ -434,7 +441,7 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
   const setNoteVisible = (visible: boolean) => {
     if (visible) {
       noteEl.classList.remove('mars-hidden');
-      noteEl.textContent = 'No results with instrument filter; broadened search.';
+      noteEl.textContent = 'Nothing is tagged with that camera, so this is every camera on the rover.';
     } else {
       noteEl.classList.add('mars-hidden');
       noteEl.textContent = '';
@@ -453,7 +460,7 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
 
   const setLoading = (loading: boolean) => {
     if (loading) {
-      statusMessageEl.textContent = 'Loading images…';
+      statusMessageEl.textContent = 'Searching the archive.';
     } else {
       statusMessageEl.textContent = '';
     }
@@ -488,11 +495,11 @@ export function mountMarsPage(host?: HTMLElement | null): () => void {
       nextBtn.disabled = current.page >= totalPages || !result.items.length;
       pageBadge.textContent = `Page ${current.page}`;
       if (result.total > 0) {
-        totalEl.textContent = `Total hits: ${result.total.toLocaleString()}`;
+        totalEl.textContent = `${result.total.toLocaleString('en-US')} photographs`;
       } else if (result.items.length > 0) {
-        totalEl.textContent = `Showing ${result.items.length} results`;
+        totalEl.textContent = `${result.items.length} photographs`;
       } else {
-        totalEl.textContent = 'No results';
+        totalEl.textContent = 'No photographs match';
       }
       setNoteVisible(broadened);
       renderGrid(context, result.items);
