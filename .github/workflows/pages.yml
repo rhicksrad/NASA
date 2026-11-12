@@ -1,15 +1,15 @@
 name: Deploy Pages
 
-# Builds on Ryan's PCs when the repo variable CI_RUNNER is `local` (pushes to
-# main are trusted), and always deploys from a GitHub runner so the deploy
-# token never reaches the PCs.
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+# The site is served by Cloudflare (cloudflare.yml). GitHub Pages only keeps old
+# links alive: it publishes pages-redirect/, whose index.html and 404.html send
+# every /NASA/... address to the same page on the Cloudflare address.
 
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - pages-redirect/**
+      - .github/workflows/pages.yml
   workflow_dispatch:
 
 permissions:
@@ -21,41 +21,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ${{ vars.CI_RUNNER == 'local' && fromJSON('["self-hosted","web-trusted"]') || 'ubuntu-latest' }}
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-        with:
-          version: 9
-          run_install: false
-          # A fresh folder per job: the default (~/setup-pnpm) persists on a self-hosted
-          # runner and its half-written state has failed an install.
-          dest: ${{ runner.temp }}/setup-pnpm
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: ${{ runner.environment == 'github-hosted' && 'pnpm' || '' }}
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: ./dist
-      - name: Clean the workspace
-        if: always() && runner.environment == 'self-hosted'
-        run: git clean -ffdx
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v6
+      - name: The two redirect pages must match
+        run: cmp pages-redirect/index.html pages-redirect/404.html
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ./pages-redirect
       - id: deployment
         uses: actions/deploy-pages@v5

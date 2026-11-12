@@ -12,8 +12,8 @@ NASA does with it.
 | `ci.yml` | `gate`: install, typecheck, lint, build | PCs, label `web-trusted` | every pull request |
 | `ci.yml` | `e2e`: Playwright smoke tests | PCs, labels `web-trusted, playwright` | pull requests that touch the site |
 | `ci.yml` | `check`: one result for the two above | GitHub | every pull request |
-| `pages.yml` | `build` | PCs, label `web-trusted` | push to `main` |
-| `pages.yml` | `deploy` | GitHub, always | push to `main` |
+| `cloudflare.yml` | `deploy`, `preview` | GitHub, always | push to `main`, same-repo pull requests |
+| `pages.yml` | `deploy` | GitHub, always | push to `main` that touches `pages-redirect/` |
 | `sbdb-index.yml` | rebuild `public/sbdb-index.json` as a download | PCs, label `python` | manual |
 
 `check` is the name to watch (and to require, if branch protection is ever

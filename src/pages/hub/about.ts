@@ -49,8 +49,8 @@ export function mountAboutPage(host: HTMLElement): void {
     <section aria-labelledby="about-build-heading">
       <h2 id="about-build-heading">How the site was built</h2>
       <p>
-        The front end is Vite and TypeScript, with Three.js for the orbital scenes and Leaflet for the event map. It is a static
-        site on GitHub Pages; the Worker is the only server involved. The illustrations were generated for this site in the
+        The front end is Vite and TypeScript, with Three.js for the orbital scenes and Leaflet for the event map. The pages are static
+        files served by the same Worker; it is the only server involved. The illustrations were generated for this site in the
         manner of mid-century mission concept art.
       </p>
     </section>
