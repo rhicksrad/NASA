@@ -15,7 +15,7 @@
     "test": "playwright test",
     "screenshots": "SHOT_DIR=artifacts/screenshots playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test",
-    "build:cf": "SITE_BASE=/ VITE_API_BASE=/api vite build",
+    "build:cf": "node scripts/build_cf.mjs",
     "deploy:cf": "pnpm build:cf && wrangler deploy",
     "build:sbdb-index": "python3 scripts/build_sbdb_index.py"
   },
