@@ -55,6 +55,36 @@ interface OrbitRecord {
 
 const TRAIL_COLOR = new THREE.Color(0x7bc0ff);
 
+/** A sparse field of faint stars on a sphere of the given radius; deterministic so it never flickers between loads. */
+function createStarField(radius: number, count: number): THREE.Points {
+  const positions = new Float32Array(count * 3);
+  let seed = 20261112;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  for (let index = 0; index < count; index += 1) {
+    const z = random() * 2 - 1;
+    const angle = random() * Math.PI * 2;
+    const ring = Math.sqrt(1 - z * z);
+    positions[index * 3] = Math.cos(angle) * ring * radius;
+    positions[index * 3 + 1] = z * radius;
+    positions[index * 3 + 2] = Math.sin(angle) * ring * radius;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    color: 0xf0ece2,
+    size: 1.4,
+    sizeAttenuation: false,
+    transparent: true,
+    opacity: 0.55,
+    fog: false,
+    depthWrite: false,
+  });
+  return new THREE.Points(geometry, material);
+}
+
 /** Rotates an ECI vector (Z-up) into the Y-up scene frame. */
 function eciToScene(target: THREE.Vector3, x: number, y: number, z: number): THREE.Vector3 {
   return target.set(x, z, -y);
@@ -157,8 +187,10 @@ const EARTH_FRAGMENT = /* glsl */ `
     float diffuse = dot(normalize(vWorldNormal), normalize(sunDirection));
     float mixAmount = smoothstep(-0.15, 0.3, diffuse);
     vec3 ambient = vec3(0.08, 0.11, 0.18);
-    vec3 color = mix(night * 0.55 + ambient, day * 1.2 + ambient * 0.4, mixAmount);
+    vec3 color = mix(night * 0.7 + ambient * 0.25, day * 1.3, mixAmount);
     gl_FragColor = vec4(color, 1.0);
+    // The textures are sampled as linear light; convert back for the screen or the day side reads as dusk.
+    #include <colorspace_fragment>
   }
 `;
 
@@ -409,11 +441,12 @@ export class EarthScene {
   private readonly pointer = new THREE.Vector2();
   private readonly focusTarget = new THREE.Vector3();
   private readonly focusOffset = new THREE.Vector3();
+  private framedToSun = false;
 
   constructor(private readonly container: HTMLElement) {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x020b1e);
-    this.scene.fog = new THREE.FogExp2(0x020c1e, 0.018);
+    this.scene.background = new THREE.Color(0x05060a);
+    this.scene.fog = new THREE.FogExp2(0x05060a, 0.018);
 
     this.camera = new THREE.PerspectiveCamera(45, 1, CAMERA_NEAR, CAMERA_FAR);
     this.camera.position.set(0, DEFAULT_DISTANCE_Y, DEFAULT_DISTANCE_Z);
@@ -493,10 +526,7 @@ export class EarthScene {
     this.sunLight.position.copy(this.dayNightUniforms.sunDirection.value).multiplyScalar(50);
     this.scene.add(this.sunLight);
 
-    const starGeometry = new THREE.SphereGeometry(this.controls.maxDistance, 16, 16);
-    const starMaterial = new THREE.MeshBasicMaterial({ color: 0x041024, side: THREE.BackSide });
-    const starField = new THREE.Mesh(starGeometry, starMaterial);
-    this.scene.add(starField);
+    this.scene.add(createStarField(this.controls.maxDistance * 1.5, 1400));
 
     const satGeometry = createSatelliteGeometry();
     satGeometry.computeBoundingSphere();
@@ -660,6 +690,22 @@ export class EarthScene {
       Math.sin(obliquity) * Math.sin(eclipticLongitude),
     );
     this.sunLight.position.copy(direction).multiplyScalar(50);
+
+    // Open looking at the daylit side, a little past the terminator so both day and night show.
+    if (!this.framedToSun) {
+      this.framedToSun = true;
+      // Far enough back that the whole disc and a low orbit fit the narrower side of the stage.
+      const halfFov = THREE.MathUtils.degToRad(this.camera.fov / 2);
+      const narrowHalf = Math.atan(Math.tan(halfFov) * Math.min(1, this.camera.aspect || 1));
+      const distance = Math.max(
+        this.camera.position.distanceTo(this.controls.target),
+        (EARTH_RADIUS_UNITS * 1.25) / Math.sin(narrowHalf),
+      );
+      const view = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), THREE.MathUtils.degToRad(38));
+      view.y += 0.32;
+      this.camera.position.copy(this.controls.target).add(view.normalize().multiplyScalar(distance));
+      this.controls.update();
+    }
   }
 
   /** Re-centres the camera on an ECI position, keeping the current viewing direction. */

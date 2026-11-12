@@ -101,7 +101,7 @@ export class Neo3D {
     this.renderer.toneMappingExposure = 1.1;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(width, height, false);
-    this.renderer.setClearColor(0x020412, 1);
+    this.renderer.setClearColor(0x05060a, 1);
     host.replaceChildren(this.renderer.domElement);
     this.renderer.domElement.style.width = '100%';
     this.renderer.domElement.style.height = '100%';
@@ -161,14 +161,14 @@ export class Neo3D {
       top: '0',
       left: '0',
       pointerEvents: 'none',
-      background: 'rgba(15, 23, 42, 0.85)',
-      color: '#e2e8f0',
-      padding: '4px 8px',
-      borderRadius: '6px',
-      fontSize: '12px',
+      background: '#f0ece2',
+      color: '#0b0c10',
+      padding: '5px 9px',
+      borderRadius: '0',
+      fontSize: '13px',
+      fontWeight: '600',
       lineHeight: '16px',
       whiteSpace: 'nowrap',
-      boxShadow: '0 6px 18px rgba(15, 23, 42, 0.35)',
       opacity: '0',
       transform: 'translate(-9999px, -9999px)',
       transition: 'opacity 0.12s ease',

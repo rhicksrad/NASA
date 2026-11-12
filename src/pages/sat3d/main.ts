@@ -66,6 +66,8 @@ const ui = {
 };
 
 const earthScene = new EarthScene(byId('canvas-holder'));
+// Dev-only handle for inspecting the scene from the console.
+if (import.meta.env.DEV) (window as unknown as { __sat3d?: EarthScene }).__sat3d = earthScene;
 const canvas = earthScene.renderer.domElement;
 
 let playing = true;
@@ -261,7 +263,8 @@ async function loadSample(): Promise<void> {
         : 'The sample satellites are already in the scene.',
     );
     if (satellites.has(ISS_ID) && selectedId === null) {
-      selectSatellite(ISS_ID, { focus: true });
+      // Select the station but leave the camera on the whole Earth; the reader can centre on it.
+      selectSatellite(ISS_ID);
     }
   } finally {
     setSampleLoading(false);
