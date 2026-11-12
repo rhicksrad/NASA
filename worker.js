@@ -430,6 +430,12 @@ async function handle(event) {
   const u = new URL(req.url);
   const origin = req.headers.get('Origin') || '*';
 
+  // The site is served from this Worker's static assets and calls the API under
+  // /api/*; the bare paths still answer for older callers.
+  if (u.pathname === '/api' || u.pathname.startsWith('/api/')) {
+    u.pathname = u.pathname.slice(4) || '/';
+  }
+
   if (req.method === 'OPTIONS') return new Response(null, { status:204, headers:{ ...sec(), ...cors(origin) } });
   if (u.pathname === '/favicon.ico') return new Response(null, { status:204, headers:{ ...sec(), ...cors(origin) } });
 

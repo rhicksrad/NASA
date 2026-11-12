@@ -15,6 +15,8 @@
     "test": "playwright test",
     "screenshots": "SHOT_DIR=artifacts/screenshots playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm build && pnpm test",
+    "build:cf": "SITE_BASE=/ VITE_API_BASE=/api vite build",
+    "deploy:cf": "pnpm build:cf && wrangler deploy",
     "build:sbdb-index": "python3 scripts/build_sbdb_index.py"
   },
   "dependencies": {
@@ -37,7 +39,8 @@
     "@typescript-eslint/parser": "7.15.0",
     "eslint": "8.57.0",
     "typescript": "5.4.5",
-    "vite": "5.2.11"
+    "vite": "5.2.11",
+    "wrangler": "^4.161.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

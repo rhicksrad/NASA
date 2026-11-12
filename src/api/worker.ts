@@ -7,6 +7,19 @@
  */
 export const WORKER_BASE = 'https://lively-haze-4b2c.hicksrch.workers.dev';
 
+/**
+ * Where API calls go. On Cloudflare the Worker serves the site too, so the
+ * build sets VITE_API_BASE=/api and requests stay on the page's own origin.
+ * Anywhere else (GitHub Pages, local dev, tests) they go to the Worker's address.
+ */
+const API_BASE: string = import.meta.env.VITE_API_BASE || WORKER_BASE;
+
+function apiUrl(path: string): URL {
+  const rooted = path.startsWith('/') ? path : `/${path}`;
+  if (/^https?:/.test(API_BASE)) return new URL(rooted, API_BASE);
+  return new URL(`${API_BASE.replace(/\/$/, '')}${rooted}`, window.location.origin);
+}
+
 export class HttpError extends Error {
   constructor(
     public readonly url: string,
@@ -31,7 +44,7 @@ export interface RequestOptions {
 
 /** Builds an absolute worker URL from a worker-relative path and query params. */
 export function workerUrl(path: string, params: QueryParams = {}): URL {
-  const url = new URL(path.startsWith('/') ? path : `/${path}`, WORKER_BASE);
+  const url = apiUrl(path);
   for (const [key, value] of Object.entries(params)) {
     const values = Array.isArray(value) ? value : [value];
     for (const entry of values) {

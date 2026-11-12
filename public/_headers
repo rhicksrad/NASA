@@ -1,0 +1,7 @@
+# Cloudflare static asset headers. GitHub Pages ignores this file.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/art/*
+  Cache-Control: public, max-age=604800
+/sbdb-index.json
+  Cache-Control: public, max-age=86400

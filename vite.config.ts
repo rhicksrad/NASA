@@ -41,7 +41,8 @@ function htmlPartials(): Plugin {
 
 export default defineConfig({
   plugins: [htmlPartials()],
-  base: '/NASA/',
+  // GitHub Pages serves the site under /NASA/; the Cloudflare build sets SITE_BASE=/.
+  base: process.env.SITE_BASE ?? '/NASA/',
   build: {
     outDir: 'dist',
     sourcemap: true,
