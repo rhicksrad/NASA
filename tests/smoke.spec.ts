@@ -150,3 +150,33 @@ test('the not-found page renders', async ({ page }) => {
     await page.screenshot({ path: join(SHOT_DIR, 'not-found.png'), fullPage: true });
   }
 });
+
+test('hub views load on demand and home comes back', async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  const scripts: string[] = [];
+  page.on('request', (request) => {
+    if (request.resourceType() === 'script') scripts.push(new URL(request.url()).pathname);
+  });
+  const api = await installMockApi(page);
+
+  await page.goto('/NASA/');
+  await expect(page.locator('#hero-media.is-loaded img')).toBeVisible();
+  // The landing page must not pull in the explorers' code.
+  expect(scripts.filter((path) => /pages\/hub\/(imagesExplorer|epic|EpicViewer|mars|about)|react/i.test(path))).toEqual([]);
+
+  await page.locator('#nav-images-explorer').click();
+  await expect(page.locator('#page-host .images-explorer, #page-host img').first()).toBeVisible();
+  await expect(page.locator('#nav-images-explorer')).toHaveAttribute('aria-current', 'page');
+
+  await page.locator('#nav-epic').click();
+  await expect(page.locator('#nav-epic')).toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('#page-host img, #page-host canvas').first()).toBeVisible();
+
+  await page.locator('.site-brand').click();
+  await expect(page.locator('#hero-media.is-loaded img')).toBeVisible();
+  await expect(page.locator('#tile-neo [data-value]')).toHaveText('6');
+
+  expect(pageErrors, 'uncaught page errors').toEqual([]);
+  expect(api.unhandled, 'requests with no fixture').toEqual([]);
+});

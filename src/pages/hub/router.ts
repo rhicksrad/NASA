@@ -1,24 +1,26 @@
 import { setCurrentNav } from '../../shell/nav';
-import { mountAboutPage } from './about';
-import { mountEpicPage } from './epic';
 import { mountHome } from './home/index';
-import { initImagesExplorerPage } from './imagesExplorer';
-import { mountMarsPage } from './mars';
 
 /** A view fills the host element and may return a teardown function. */
 type View = (host: HTMLElement) => void | (() => void);
 
 interface Route {
-  view: View;
+  /** Fetches the view's code and styles the first time the route is opened. */
+  load: () => Promise<View>;
   /** id of the header link to mark as current. */
   navId: string;
 }
 
+// Only the home view ships with the page. Each explorer is its own chunk, so the
+// landing page does not download React (Images) or the EPIC and Mars viewers.
 const ROUTES: Record<string, Route> = {
-  '/images/explorer': { view: initImagesExplorerPage, navId: 'nav-images-explorer' },
-  '/epic': { view: mountEpicPage, navId: 'nav-epic' },
-  '/mars': { view: mountMarsPage, navId: 'nav-mars' },
-  '/about': { view: mountAboutPage, navId: 'nav-about' },
+  '/images/explorer': {
+    load: () => import('./imagesExplorer').then((m) => m.initImagesExplorerPage),
+    navId: 'nav-images-explorer',
+  },
+  '/epic': { load: () => import('./epic').then((m) => m.mountEpicPage), navId: 'nav-epic' },
+  '/mars': { load: () => import('./mars').then((m) => m.mountMarsPage), navId: 'nav-mars' },
+  '/about': { load: () => import('./about').then((m) => m.mountAboutPage), navId: 'nav-about' },
 };
 
 const REDIRECTS: Record<string, string> = {
@@ -42,6 +44,8 @@ export function initRouter(): void {
   const homeMarkup = host.innerHTML;
   let teardown: (() => void) | void;
   let activePath: string | null = null;
+  // Bumped on every navigation, so a view that finishes loading late is dropped.
+  let navigation = 0;
 
   const dispatch = () => {
     const path = currentPath();
@@ -54,15 +58,29 @@ export function initRouter(): void {
     if (path === activePath) return;
 
     teardown?.();
+    teardown = undefined;
+    const previousPath = activePath;
     const route = ROUTES[path];
-    if (route) {
-      teardown = route.view(host);
-    } else {
-      if (activePath !== null) host.innerHTML = homeMarkup;
-      teardown = mountHome(host);
-    }
+    const current = ++navigation;
     activePath = path;
     setCurrentNav(route?.navId ?? null);
+
+    if (!route) {
+      if (previousPath !== null) host.innerHTML = homeMarkup;
+      teardown = mountHome(host);
+      return;
+    }
+    route
+      .load()
+      .then((view) => {
+        if (current === navigation) teardown = view(host);
+      })
+      .catch((error: unknown) => {
+        // A chunk that will not load (offline, or a deploy replaced it): let the next
+        // navigation try again rather than leaving the route marked as shown.
+        if (current === navigation) activePath = null;
+        console.error(error);
+      });
   };
 
   window.addEventListener('hashchange', dispatch);

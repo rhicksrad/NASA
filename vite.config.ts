@@ -129,15 +129,12 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     emptyOutDir: true,
-    // three.js alone is ~520 kB minified and is only loaded by the two 3D pages.
+    // three.js alone is ~520 kB minified and is only loaded by the two 3D pages. Rollup
+    // splits shared code by itself; naming a vendor chunk by hand once pulled React
+    // into pages that never use it.
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('/node_modules/three/')) return 'three';
-          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
-          return undefined;
-        },
       },
       input: {
         index: 'index.html',
