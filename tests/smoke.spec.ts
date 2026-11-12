@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { installMockApi } from './support/mockApi';
 
@@ -13,6 +14,14 @@ interface PageCase {
   name: string;
   path: string;
   ready: (page: Page) => Promise<void>;
+}
+
+/** Accessibility problems axe rates serious or critical, as `rule: selector` lines. */
+async function accessibilityProblems(page: Page): Promise<string[]> {
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  return violations
+    .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
+    .flatMap((violation) => violation.nodes.map((node) => `${violation.id}: ${node.target.join(' ')}`));
 }
 
 const PAGES: PageCase[] = [
@@ -116,6 +125,7 @@ for (const { name, path, ready } of PAGES) {
     await expect(page.locator('head meta[property="og:image"]')).toHaveAttribute('content', /\/og\.jpg$/);
     expect(pageErrors, 'uncaught page errors').toEqual([]);
     expect(api.unhandled, 'requests with no fixture').toEqual([]);
+    expect(await accessibilityProblems(page), 'serious accessibility problems').toEqual([]);
 
     if (SHOT_DIR) {
       mkdirSync(SHOT_DIR, { recursive: true });
@@ -144,6 +154,7 @@ test('the not-found page renders', async ({ page }) => {
   await expect(page.locator('head meta[name="robots"]')).toHaveAttribute('content', 'noindex');
   expect(pageErrors, 'uncaught page errors').toEqual([]);
   expect(api.unhandled, 'requests with no fixture').toEqual([]);
+  expect(await accessibilityProblems(page), 'serious accessibility problems').toEqual([]);
 
   if (SHOT_DIR) {
     mkdirSync(SHOT_DIR, { recursive: true });

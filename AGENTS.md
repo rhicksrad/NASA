@@ -107,6 +107,9 @@ The smoke tests fail on any uncaught page error and on any request that has no f
 endpoint needs a fixture in `mockApi.ts`. They do not hit the real Worker; check a change that
 depends on live data against the deployed site as well.
 
+Each page test also runs axe and fails on any problem it rates serious or critical (missing
+labels and names, low contrast, links told apart by colour alone). Fix the page, not the test.
+
 ## Pull requests
 
 Every pull request includes a screenshot of the rendered UI it touches. `pnpm screenshots`
