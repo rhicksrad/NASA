@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <!-- @include site-head -->
-    <title>EONET Explorer — NASA Open APIs Visualization Hub</title>
+    <title>Earth events — NASA Open APIs Visualization Hub</title>
+    <link rel="stylesheet" href="/src/styles/page-shell.css" />
   </head>
   <body class="page--explorer theme-events">
     <!-- @include site-header current="events" -->
@@ -15,53 +16,42 @@
       <img src="/art/events.webp" alt="" width="1536" height="1024" decoding="async" />
     </section>
 
-    <main class="page-shell">
-      <div class="main-wrap">
-        <section class="controls card">
-          <form id="filters" class="row">
-            <label>
-              Status
-              <select id="status" name="status">
-                <option value="open" selected>Open</option>
-                <option value="closed">Closed</option>
-              </select>
-            </label>
-            <label>
-              Category
-              <select id="category" name="category">
-                <option value="">All</option>
-              </select>
-            </label>
-            <label>
-              Start
-              <input id="start" name="start" type="date" required />
-            </label>
-            <label>
-              End
-              <input id="end" name="end" type="date" required />
-            </label>
-            <button type="submit" class="btn btn--primary">Load</button>
-          </form>
-        </section>
+    <main class="page-shell events">
+      <form id="filters" class="events-filters">
+        <label class="field">Status
+          <select id="status" name="status">
+            <option value="open" selected>Under way</option>
+            <option value="closed">Ended</option>
+          </select>
+        </label>
+        <label class="field">Kind
+          <select id="category" name="category">
+            <option value="">Everything</option>
+          </select>
+        </label>
+        <label class="field">From <input id="start" name="start" type="date" required /></label>
+        <label class="field">To <input id="end" name="end" type="date" required /></label>
+        <button type="submit" class="btn btn--primary">Show</button>
+        <p id="count" class="events-count" aria-live="polite"></p>
+      </form>
 
-        <section class="map-panel card">
-          <h2>Live Event Map</h2>
-          <p class="meta">Pins appear as events are loaded. Select one to highlight the location.</p>
-          <div id="map" class="map" aria-label="Map of EONET events"></div>
-          <div id="legend" class="legend"></div>
-        </section>
+      <div class="events-grid">
+        <div class="events-main">
+          <figure class="events-map">
+            <div id="map" class="map" aria-label="Map of EONET events"></div>
+            <figcaption id="legend" class="legend"></figcaption>
+          </figure>
 
-        <section class="results-grid">
-          <div class="panel card events">
-            <h2>Events</h2>
-            <p class="meta">Results adapt based on the filters above.</p>
-            <ul id="list" class="list"></ul>
-          </div>
+          <section class="events-detail" aria-live="polite">
+            <h2 id="detailTitle">Pick an event</h2>
+            <div id="detail" class="events-detail__body">
+              <p>Choose a marker on the map or a line in the list to see where it is, how big it has grown and who reported it.</p>
+            </div>
+          </section>
+        </div>
 
-          <div class="panel card detail">
-            <h2 id="detailTitle">Event Detail</h2>
-            <article id="detail" class="markdown">Pick an event.</article>
-          </div>
+        <section class="events-list" aria-label="Events, newest first">
+          <ul id="list" class="list"></ul>
         </section>
       </div>
     </main>

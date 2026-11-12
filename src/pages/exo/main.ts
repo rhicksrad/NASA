@@ -3,6 +3,7 @@ import { queryExoplanetArchive, type TapRow } from '../../api/exoplanets';
 import { isAbortError } from '../../api/worker';
 import { byId, escapeHtml } from '../../lib/dom';
 import { initSiteNav } from '../../shell/nav';
+import { massRadiusChart } from './massRadius';
 import { planetArt } from './planetArt';
 import { classifyPlanet } from './planetTypes';
 import { EXO_PRESETS, type ExoPreset } from './presets';
@@ -51,6 +52,7 @@ const rowsEl = byId('rows');
 const hintEl = byId('hint');
 const examplesEl = byId('exampleButtons');
 const massRadiusEl = byId('mrViz');
+const massRadiusNote = byId('mrNote');
 const selectedSummaryEl = byId('selectedSummary');
 const sortButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-sort-key]')];
 
@@ -127,7 +129,7 @@ async function runQuery(): Promise<void> {
   activeQuery = controller;
 
   const startedAt = performance.now();
-  statusEl.textContent = 'Loading…';
+  statusEl.textContent = 'Asking the archive…';
   let rows: TapRow[];
   try {
     rows = await queryExoplanetArchive(adql, controller.signal);
@@ -141,12 +143,19 @@ async function runQuery(): Promise<void> {
   if (controller.signal.aborted) return;
 
   loadedRows = rows.map(toPlanet).filter((planet): planet is Planet => planet !== null);
-  statusEl.textContent = `${loadedRows.length} rows in ${(performance.now() - startedAt).toFixed(0)} ms`;
-  hintEl.textContent = presetNote ? `${description} • ${presetNote}` : description;
+  statusEl.textContent = `Answered in ${((performance.now() - startedAt) / 1000).toFixed(1)} s`;
+  hintEl.textContent = presetNote ? `${presetNote.replace(/^Curated sample: /, '').replace(/^./, (c) => c.toUpperCase())} ${description}.` : `${description}.`;
 
   renderTable();
   renderSummary();
-  selectPlanet(loadedRows.find((planet) => planet.name === selectedName) ?? visibleRows[0] ?? null);
+  // Prefer a planet that appears on the chart, so the page opens with one dot picked out.
+  selectPlanet(
+    loadedRows.find((planet) => planet.name === selectedName) ??
+      visibleRows.find((planet) => planet.masse !== null && planet.rade !== null) ??
+      visibleRows[0] ??
+      null,
+    { reveal: true },
+  );
 }
 
 // --- Table -------------------------------------------------------------------
@@ -173,14 +182,12 @@ function renderTable(): void {
 <tr data-index="${index}" tabindex="0">
 <td><button type="button" class="planet-name-btn" data-index="${index}">${escapeHtml(planet.name)}</button></td>
 <td>${escapeHtml(planet.host)}</td>
-<td>${formatNumber(planet.rade)}</td>
-<td>${formatNumber(planet.masse)}</td>
-<td>${formatTemperature(planet.eqt)}</td>
-<td>${formatNumber(planet.period)}</td>
-<td>${formatLightYears(planet.distanceLy)}</td>
-<td>${formatNumber(planet.ra, 3)}</td>
-<td>${formatNumber(planet.dec, 3)}</td>
-<td>${planet.year ?? ''}</td>
+<td class="num">${formatNumber(planet.rade)}</td>
+<td class="num">${formatNumber(planet.masse)}</td>
+<td class="num">${formatTemperature(planet.eqt)}</td>
+<td class="num">${formatNumber(planet.period)}</td>
+<td class="num">${formatLightYears(planet.distanceLy)}</td>
+<td class="num">${planet.year ?? ''}</td>
 </tr>`,
     )
     .join('');
@@ -204,7 +211,7 @@ function markSelectedRow(): void {
 function renderSummary(): void {
   const present = (key: 'rade' | 'eqt' | 'masse' | 'distanceLy') =>
     loadedRows.map((planet) => planet[key]).filter((value): value is number => value !== null);
-  byId('sumCount').textContent = String(loadedRows.length);
+  byId('sumCount').textContent = loadedRows.length.toLocaleString('en-US');
   byId('sumR').textContent = formatNumber(median(present('rade')), 2, '–');
   byId('sumT').textContent = formatTemperature(median(present('eqt')), '–');
   byId('sumMass').textContent = String(present('masse').length);
@@ -213,49 +220,51 @@ function renderSummary(): void {
 
 // --- Selected planet ---------------------------------------------------------
 
-function selectPlanet(planet: Planet | null): void {
+function renderChart(): void {
+  massRadiusEl.replaceChildren(massRadiusChart(visibleRows, selectedName));
+  const plotted = visibleRows.filter((planet) => planet.masse !== null && planet.rade !== null).length;
+  massRadiusNote.textContent = plotted
+    ? `${plotted.toLocaleString('en-US')} of ${visibleRows.length.toLocaleString('en-US')} planets here have both a measured mass and radius. Both axes are logarithmic; the crosses mark Earth, Neptune and Jupiter.`
+    : 'None of these planets has both a measured mass and radius yet.';
+}
+
+function selectPlanet(planet: Planet | null, { reveal = false } = {}): void {
   selectedName = planet?.name ?? '';
   markSelectedRow();
+  renderChart();
 
   if (!planet) {
-    massRadiusEl.innerHTML = '<p class="mr-placeholder">Select a planet below to view its mass–radius profile.</p>';
     selectedSummaryEl.innerHTML = `
-<h4>Planet details</h4>
-<p>Choose a planet from the table to see its host, orbit, and climate.</p>`;
+<h2>Pick a planet</h2>
+<p>Choose a dot on the chart or a row in the table to see its star, orbit and climate.</p>`;
     return;
   }
 
   const type = classifyPlanet(planet);
-  const radius = formatNumber(planet.rade, 2, '–');
-  const mass = formatNumber(planet.masse, 2, '–');
-  massRadiusEl.innerHTML = `
-<div class="mr-visual" title="${escapeHtml(`Radius: ${radius} Re\nMass: ${mass} Me`)}">
-${planetArt(type.art)}
-<div class="mr-metrics">
-<div class="label">Classification</div>
-<div class="mr-type">${escapeHtml(type.label)}</div>
-<div class="mr-type-description">${escapeHtml(type.description)}</div>
-<div class="label mr-estimates-label">Mass–radius estimates</div>
-<div><span class="label">Radius (Earth radii):</span> <span class="stat">${radius}</span></div>
-<div><span class="label">Mass (Earth masses):</span> <span class="stat">${mass}</span></div>
-</div>
-</div>`;
-
-  const distance =
-    planet.distanceLy === null
-      ? '–'
-      : `${formatLightYears(planet.distanceLy)} ly (${formatNumber(planet.distancePc)} pc)`;
+  const distance = planet.distanceLy === null ? '–' : `${formatLightYears(planet.distanceLy)} light-years`;
+  const fact = (term: string, value: string) => `<div><dt>${term}</dt><dd>${value}</dd></div>`;
   selectedSummaryEl.innerHTML = `
-<h4>${escapeHtml(planet.name)}</h4>
-<dl>
-<dt>Host star</dt><dd>${escapeHtml(planet.host)}</dd>
-<dt>Discovery year</dt><dd>${planet.year ?? '–'}</dd>
-<dt>Orbit period (days)</dt><dd>${formatNumber(planet.period, 2, '–')}</dd>
-<dt>Equilibrium temp (°F)</dt><dd>${formatTemperature(planet.eqt, '–')}</dd>
-<dt>Distance (ly)</dt><dd>${distance}</dd>
-<dt>Right ascension</dt><dd>${formatNumber(planet.ra, 3, '–')}</dd>
-<dt>Declination</dt><dd>${formatNumber(planet.dec, 3, '–')}</dd>
+<div class="exo-planet__art">${planetArt(type.art)}</div>
+<p class="exo-planet__kind">${escapeHtml(type.label)}</p>
+<h2>${escapeHtml(planet.name)}</h2>
+<p>${escapeHtml(type.description)}</p>
+<dl class="exo-facts">
+${fact('Star', escapeHtml(planet.host))}
+${fact('Distance', distance)}
+${fact('Radius', planet.rade === null ? '–' : `${formatNumber(planet.rade)} × Earth`)}
+${fact('Mass', planet.masse === null ? 'Not measured' : `${formatNumber(planet.masse)} × Earth`)}
+${fact('Temperature', planet.eqt === null ? '–' : `${formatTemperature(planet.eqt)} °F`)}
+${fact('Year length', planet.period === null ? '–' : `${formatNumber(planet.period)} days`)}
+${fact('Found', String(planet.year ?? '–'))}
+${fact('Sky position', planet.ra === null || planet.dec === null ? '–' : `RA ${formatNumber(planet.ra, 2)}°, Dec ${formatNumber(planet.dec, 2)}°`)}
 </dl>`;
+
+  if (reveal) {
+    // Scroll the table's own viewport, never the page.
+    const row = rowsEl.querySelector<HTMLElement>('tr.selected');
+    const viewport = byId('tblWrap');
+    if (row) viewport.scrollTop = Math.max(0, row.offsetTop - viewport.clientHeight / 2);
+  }
 }
 
 function planetFromEvent(event: Event, selector: string): Planet | null {
@@ -291,15 +300,20 @@ function exportCsv(): void {
 
 // --- Wiring ------------------------------------------------------------------
 
+function markPreset(active: HTMLElement | null): void {
+  for (const chip of examplesEl.querySelectorAll('.exo-chip')) chip.toggleAttribute('aria-pressed', chip === active);
+}
+
 for (const preset of EXO_PRESETS) {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'btn btn--ghost';
+  button.className = 'exo-chip';
   button.textContent = preset.label;
   button.title = preset.description;
   button.addEventListener('click', () => {
     writeFilters(presetFilters(preset));
     presetNote = preset.description;
+    markPreset(button);
     void runQuery();
   });
   examplesEl.append(button);
@@ -310,12 +324,15 @@ for (const button of sortButtons) {
     const key = button.dataset.sortKey as SortKey;
     sortState = { key, dir: sortState.key === key && sortState.dir === 'asc' ? 'desc' : 'asc' };
     renderTable();
+    // Dots are keyed by row position, so the chart follows the new order.
+    renderChart();
   });
 }
 
 for (const input of Object.values(inputs)) {
   input.addEventListener('input', () => {
     presetNote = '';
+    markPreset(null);
   });
   input.addEventListener('keydown', (event) => {
     if ((event as KeyboardEvent).key === 'Enter') void runQuery();
@@ -338,6 +355,11 @@ byId('btnShare').addEventListener('click', async () => {
 });
 
 byId('btnCSV').addEventListener('click', exportCsv);
+
+massRadiusEl.addEventListener('click', (event) => {
+  const planet = planetFromEvent(event, 'circle[data-index]');
+  if (planet) selectPlanet(planet, { reveal: true });
+});
 
 rowsEl.addEventListener('click', (event) => {
   const planet = planetFromEvent(event, '[data-index]');

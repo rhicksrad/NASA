@@ -13,11 +13,16 @@
   --c-signal: hsl(8 97% 56%);     /* NASA red: live markers and warnings only */
   --c-warn:   hsl(16 100% 57%);   /* solar orange */
   --c-info:   hsl(258 100% 70%);  /* ion violet */
+  --c-blue:   hsl(214 90% 68%);   /* insignia blue that page themes do not override */
+  --c-ochre:  hsl(36 62% 56%);    /* the illustration set's ochre */
   /* Borders & gridlines */
   --c-line-1: hsl(225 8% 26% / 80%);
   --c-line-2: hsl(225 8% 18% / 80%);
   /* Shadows */
   --sh-1: 0 0 0 1px hsl(225 12% 3% / 60%), 0 6px 18px hsl(225 24% 2% / 70%);
+  /* Page frame: the header, banners and page bodies share one measure */
+  --page-max: 1320px;
+  --page-pad: clamp(16px, 4vw, 48px);
   /* Sizing */
   --radius-0: 2px;     /* square, instrumentation feel */
   --radius-1: 4px;

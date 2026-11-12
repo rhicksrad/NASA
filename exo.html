@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
     <!-- @include site-head -->
-  <title>Exoplanet Explorer</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>Exoplanets — NASA Open APIs Visualization Hub</title>
   <link rel="stylesheet" href="/src/styles/exo.css" />
 </head>
 <body class="page--explorer theme-exo">
@@ -17,106 +16,91 @@
       <img src="/art/exo.webp" alt="" width="1536" height="1024" decoding="async" />
     </section>
 
-  <main class="page-shell">
-    <div class="main-wrap">
-    <section class="card exo-controls" aria-label="filters">
+  <main class="page-shell exo">
+    <section class="exo-presets" aria-label="Kinds of planet">
+      <h2>Start from a kind of planet</h2>
+      <div class="exo-example-buttons" id="exampleButtons" role="group" aria-label="Kinds of planet"></div>
+    </section>
+
+    <section class="exo-controls" aria-label="Filters">
       <div class="exo-control-grid" id="controls">
-        <label>Discovery facility
+        <label class="field">Found by
           <select id="facility">
-            <option value="">Any</option>
+            <option value="">Any telescope</option>
             <option value="TESS">TESS</option>
             <option value="Kepler">Kepler</option>
             <option value="K2">K2</option>
-            <option value="Ground">Ground</option>
+            <option value="Ground">Ground observatories</option>
           </select>
         </label>
-        <label>Discovery year ≥
-          <input id="yearMin" type="number" min="1988" max="2100" placeholder="2015" />
+        <label class="field">Discovered since
+          <input id="yearMin" type="number" min="1988" max="2100" placeholder="1995" />
         </label>
-        <label>Radius min (Re)
+        <label class="field">Radius from (× Earth)
           <input id="rMin" type="number" step="0.01" min="0" placeholder="0.5" />
         </label>
-        <label>Radius max (Re)
+        <label class="field">Radius to (× Earth)
           <input id="rMax" type="number" step="0.01" min="0" placeholder="2.5" />
         </label>
-        <label>Teq min (°F)
+        <label class="field">Temperature from (°F)
           <input id="tMin" type="number" step="1" placeholder="-136" />
         </label>
-        <label>Teq max (°F)
+        <label class="field">Temperature to (°F)
           <input id="tMax" type="number" step="1" placeholder="86" />
         </label>
-        <div class="exo-toolbar">
-            <button id="btnFetch" class="btn btn--primary">Run query</button>
-            <button id="btnShare" class="btn btn--ghost">Copy link</button>
-            <button id="btnCSV" class="btn btn--ghost">Export CSV</button>
-            <span id="status" class="mono"></span>
-          </div>
+      </div>
+      <div class="exo-toolbar">
+        <button id="btnFetch" type="button" class="btn btn--primary">Search the archive</button>
+        <button id="btnShare" type="button" class="btn btn--ghost">Copy link</button>
+        <button id="btnCSV" type="button" class="btn btn--ghost">Export CSV</button>
+        <span id="status" class="exo-status" aria-live="polite"></span>
       </div>
     </section>
 
-    <section class="card exo-examples" aria-label="examples">
-      <h2>Try a curated example</h2>
-      <p>New to exoplanets? These presets highlight interesting subsets of NASA Exoplanet Archive data.</p>
-      <div class="exo-example-buttons" id="exampleButtons" role="group" aria-label="Curated exoplanet samples"></div>
+    <section class="exo-figures" id="summary" aria-label="Summary of the result">
+      <div class="exo-figure"><span class="exo-figure__value" id="sumCount">–</span><span class="exo-figure__label">planets match</span></div>
+      <div class="exo-figure"><span class="exo-figure__value" id="sumR">–</span><span class="exo-figure__label">median radius, × Earth</span></div>
+      <div class="exo-figure"><span class="exo-figure__value" id="sumT">–</span><span class="exo-figure__label">median temperature, °F</span></div>
+      <div class="exo-figure"><span class="exo-figure__value" id="sumDistLy">–</span><span class="exo-figure__label">median distance, light-years</span></div>
+      <div class="exo-figure"><span class="exo-figure__value" id="sumMass">–</span><span class="exo-figure__label">have a measured mass</span></div>
     </section>
 
-    <section class="exo-cards">
-      <div class="card">
-        <h3>Mass–Radius</h3>
-        <div id="mrViz" class="mr-panel" aria-live="polite">
-          <p class="mr-placeholder">Select a planet below to view its mass–radius profile.</p>
-        </div>
-        <p class="mr-footnote">Size in Earth radii, mass in Earth masses. Log scales where appropriate. Hover for details.</p>
-      </div>
-      <div class="card">
-        <h3>Summary</h3>
-        <div id="summary">
-          <div class="summary-stats">
-            <div>Total planets: <span class="stat" id="sumCount">0</span></div>
-            <div>Median radius (Re): <span class="stat" id="sumR">–</span></div>
-            <div>Median Teq (°F): <span class="stat" id="sumT">–</span></div>
-            <div>Median distance (ly): <span class="stat" id="sumDistLy">–</span></div>
-            <div>With masses: <span class="stat" id="sumMass">0</span></div>
-          </div>
-          <div class="summary-selected" id="selectedSummary">
-            <h4>Planet details</h4>
-            <p>Choose a planet from the table to see its host, orbit, and climate.</p>
-          </div>
-        </div>
-        <details class="exo-adql">
-          <summary class="mono">ADQL</summary>
-          <pre id="adql" class="exo-adql-code mono"></pre>
-        </details>
+    <section class="exo-study">
+      <figure class="exo-chart">
+        <div id="mrViz" class="mr-panel"></div>
+        <figcaption id="mrNote">Each dot is a planet with both a measured mass and radius. Select one to read about it.</figcaption>
+      </figure>
+      <div class="exo-planet" id="selectedSummary" aria-live="polite">
+        <h2>Pick a planet</h2>
+        <p>Choose a dot on the chart or a row in the table to see its star, orbit and climate.</p>
       </div>
     </section>
 
     <section class="exo-table-section">
-      <div class="exo-toolbar">
-        <span class="mono" id="hint">Use the filters above or start with a preset.</span>
-      </div>
-      <div class="table" id="tblWrap">
+      <p class="exo-hint" id="hint">Use the filters above or start from a kind of planet.</p>
+      <div class="exo-table" id="tblWrap">
         <table id="tbl">
           <thead>
             <tr>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="name">Planet name</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="host">Star name</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="rade">Size vs Earth (radius)</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="masse">Mass vs Earth</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="eqt">Temperature (°F)</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="period">Orbit time (days)</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="distanceLy">Distance (ly)</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="ra">Right ascension</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="dec">Declination</button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort-key="year">Discovery year</button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort-key="name">Planet</button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort-key="host">Star</button></th>
+              <th scope="col" class="num"><button type="button" class="sort-btn" data-sort-key="rade">Radius<small>× Earth</small></button></th>
+              <th scope="col" class="num"><button type="button" class="sort-btn" data-sort-key="masse">Mass<small>× Earth</small></button></th>
+              <th scope="col" class="num"><button type="button" class="sort-btn" data-sort-key="eqt">Temperature<small>°F</small></button></th>
+              <th scope="col" class="num"><button type="button" class="sort-btn" data-sort-key="period">Year length<small>days</small></button></th>
+              <th scope="col" class="num"><button type="button" class="sort-btn" data-sort-key="distanceLy">Distance<small>light-years</small></button></th>
+              <th scope="col" class="num"><button type="button" class="sort-btn" data-sort-key="year">Found</button></th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
+      <details class="exo-adql">
+        <summary>The query sent to the archive</summary>
+        <pre id="adql" class="exo-adql-code"></pre>
+      </details>
     </section>
-    </div>
   </main>
-
 
 <script type="module" src="/src/pages/exo/main.ts"></script>
 </body>

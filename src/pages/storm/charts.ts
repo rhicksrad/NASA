@@ -1,127 +1,177 @@
-/** SVG renderers for the CME report cards. */
+/** SVG renderers for the CME report. Colours come from storm.css so the charts follow the site palette. */
+import { WORLD_LAND_PATH } from '../../assets/worldLand';
 import { svgEl } from '../../lib/dom';
 import { auroraLatitude, type TimelineEvent } from './analysis';
 
 const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+const DEG = Math.PI / 180;
 
-/** Half-dial gauge, Kp 0–9 left to right. */
-export function kpGauge(peakKp: number): SVGSVGElement {
-  const cx = 120;
-  const cy = 120;
-  const r = 90;
-  const angle = (kp: number) => Math.PI * (1 + kp / 9);
-  const point = (kp: number, radius: number) => ({
-    x: cx + radius * Math.cos(angle(kp)),
-    y: cy + radius * Math.sin(angle(kp)),
-  });
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const svg = svgEl('svg', { viewBox: '0 0 240 140', role: 'img', 'aria-label': `Peak Kp ${peakKp} of 9` });
-
-  const bands: Array<[number, number, string]> = [
-    [0, 3, '#6aa96a'],
-    [3, 6, '#d2b55b'],
-    [6, 9, '#cf6a6a'],
-  ];
-  for (const [from, to, color] of bands) {
-    const start = point(from, r);
-    const end = point(to, r);
-    svg.append(
-      svgEl('path', {
-        d: `M ${start.x} ${start.y} A ${r} ${r} 0 0 1 ${end.x} ${end.y}`,
-        stroke: color,
-        fill: 'none',
-        'stroke-width': 14,
-      }),
-    );
-  }
-
-  for (let kp = 0; kp <= 9; kp += 1) {
-    const { x, y } = point(kp, r + 16);
-    svg.append(svgEl('text', { x, y, 'text-anchor': 'middle', 'font-size': 10, fill: '#cdd6e3' }, String(kp)));
-  }
-
-  const tip = point(Math.min(9, peakKp), r - 10);
-  svg.append(
-    svgEl('line', { x1: cx, y1: cy, x2: tip.x, y2: tip.y, stroke: '#e6e6e6', 'stroke-width': 2 }),
-    svgEl('text', { x: cx, y: cy - 10, 'text-anchor': 'middle', 'font-size': 14, fill: '#e6e6e6' }, `Peak Kp ${peakKp}`),
-  );
-  return svg;
+export function formatDay(date: Date): string {
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
 }
 
-/** Predicted arrivals, the observed shock, storm onset and Kp readings on one UTC axis. */
+export function formatClock(date: Date): string {
+  return `${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+const kpClass = (kp: number) => (kp >= 7 ? 'is-severe' : kp >= 5 ? 'is-storm' : '');
+
+/**
+ * One UTC axis from the eruption to the end of the storm: when the models expected the cloud,
+ * when the shock actually arrived, and the Kp readings that followed.
+ */
 export function arrivalTimeline(events: TimelineEvent[], availableWidth: number): SVGSVGElement {
   const times = events.map((event) => event.t.getTime());
-  const minT = Math.min(...times) - 6 * HOUR_MS;
-  const maxT = Math.max(...times) + 6 * HOUR_MS;
+  const span = Math.max(...times) - Math.min(...times);
+  const margin = Math.max(3 * HOUR_MS, span * 0.04);
+  const minT = Math.min(...times) - margin;
+  const maxT = Math.max(...times) + margin;
 
-  const width = Math.max(320, Math.min(900, availableWidth));
-  const height = 160;
-  const pad = 34;
-  const mid = height / 2;
-  const x = (time: number) => pad + ((time - minT) / (maxT - minT)) * (width - pad * 2);
+  const width = Math.max(340, Math.min(1000, Math.round(availableWidth)));
+  const compact = width < 560;
+  const height = 236;
+  const padL = 8;
+  const padR = 8;
+  const axisY = 118;
+  const barBase = 214;
+  const barMax = 62;
+  const x = (time: number) => padL + ((time - minT) / (maxT - minT)) * (width - padL - padR);
 
   const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'timeline-svg', role: 'img' });
-  svg.setAttribute('aria-label', 'Timeline of predicted and observed CME arrival');
-  svg.append(svgEl('line', { x1: pad, x2: width - pad, y1: mid, y2: mid, stroke: '#2a3a4e' }));
+  svg.setAttribute('aria-label', 'Timeline from the eruption to its arrival at Earth');
 
-  // Keep roughly a dozen ticks however long the event window is.
-  const tickMs = Math.max(6, Math.ceil((maxT - minT) / HOUR_MS / 12 / 6) * 6) * HOUR_MS;
-  for (let time = minT; time <= maxT; time += tickMs) {
+  // Day ticks along the axis.
+  svg.append(svgEl('line', { x1: padL, x2: width - padR, y1: axisY, y2: axisY, class: 'tl-axis' }));
+  const days = (maxT - minT) / DAY_MS;
+  const stepDays = Math.max(1, Math.ceil(days / (compact ? 4 : 8)));
+  const firstDay = Math.ceil(minT / DAY_MS) * DAY_MS;
+  for (let time = firstDay; time <= maxT; time += stepDays * DAY_MS) {
     const tx = x(time);
     svg.append(
-      svgEl('line', { x1: tx, x2: tx, y1: mid - 4, y2: mid + 4, stroke: '#32465f' }),
-      svgEl(
-        'text',
-        { x: tx + 2, y: mid - 8, fill: '#8ea2bb', 'font-size': 9 },
-        new Date(time).toISOString().slice(5, 16).replace('T', ' '),
-      ),
+      svgEl('line', { x1: tx, x2: tx, y1: axisY, y2: axisY + 6, class: 'tl-tick' }),
+      svgEl('text', { x: tx, y: axisY + 19, class: 'tl-tick-label', 'text-anchor': 'middle' }, formatDay(new Date(time))),
     );
   }
 
-  const label = (lx: number, ly: number, text: string) =>
-    svg.append(svgEl('text', { x: lx, y: ly, fill: '#cdd6e3', 'font-size': 10 }, text));
+  /** A label that flips to the left of its marker near the right edge. */
+  const label = (cx: number, y: number, text: string, className = 'tl-label') => {
+    const flip = cx > width * 0.5;
+    svg.append(svgEl('text', { x: cx + (flip ? -8 : 8), y, class: className, 'text-anchor': flip ? 'end' : 'start' }, text));
+  };
 
-  for (const event of events) {
-    const cx = x(event.t.getTime());
-    switch (event.kind) {
-      case 'pred': {
-        const y = mid - 16;
-        svg.append(svgEl('polygon', { points: `${cx},${y} ${cx - 6},${y + 10} ${cx + 6},${y + 10}`, fill: '#5ac8fa' }));
-        label(cx + 8, y + 10, `${event.label}${event.kp ? ` · Kp90:${event.kp}` : ''}`);
-        break;
-      }
-      case 'ips':
-        svg.append(svgEl('circle', { cx, cy: mid, r: 5, fill: '#ffd166' }));
-        label(cx + 8, mid - 6, 'Observed shock');
-        break;
-      case 'gst':
-        svg.append(svgEl('rect', { x: cx - 6, y: mid + 10, width: 12, height: 8, fill: '#ef476f' }));
-        label(cx + 8, mid + 18, 'GST start');
-        break;
-      case 'kp':
-        svg.append(svgEl('circle', { cx, cy: mid + 40 - Math.min(9, event.kp) * 3, r: 2.5, fill: '#c0cbdc' }));
-        break;
+  const launch = events.find((event) => event.kind === 'launch');
+  const shock = events.find((event) => event.kind === 'ips');
+  const predictions = events.filter((event) => event.kind === 'pred');
+  const readings = events.filter((event): event is Extract<TimelineEvent, { kind: 'kp' }> => event.kind === 'kp');
+
+  // Kp readings: three-hour bars under the axis.
+  if (readings.length) {
+    const barWidth = Math.max(3, x(minT + 3 * HOUR_MS) - x(minT) - 1.5);
+    const peak = readings.reduce((best, reading) => (reading.kp > best.kp ? reading : best));
+    for (const reading of readings) {
+      const h = (Math.min(9, reading.kp) / 9) * barMax;
+      svg.append(
+        svgEl('rect', {
+          x: x(reading.t.getTime()),
+          y: barBase - h,
+          width: barWidth,
+          height: h,
+          class: `tl-kp ${kpClass(reading.kp)}`,
+        }),
+      );
     }
+    svg.append(svgEl('line', { x1: padL, x2: width - padR, y1: barBase, y2: barBase, class: 'tl-base' }));
+    svg.append(
+      svgEl(
+        'text',
+        { x: x(peak.t.getTime()), y: barBase - (Math.min(9, peak.kp) / 9) * barMax - 6, class: 'tl-label tl-label--strong' },
+        `Kp ${Number(peak.kp.toFixed(1))}`,
+      ),
+    );
+    svg.append(svgEl('text', { x: padL, y: barBase + 16, class: 'tl-tick-label' }, 'Geomagnetic activity at Earth (Kp, 0 to 9)'));
   }
+
+  if (launch) {
+    const cx = x(launch.t.getTime());
+    svg.append(
+      svgEl('line', { x1: cx, x2: cx, y1: axisY - 26, y2: axisY, class: 'tl-stem' }),
+      svgEl('circle', { cx, cy: axisY, r: 4.5, class: 'tl-launch' }),
+    );
+    label(cx - 8, axisY - 32, `Left the Sun ${formatDay(launch.t)}, ${formatClock(launch.t)}`);
+  }
+
+  if (predictions.length) {
+    const first = predictions[0].t.getTime();
+    const last = predictions[predictions.length - 1].t.getTime();
+    if (last > first) {
+      svg.append(svgEl('line', { x1: x(first), x2: x(last), y1: axisY - 12, y2: axisY - 12, class: 'tl-forecast-span' }));
+    }
+    for (const prediction of predictions) {
+      const cx = x(prediction.t.getTime());
+      svg.append(svgEl('polygon', { points: `${cx},${axisY - 3} ${cx - 6},${axisY - 15} ${cx + 6},${axisY - 15}`, class: 'tl-forecast' }));
+    }
+    const text =
+      predictions.length > 1
+        ? `Forecast arrival, ${predictions.length} model runs`
+        : `Forecast arrival ${formatDay(predictions[0].t)}, ${formatClock(predictions[0].t)}`;
+    label(x(first) - 8, axisY - 58, text);
+    svg.append(svgEl('line', { x1: x(first), x2: x(first), y1: axisY - 52, y2: axisY - 15, class: 'tl-stem' }));
+  }
+
+  if (shock) {
+    const cx = x(shock.t.getTime());
+    svg.append(
+      svgEl('line', { x1: cx, x2: cx, y1: 22, y2: readings.length ? barBase : axisY, class: 'tl-shock-line' }),
+      svgEl('circle', { cx, cy: axisY, r: 5.5, class: 'tl-shock' }),
+    );
+    label(cx - 8, 18, `Shock reached Earth ${formatDay(shock.t)}, ${formatClock(shock.t)}`, 'tl-label tl-label--strong');
+  }
+
   return svg;
 }
 
-/** Plate carrée strip shading the latitudes where aurora may be visible at the given Kp. */
-export function auroraBands(peakKp: number): SVGSVGElement {
-  const width = 480;
-  const height = 240;
-  const bandHeight = ((90 - auroraLatitude(peakKp)) / 180) * height;
-  const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'aurora-svg', role: 'img' });
-  svg.setAttribute('aria-label', 'Latitude bands where aurora may be visible');
-
-  for (const y of [0, height - bandHeight]) {
-    svg.append(svgEl('rect', { x: 0, y, width, height: bandHeight, fill: '#7fbf7f22', stroke: '#7fbf7f66' }));
+/** Points on the circle `colatitude` degrees from a pole, as [lon, lat] sorted west to east. */
+function ovalEdge(poleLat: number, poleLon: number, colatitude: number): Array<[number, number]> {
+  const phi = poleLat * DEG;
+  const c = colatitude * DEG;
+  const points: Array<[number, number]> = [];
+  for (let bearing = 0; bearing < 360; bearing += 3) {
+    const theta = bearing * DEG;
+    const lat = Math.asin(Math.sin(phi) * Math.cos(c) + Math.cos(phi) * Math.sin(c) * Math.cos(theta));
+    const lon =
+      poleLon * DEG + Math.atan2(Math.sin(theta) * Math.sin(c) * Math.cos(phi), Math.cos(c) - Math.sin(phi) * Math.sin(lat));
+    points.push([((((lon / DEG + 180) % 360) + 360) % 360) - 180, lat / DEG]);
   }
-  for (let lat = -60; lat <= 60; lat += 30) {
-    const y = ((90 - lat) / 180) * height;
+  return points.sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * World map with the two auroral zones for a given Kp. The zones are centred on the geomagnetic
+ * poles, which is why the northern one dips furthest south over North America.
+ */
+export function auroraMap(peakKp: number): SVGSVGElement {
+  const colatitude = 90 - auroraLatitude(peakKp);
+  const svg = svgEl('svg', { viewBox: '0 0 360 180', class: 'aurora-svg', role: 'img' });
+  svg.setAttribute('aria-label', `Map of where aurora may be visible at Kp ${peakKp}`);
+  svg.append(svgEl('path', { d: WORLD_LAND_PATH, class: 'aurora-land' }));
+
+  const zones: Array<[number, number, number]> = [
+    [80.7, -72.7, 0],
+    [-80.7, 107.3, 180],
+  ];
+  for (const [poleLat, poleLon, edgeY] of zones) {
+    const edge = ovalEdge(poleLat, poleLon, colatitude);
+    const line = edge.map(([lon, lat]) => `${(lon + 180).toFixed(1)},${(90 - lat).toFixed(1)}`);
+    const first = edge[0];
+    const last = edge[edge.length - 1];
+    // Close the curve along the map edge, joining both ends at the same latitude.
+    const seam = (90 - (first[1] + last[1]) / 2).toFixed(1);
     svg.append(
-      svgEl('line', { x1: 0, x2: width, y1: y, y2: y, stroke: '#2a3a4e' }),
-      svgEl('text', { x: 4, y: y - 2, fill: '#8ea2bb', 'font-size': 10 }, `${lat}°`),
+      svgEl('path', { d: `M0,${seam}L${line.join('L')}L360,${seam}L360,${edgeY}L0,${edgeY}Z`, class: 'aurora-zone' }),
+      svgEl('path', { d: `M0,${seam}L${line.join('L')}L360,${seam}`, class: 'aurora-edge' }),
     );
   }
   return svg;

@@ -11,12 +11,19 @@ export interface EonetGeometry {
   type?: string;
   /** A [lon, lat] point, or polygon rings of such points. */
   coordinates?: unknown;
+  /** Size or strength at this report: acres burned, wind in knots, and so on. */
+  magnitudeValue?: number | null;
+  magnitudeUnit?: string | null;
 }
 
 export interface EonetEvent {
   id: string;
   title?: string;
+  description?: string | null;
+  /** When the event ended; null or missing while it is still under way. */
+  closed?: string | null;
   categories?: EonetCategory[];
+  sources?: Array<{ id?: string; url?: string }>;
   geometry?: EonetGeometry[];
 }
 

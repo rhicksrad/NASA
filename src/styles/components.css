@@ -1,51 +1,112 @@
+/*
+ * Shared controls. The site is set like a printed report: no boxes or gradients, sections are
+ * separated by hairline rules, fields are a label over an underlined value, and only the primary
+ * action is filled.
+ */
+
 /* Buttons */
 .btn {
-  display: inline-flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 9px 16px;
   border: 1px solid var(--c-line-1);
-  border-radius: var(--radius-0);
-  background: linear-gradient(to bottom, var(--c-surface-1), var(--c-surface-2));
+  border-radius: 0;
+  background: transparent;
   color: var(--c-text-1);
-  font-weight: 600; letter-spacing: .02em;
+  font: 600 14px/1.2 var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
 }
+.btn:hover { border-color: var(--c-text-1); text-decoration: none; }
+.btn:disabled { opacity: .45; cursor: default; border-color: var(--c-line-1); }
 .btn--primary {
-  border-color: hsl(214 70% 35%);
-  background: linear-gradient(to bottom, hsl(214 70% 22%), hsl(214 70% 18%));
-  box-shadow: inset 0 0 0 1px hsl(214 70% 55% / .25);
+  border-color: var(--c-text-1);
+  background: var(--c-text-1);
+  color: var(--c-bg-0);
 }
-.btn--ghost { background: transparent; }
+.btn--primary:hover { border-color: #fff; background: #fff; }
+.btn--ghost {
+  padding-inline: 0;
+  border-color: transparent;
+  text-decoration: underline;
+  text-decoration-color: var(--c-line-1);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+.btn--ghost:hover { border-color: transparent; text-decoration: underline; text-decoration-color: var(--c-signal); }
 .btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+
+/* Fields: a quiet label over an underlined value */
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--c-text-1);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--c-line-1);
+  border-radius: 0;
+  padding: 7px 0;
+}
+select { padding-right: 4px; cursor: pointer; }
+select option { background: var(--c-bg-1); color: var(--c-text-1); }
+input::placeholder { color: var(--c-muted); opacity: .75; }
+input:hover,
+select:hover { border-bottom-color: var(--c-text-2); }
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-bottom-color: var(--c-text-1);
+  box-shadow: 0 1px 0 var(--c-text-1);
+}
+input[type='checkbox'],
+input[type='radio'] {
+  width: 16px; height: 16px; margin: 0; padding: 0;
+  border: 0; box-shadow: none;
+  accent-color: var(--c-text-1);
+}
+input[type='checkbox']:focus-visible,
+input[type='radio']:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; box-shadow: none; }
+
+.field {
+  display: grid; gap: 2px;
+  font-size: 13px;
+  color: var(--c-muted);
+}
+.field > input,
+.field > select { width: 100%; height: 38px; font-size: 16px; }
+
+.meta {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-muted);
+}
 
 /* Segmented control (for NEO time scale) */
 .segment {
-  display: inline-flex; border: 1px solid var(--c-line-1); border-radius: var(--radius-0);
-  overflow: hidden; background: var(--c-surface-1);
+  display: inline-flex; border: 1px solid var(--c-line-1); border-radius: 0;
+  overflow: hidden;
 }
 .segment button {
   appearance: none; border: 0; background: transparent; color: var(--c-text-2);
-  padding: 8px 12px; font-weight: 600; letter-spacing: .02em;
+  padding: 8px 12px; font-weight: 600;
 }
 .segment button[aria-pressed="true"] {
-  color: var(--c-text-1);
-  background: linear-gradient(to bottom, hsl(214 70% 18%), hsl(214 70% 16%));
-  box-shadow: inset 0 0 0 1px hsl(214 70% 40% / .45);
+  color: var(--c-bg-0);
+  background: var(--c-text-1);
 }
 
-/* Data cards */
-.card {
-  border: 1px solid var(--c-line-1);
-  background: linear-gradient(to bottom, var(--c-surface-1), var(--c-surface-2));
-  border-radius: var(--radius-1);
-  padding: var(--space-4);
-}
+/* Legacy panel hook: a plain block now, kept so page markup can group content. */
+.card { border: 0; background: none; padding: 0; border-radius: 0; }
 .card__title { font-size: var(--fs-2); color: var(--c-text-1); }
-.card__meta { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--c-muted); }
+.card__meta { font-variant-numeric: tabular-nums; color: var(--c-muted); }
 
 /* Badges (H, km, AU, etc.) */
 .badge {
-  display: inline-block; padding: 2px 6px; border-radius: var(--radius-0);
-  border: 1px solid var(--c-line-1); background: var(--c-bg-1); color: var(--c-text-2);
-  font-family: var(--font-mono); font-size: var(--fs-0);
+  display: inline-block; padding: 2px 6px; border-radius: 0;
+  border: 1px solid var(--c-line-1); color: var(--c-text-2);
+  font-size: var(--fs-0); font-variant-numeric: tabular-nums;
 }
 
 .sr-only {
@@ -55,11 +116,11 @@
   white-space: nowrap; border: 0;
 }
 
-/* Table cleanup */
+/* Tables */
 .table {
   width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums;
 }
-.table th, .table td { border-bottom: 1px solid var(--c-line-2); padding: 8px 10px; }
+.table th, .table td { border-bottom: 1px solid var(--c-line-2); padding: 10px 12px; }
 .table th { color: var(--c-text-2); font-weight: 600; text-align: left; }
 
 /* Header + nav */

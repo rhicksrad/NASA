@@ -24,33 +24,8 @@ main {
   border: 0;
 }
 
-.meta {
-  font-size: var(--fs-0);
-  color: var(--c-muted);
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
 footer.site-footer {
   text-align: center;
-}
-
-input,
-select,
-textarea {
-  font: inherit;
-  color: var(--c-text-1);
-  background: var(--c-surface-2);
-  border: 1px solid var(--c-line-1);
-  border-radius: var(--radius-0);
-  padding: 8px 10px;
-}
-
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--c-accent);
-  outline-offset: 1px;
 }
 
 input[type='range'] {
@@ -58,6 +33,7 @@ input[type='range'] {
   background: transparent;
   padding: 0;
   border: none;
+  box-shadow: none;
 }
 
 input[type='range']::-webkit-slider-runnable-track {

@@ -1,189 +1,305 @@
 @import './page-shell.css';
 
-main.page-shell {
-  width: min(980px, calc(100% - 48px));
-}
+/* Solar storms: the report reads like an article; the index of eruptions sits beside it. */
 
-.controls.card {
-  gap: var(--space-4);
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: flex-end;
-}
-
-.row > * {
-  flex: none;
-}
-
-.row input[type='text'] {
-  min-width: min(360px, 100%);
-}
-
-.examples,
-.finder {
-  border: 1px solid var(--c-line-1);
-  border-radius: var(--radius-1);
-  background: linear-gradient(180deg, var(--c-surface-1), var(--c-surface-2));
-  padding: var(--space-4);
+main.page-shell.storm {
   display: grid;
-  gap: var(--space-3);
-  box-shadow: var(--sh-1);
+  grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: start;
 }
 
-.examples h2 {
-  margin: 0;
-  font-size: var(--fs-3);
-  color: var(--c-text-1);
+/* ---------- Index ---------- */
+
+.storm-index {
+  display: grid;
+  gap: var(--space-8);
 }
 
-.examples .meta {
-  margin: 0;
+.storm-index__group {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line-1);
 }
 
-.examples-list {
-  list-style: none;
+.storm-index__group h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 20px;
+  font-weight: 700;
+  font-stretch: 80%;
+}
+
+.storm-list {
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: var(--space-2);
+  list-style: none;
 }
 
-.examples-list button {
+.storm-list li + li {
+  border-top: 1px solid var(--c-line-2);
+}
+
+.storm-list button:not(.storm-list__more) {
   display: grid;
-  gap: var(--space-1);
+  gap: 2px;
   width: 100%;
-  padding: var(--space-3);
-  border: 1px solid var(--c-line-1);
-  border-radius: var(--radius-1);
-  background: var(--c-bg-1);
-  color: var(--c-text-1);
+  padding: 10px 0 11px 14px;
+  border: 0;
+  background: none;
+  box-shadow: inset 2px 0 0 transparent;
+  color: inherit;
+  font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-.examples-list button:hover,
-.examples-list button:focus-visible {
-  box-shadow: var(--sh-1);
-  outline: none;
+.storm-list button:hover .storm-list__when {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
 }
 
-.examples-list .description {
-  color: var(--c-muted);
-  font-size: var(--fs-0);
+.storm-list button[aria-current] {
+  box-shadow: inset 2px 0 0 var(--c-signal);
 }
 
-.finder summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--c-text-1);
-}
-
-.finder[open] summary {
-  margin-bottom: var(--space-3);
-}
-
-.list {
-  list-style: none;
-  padding: 0;
-  margin: var(--space-3) 0 0;
-  display: grid;
-  gap: var(--space-2);
-  max-height: 320px;
-  overflow: auto;
-}
-
-.list li {
-  border: 1px solid var(--c-line-1);
-  border-radius: var(--radius-1);
-  background: var(--c-bg-1);
-  padding: var(--space-3);
-}
-
-.list li:hover,
-.list li:focus-visible {
-  box-shadow: var(--sh-1);
-  outline: none;
-}
-
-.markdown.card {
-  margin: 0;
-  padding: var(--space-4);
-  display: grid;
-  gap: var(--space-2);
-}
-
-.markdown.card h1,
-.markdown.card h2,
-.markdown.card h3 {
-  margin: var(--space-2) 0 var(--space-1);
-}
-
-.markdown.card h2 {
-  font-size: var(--fs-3);
-  border-bottom: 1px solid var(--c-line-2);
-  padding-bottom: var(--space-1);
-}
-
-.markdown.card blockquote {
+.storm-list__when {
+  font-size: 16px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
   color: var(--c-text-2);
-  border-left: 3px solid hsl(214 70% 45%);
-  margin: var(--space-2) 0;
-  padding: var(--space-2) var(--space-3);
-  background: var(--c-surface-1);
 }
 
-.badass {
-  margin-top: var(--space-4);
-  display: grid;
-  gap: var(--space-4);
-}
-
-.badass-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-3);
-}
-
-.card-title {
-  margin: var(--space-1) 0;
-  font-size: var(--fs-2);
+.storm-list button[aria-current] .storm-list__when,
+.storm-list button:hover .storm-list__when {
   color: var(--c-text-1);
 }
 
-.badges .badges-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+.storm-list__what {
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--c-muted);
 }
 
-.pill {
-  background: var(--c-bg-1);
-  border: 1px solid var(--c-line-1);
-  border-radius: var(--radius-0);
-  padding: 4px 8px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-0);
+.storm-list__note {
+  padding: 10px 0;
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  color: var(--c-muted);
 }
 
-.page-banner {
-  width: min(980px, calc(100% - 48px));
-  padding-left: 0;
-  padding-right: 0;
+.storm-list__more {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-text-1);
+  font: 600 14px var(--font-sans);
+  text-decoration: underline;
+  text-decoration-color: var(--c-line-1);
+  text-underline-offset: 4px;
+  cursor: pointer;
 }
 
-/* Related media: a contact sheet of thumbnails, never wider than its card. */
+.storm-list__more:hover {
+  text-decoration-color: var(--c-signal);
+}
+
+.storm-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: end;
+  margin-top: var(--space-2);
+}
+
+.storm-form--id {
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin-top: var(--space-6);
+}
+
+.storm-form + .storm-list:not(:empty) {
+  margin-top: var(--space-3);
+}
+
+/* ---------- Report ---------- */
+
+.storm-report {
+  min-height: 60vh;
+  transition: opacity 0.2s ease;
+}
+
+.storm-report.is-loading {
+  opacity: 0.45;
+}
+
+.storm-loading {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--c-muted);
+}
+
+.storm-head {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line-1);
+}
+
+.storm-head__kicker {
+  margin: 0 0 var(--space-3);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-signal);
+}
+
+.storm-head h1 {
+  margin: 0;
+  font-size: clamp(34px, 4.4vw, 60px);
+  font-weight: 750;
+  font-stretch: 72%;
+  line-height: 0.98;
+  letter-spacing: -0.01em;
+}
+
+.storm-head h1 span {
+  margin-left: 0.35em;
+  font-weight: 400;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+
+.storm-head__facts {
+  max-width: 46rem;
+  margin: var(--space-3) 0 0;
+  font-size: 15px;
+  color: var(--c-text-2);
+}
+
+.storm-figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-6);
+  margin-top: var(--space-8);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--c-line-2);
+}
+
+.storm-figure__value {
+  font-size: clamp(48px, 5.4vw, 80px);
+  font-weight: 750;
+  font-stretch: 62%;
+  line-height: 0.86;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-1);
+}
+
+.storm-figure__value span {
+  margin-left: 0.3em;
+  font-size: 17px;
+  font-weight: 600;
+  font-stretch: 100%;
+  color: var(--c-text-2);
+}
+
+.storm-figure__caption {
+  max-width: 22rem;
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--c-text-2);
+}
+
+.storm-note {
+  max-width: 44rem;
+  margin: var(--space-8) 0 0;
+  font-family: var(--font-serif);
+  font-size: clamp(17px, 1.3vw, 19px);
+  line-height: 1.6;
+  color: var(--c-text-1);
+}
+
+.storm-section {
+  margin-top: clamp(40px, 6vh, 64px);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--c-line-1);
+}
+
+.storm-section h2 {
+  margin: 0 0 var(--space-4);
+  font-size: clamp(20px, 1.8vw, 26px);
+  font-weight: 700;
+  font-stretch: 80%;
+}
+
+.storm-section__note {
+  max-width: 44rem;
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-serif);
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--c-text-2);
+}
+
+.storm-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.storm-foot {
+  margin: clamp(40px, 6vh, 64px) 0 0;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-muted);
+}
+
+.storm-foot a {
+  color: var(--c-text-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Timeline */
+.timeline-svg text {
+  font-family: var(--font-sans);
+}
+
+.tl-axis { stroke: var(--c-text-2); stroke-width: 1; }
+.tl-base { stroke: var(--c-line-1); stroke-width: 1; }
+.tl-tick { stroke: var(--c-text-2); stroke-width: 1; }
+.tl-tick-label { fill: var(--c-muted); font-size: 12px; }
+.tl-label { fill: var(--c-text-2); font-size: 13px; }
+.tl-label--strong { fill: var(--c-text-1); font-weight: 650; }
+.tl-stem { stroke: var(--c-line-1); stroke-width: 1; }
+.tl-launch { fill: var(--c-ochre); }
+.tl-forecast { fill: var(--c-blue); }
+.tl-forecast-span { stroke: var(--c-blue); stroke-width: 1; opacity: 0.6; }
+.tl-shock { fill: var(--c-signal); stroke: var(--c-text-1); stroke-width: 1.5; }
+.tl-shock-line { stroke: var(--c-signal); stroke-width: 1; }
+.tl-kp { fill: var(--c-text-2); }
+.tl-kp.is-storm { fill: var(--c-ochre); }
+.tl-kp.is-severe { fill: var(--c-signal); }
+
+/* Aurora map */
+.aurora-svg {
+  background: hsl(225 12% 9%);
+}
+
+.aurora-land { fill: hsl(225 7% 27%); }
+.aurora-zone { fill: hsl(214 90% 62% / 0.3); }
+.aurora-edge { fill: none; stroke: var(--c-blue); stroke-width: 0.6; }
+
+/* Related media: a contact sheet of thumbnails. */
 .strip {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
 }
 
 .strip a {
   display: block;
+  background: hsl(225 12% 9%);
 }
 
 .strip img {
@@ -191,4 +307,38 @@ main.page-shell {
   width: 100%;
   aspect-ratio: 4 / 3;
   object-fit: cover;
+  transition: opacity 0.15s ease;
+}
+
+.strip a:hover img {
+  opacity: 0.8;
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 900px) {
+  main.page-shell.storm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .storm-report {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .storm-figures {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+
+  .strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .storm-head h1 span {
+    display: block;
+    margin: 6px 0 0;
+    font-size: 0.6em;
+  }
 }

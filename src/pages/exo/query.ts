@@ -62,5 +62,5 @@ WHERE ${clauses.join(' AND ')}
 GROUP BY pl_name, hostname
 ORDER BY eqt`;
 
-  return { adql, description: description.length ? description.join(' · ') : 'No additional filters' };
+  return { adql, description: description.length ? description.join(' · ') : 'Every transiting planet on record, coolest first' };
 }
