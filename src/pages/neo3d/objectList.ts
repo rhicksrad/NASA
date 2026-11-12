@@ -108,7 +108,7 @@ export function createObjectList(simulation: Neo3D, options: InitNeo3DOptions = 
     empty.className = 'neo3d-empty';
     empty.setAttribute('role', 'listitem');
     empty.textContent = hazardOnly
-      ? 'No potentially hazardous NEOs available.'
+      ? 'None of the loaded objects is classed as potentially hazardous.'
       : 'NEOs with orbital data will appear here when available.';
     neoList.appendChild(empty);
   };
@@ -327,21 +327,21 @@ export function createObjectList(simulation: Neo3D, options: InitNeo3DOptions = 
       if (activeCount === 0) {
         if (hazardOnly) {
           if (allNeos.length > 0) {
-            neoSummary.textContent = 'No potentially hazardous NEOs available.';
+            neoSummary.textContent = 'None of the loaded objects is classed as potentially hazardous.';
           } else if (canFetchMore) {
-            neoSummary.textContent = 'Awaiting NEO data…';
+            neoSummary.textContent = 'Fetching the catalogue.';
           } else {
-            neoSummary.textContent = 'No potentially hazardous NEOs available.';
+            neoSummary.textContent = 'None of the loaded objects is classed as potentially hazardous.';
           }
         } else if (!allNeos.length) {
-          neoSummary.textContent = canFetchMore ? 'Awaiting NEO data…' : 'No NEOs with orbital data available.';
+          neoSummary.textContent = canFetchMore ? 'Fetching the catalogue.' : 'No near-Earth objects with orbit data are available.';
         } else if (remaining > 0 || canFetchMore) {
-          neoSummary.textContent = 'Load more NEOs to display them.';
+          neoSummary.textContent = 'Add more to put them in the scene.';
         } else {
-          neoSummary.textContent = 'No NEOs with orbital data available.';
+          neoSummary.textContent = 'No near-Earth objects with orbit data are available.';
         }
       } else {
-        neoSummary.textContent = 'Load more NEOs to display them.';
+        neoSummary.textContent = 'Add more to put them in the scene.';
       }
       return;
     }
@@ -349,45 +349,20 @@ export function createObjectList(simulation: Neo3D, options: InitNeo3DOptions = 
     if (hazardOnly && counts.neoCount === 0) {
       neoSummary.textContent =
         counts.sbdbCount > 0
-          ? 'No potentially hazardous NEOs available. Showing SBDB objects.'
-          : 'No potentially hazardous NEOs available.';
+          ? 'None of the loaded near-Earth objects is classed as potentially hazardous. The ones you added are still shown.'
+          : 'None of the loaded objects is classed as potentially hazardous.';
       return;
     }
 
-    let message: string;
-    if (counts.enabledCount === 0) {
-      message = 'All objects hidden.';
-    } else if (counts.enabledCount === counts.total) {
-      message = `Showing all ${counts.total} objects.`;
-    } else {
-      message = `Showing ${counts.enabledCount} of ${counts.total} objects.`;
-    }
-    const details: string[] = [];
-    if (counts.neoCount > 0) {
-      const neoLabelBase = hazardOnly ? 'hazardous NEO' : 'NEO';
-      details.push(`${counts.neoCount} ${counts.neoCount === 1 ? neoLabelBase : `${neoLabelBase}s`}`);
-    }
-    if (counts.sbdbCount > 0) {
-      details.push(`${counts.sbdbCount} SBDB ${counts.sbdbCount === 1 ? 'object' : 'objects'}`);
-    }
-    if (details.length) {
-      message = `${message} (${details.join(' • ')})`;
-    }
-    if (remaining > 0) {
-      const remainNoun = remaining === 1
-        ? hazardOnly
-          ? 'hazardous NEO available'
-          : 'NEO available'
-        : hazardOnly
-          ? 'hazardous NEOs available'
-          : 'NEOs available';
-      message = `${message} ${remaining} more ${remainNoun}.`;
-    } else if (canFetchMore) {
-      message = `${message} More NEOs available.`;
-    }
-    if (hazardOnly) {
-      message = `${message} Hazardous filter on.`;
-    }
+    const parts: string[] = [];
+    if (counts.enabledCount === 0) parts.push(`All ${counts.total} objects are hidden.`);
+    else if (counts.enabledCount === counts.total) parts.push(`${counts.total} objects in the scene.`);
+    else parts.push(`${counts.enabledCount} of ${counts.total} objects in the scene.`);
+    if (counts.sbdbCount > 0) parts.push(`${counts.sbdbCount} added from the Small-Body Database.`);
+    if (hazardOnly) parts.push('Only potentially hazardous ones are listed.');
+    if (remaining > 0) parts.push(`${remaining} more are ready to add.`);
+    else if (canFetchMore) parts.push('More can be fetched.');
+    const message = parts.join(' ');
     neoSummary.textContent = message;
   };
 
@@ -399,7 +374,7 @@ export function createObjectList(simulation: Neo3D, options: InitNeo3DOptions = 
 
   const formatDiameterValue = (km: number | undefined | null): string | null => {
     if (!(typeof km === 'number' && Number.isFinite(km)) || km <= 0) return null;
-    if (km >= 1) return `${km.toFixed(2)} km`;
+    if (km >= 1) return `${km.toFixed(1)} km`;
     const meters = km * 1000;
     if (meters >= 1) return `${meters.toFixed(0)} m`;
     return `${(meters * 100).toFixed(0)} cm`;
@@ -475,7 +450,7 @@ export function createObjectList(simulation: Neo3D, options: InitNeo3DOptions = 
     const meta = document.createElement('span');
     meta.className = 'neo3d-neo-meta';
     const filteredMeta = metaParts.filter((part) => part && part.trim().length > 0);
-    meta.textContent = filteredMeta.length ? filteredMeta.join(' • ') : '—';
+    meta.textContent = filteredMeta.length ? filteredMeta.join(' · ') : '–';
 
     label.appendChild(nameRow);
     label.appendChild(meta);
@@ -564,14 +539,13 @@ export function createObjectList(simulation: Neo3D, options: InitNeo3DOptions = 
 
       const { neo, spec } = candidate;
       const metaParts: string[] = [];
-      if (Number.isFinite(neo.absolute_magnitude_h)) metaParts.push(`H ${neo.absolute_magnitude_h.toFixed(1)}`);
       const sizeLabel = formatNeoSize(neo);
-      if (sizeLabel) metaParts.push(`~${sizeLabel}`);
+      if (sizeLabel) metaParts.push(`About ${sizeLabel} across`);
       const nextApproach = formatNextApproach(neo);
       if (nextApproach) {
-        metaParts.push(`Next: ${nextApproach}`);
+        metaParts.push(`next passes Earth ${nextApproach}`);
       } else if (neo.next === null) {
-        metaParts.push('Next: No future approaches on record.');
+        metaParts.push('no close pass of Earth on record ahead');
       }
 
       const entryId = `neo:${neo.id}`;
@@ -720,18 +694,15 @@ export function createObjectList(simulation: Neo3D, options: InitNeo3DOptions = 
           : true;
 
       const metaParts: string[] = [];
-      if (row?.H != null && Number.isFinite(row.H)) {
-        metaParts.push(`H ${row.H.toFixed(2)}`);
+      if (row?.type) {
+        metaParts.push(row.type.charAt(0).toUpperCase() + row.type.slice(1));
       }
       const sizeLabel = formatDiameterValue(row?.estDiameterKm ?? null);
       if (sizeLabel) {
-        metaParts.push(`~${sizeLabel}`);
+        metaParts.push(`about ${sizeLabel} across`);
       }
-      metaParts.push(`e ${conic.e.toFixed(4)}`);
-      metaParts.push(`q ${conic.q.toFixed(3)} au`);
-      if (row?.type) {
-        metaParts.push(row.type);
-      }
+      metaParts.push(`comes within ${conic.q.toFixed(2)} AU of the Sun`);
+      metaParts.push(`eccentricity ${conic.e.toFixed(2)}`);
 
       const primaryKey =
         (row?.id && aliasSet.has(normalizeEntryKey(row.id)) ? normalizeEntryKey(row.id) : null) ??

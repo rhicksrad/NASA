@@ -1,7 +1,7 @@
 /** Exoplanet Explorer: filter the NASA Exoplanet Archive and inspect individual worlds. */
 import { queryExoplanetArchive, type TapRow } from '../../api/exoplanets';
 import { isAbortError } from '../../api/worker';
-import { byId, escapeHtml } from '../../lib/dom';
+import { byId, escapeHtml, stateArt } from '../../lib/dom';
 import { initSiteNav } from '../../shell/nav';
 import { massRadiusChart } from './massRadius';
 import { planetArt } from './planetArt';
@@ -118,6 +118,38 @@ function toPlanet(row: TapRow): Planet | null {
   };
 }
 
+/** The archive's TAP service drops the odd request; one quiet second attempt hides most of them. */
+async function queryWithRetry(adql: string, signal: AbortSignal): Promise<TapRow[]> {
+  try {
+    return await queryExoplanetArchive(adql, signal);
+  } catch (error) {
+    if (signal.aborted || isAbortError(error)) throw error;
+    await new Promise((resolve) => window.setTimeout(resolve, 1200));
+    if (signal.aborted) throw error;
+    return queryExoplanetArchive(adql, signal);
+  }
+}
+
+function showOffline(): void {
+  statusEl.textContent = '';
+  loadedRows = [];
+  visibleRows = [];
+  rowsEl.replaceChildren();
+  for (const id of ['sumCount', 'sumR', 'sumT', 'sumDistLy', 'sumMass']) byId(id).textContent = '–';
+  hintEl.textContent = 'No planets to list until the archive answers.';
+  massRadiusNote.textContent = '';
+
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'btn';
+  retry.textContent = 'Try again';
+  retry.addEventListener('click', () => void runQuery());
+  const state = stateArt('offline', 'The Exoplanet Archive did not answer. It is often slow for a minute or two and then recovers.');
+  state.append(retry);
+  massRadiusEl.replaceChildren(state);
+  selectedSummaryEl.innerHTML = '<h2>No answer yet</h2><p>The filters are kept, so trying again asks for the same planets.</p>';
+}
+
 async function runQuery(): Promise<void> {
   syncUrl();
   const { adql, description } = buildQuery(readFilters());
@@ -132,12 +164,11 @@ async function runQuery(): Promise<void> {
   statusEl.textContent = 'Asking the archive…';
   let rows: TapRow[];
   try {
-    rows = await queryExoplanetArchive(adql, controller.signal);
+    rows = await queryWithRetry(adql, controller.signal);
   } catch (error) {
     if (controller.signal.aborted || isAbortError(error)) return;
     console.error('Exoplanet query failed', error);
-    statusEl.textContent = 'Error';
-    hintEl.textContent = 'Query failed. Adjust filters or try again.';
+    showOffline();
     return;
   }
   if (controller.signal.aborted) return;

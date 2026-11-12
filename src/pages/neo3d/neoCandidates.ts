@@ -165,7 +165,7 @@ export function formatNeoSize(neo: NeoItem): string | null {
   const avgKm = (min + max) / 2;
   if (!Number.isFinite(avgKm) || avgKm <= 0) return null;
   if (avgKm >= 1) {
-    return `${avgKm.toFixed(2)} km`;
+    return `${avgKm.toFixed(1)} km`;
   }
   const avgMeters = avgKm * 1000;
   if (avgMeters >= 1) {
@@ -177,9 +177,13 @@ export function formatNeoSize(neo: NeoItem): string | null {
 export function formatNextApproach(neo: NeoItem): string | null {
   const next = neo.next;
   if (!next) return null;
+  // "2040-Mar-12 10:58" reads better as "12 Mar 2040".
+  const [year, month, day] = next.date.split(' ')[0].split('-');
+  const when = year && month && day ? `${Number(day)} ${month} ${year}` : next.date;
   const extras: string[] = [];
-  if (next.distAu) extras.push(`dist ${next.distAu} AU`);
-  if (next.vRelKms) extras.push(`${next.vRelKms} km/s`);
-  const detail = extras.length ? ` (${extras.join(', ')})` : '';
-  return `${next.date}${detail}`;
+  const distance = Number(next.distAu);
+  if (Number.isFinite(distance) && distance > 0) extras.push(`${distance.toFixed(3)} AU away`);
+  const speed = Number(next.vRelKms);
+  if (Number.isFinite(speed) && speed > 0) extras.push(`${speed.toFixed(1)} km/s`);
+  return [when, ...extras].join(', ');
 }

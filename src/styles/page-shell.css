@@ -8,8 +8,13 @@ body {
   flex-direction: column;
 }
 
+main {
+  flex: 1;
+  width: 100%;
+}
+
 /* Page body: same measure as the header and the banner above it. */
-main.page-shell {
+.page-shell {
   flex: 1;
   width: 100%;
   max-width: var(--page-max);
@@ -17,7 +22,7 @@ main.page-shell {
   padding: clamp(28px, 5vh, 48px) var(--page-pad) clamp(56px, 9vh, 104px);
 }
 
-main.page-shell > .main-wrap {
+.page-shell > .main-wrap {
   max-width: none;
   margin: 0;
   padding: 0;

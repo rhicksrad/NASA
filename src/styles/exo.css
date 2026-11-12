@@ -2,12 +2,12 @@
 
 /* Exoplanets: pick a kind or set filters, read the result as figures, a chart and a table. */
 
-main.page-shell.exo {
+.page-shell.exo {
   display: grid;
   gap: clamp(32px, 5vh, 48px);
 }
 
-main.page-shell.exo > section {
+.page-shell.exo > section {
   min-width: 0;
 }
 

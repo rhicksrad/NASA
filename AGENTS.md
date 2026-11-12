@@ -76,6 +76,31 @@ worker.js           Cloudflare Worker source: the API proxy. `wrangler.jsonc` de
   `partials/site-header.html`, fixtures in `tests/support/mockApi.ts` and a case in
   `tests/smoke.spec.ts`.
 
+## Design
+
+The site is set like a printed mission report, not a dashboard. Keep it that way:
+
+- **One measure.** The header, banners and page bodies share `--page-max` and `--page-pad`
+  (`tokens.css`). Standalone pages use `.page-shell`; hub views sit in `.hub-host`.
+- **No boxes.** Sections are separated by hairline rules (`--c-line-1`, `--c-line-2`), never by
+  cards, gradients, shadows or rounded corners. `.card` survives only as a grouping hook.
+- **Type.** Archivo for headings and controls (condensed with `font-stretch` for titles and big
+  figures), Source Serif for explanatory text. Sentence case; no uppercase micro-labels, no
+  monospace except real code.
+- **Colour.** Ink background, bone text, and the illustration set's red, blue and ochre. Red
+  (`--c-signal`) marks the live or selected thing; `--c-blue` is the fixed insignia blue for charts
+  because page themes override `--c-accent`.
+- **Controls.** A quiet label over an underlined value (`.field`), flat `.btn`, and only the
+  primary action filled. Choices in a row are plain words with a red underline on the active one.
+- **Lists.** Rows with a hairline between them; the selected row gets a 2px red bar on its left.
+- **Charts** are hand-built SVG styled from the page CSS, so they follow the palette. Maps use the
+  local land outline (`src/assets/worldLand.ts`), not third-party tiles.
+- **Page openers.** Explorers open with `.page-banner` (title, one serif sentence, the plate). The
+  two 3D pages use the compact `.app-head` so the scene is above the fold. Every page ends with
+  `partials/site-footer.html`.
+- **Words.** Say what the thing is in plain English, with units a reader would say aloud. Failure
+  states use `stateArt()` and say what happened and what to do.
+
 ## Testing
 
 The smoke tests fail on any uncaught page error and on any request that has no fixture, so a new

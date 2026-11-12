@@ -71,7 +71,15 @@ function showPhoto(frame: HTMLElement, url: string, alt: string): void {
   const img = new Image();
   img.alt = alt;
   img.decoding = 'async';
-  img.addEventListener('load', () => frame.classList.add('is-loaded'), { once: true });
+  img.addEventListener(
+    'load',
+    () => {
+      // A picture much smaller than its frame would blur if stretched; show it at its own size.
+      frame.classList.toggle('is-small', img.naturalWidth > 0 && img.naturalWidth < frame.clientWidth * 0.7);
+      frame.classList.add('is-loaded');
+    },
+    { once: true },
+  );
   img.src = url;
   frame.replaceChildren(img);
 }
