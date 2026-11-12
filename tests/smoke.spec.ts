@@ -143,6 +143,29 @@ for (const { name, path, ready } of PAGES) {
   });
 }
 
+const PHONE = { width: 390, height: 844 };
+
+for (const { name, path, ready } of [
+  ...PAGES,
+  { name: 'not-found', path: '/NASA/404.html', ready: async (page: Page) => expect(page.locator('h1')).toBeVisible() },
+]) {
+  test(`${name} fits a phone screen`, async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    await installMockApi(page);
+    await page.goto(path);
+    await ready(page);
+    // Anything wider than the screen makes the whole page slide sideways under a thumb.
+    const widest = await page.evaluate(() => {
+      const limit = document.documentElement.clientWidth;
+      const over = [...document.querySelectorAll<HTMLElement>('body *')]
+        .filter((el) => el.getBoundingClientRect().right > limit + 1 && !el.closest('[hidden], .leaflet-pane, canvas'))
+        .map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${el.className}`.slice(0, 80));
+      return document.documentElement.scrollWidth > limit ? over.slice(0, 5) : [];
+    });
+    expect(widest, 'elements wider than the screen').toEqual([]);
+  });
+}
+
 test('the not-found page renders', async ({ page }) => {
   const pageErrors: string[] = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));

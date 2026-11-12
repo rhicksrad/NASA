@@ -394,6 +394,11 @@
 }
 
 @media (max-width: 620px) {
+  /* The clock gets its own line; beside the buttons it ran off a phone screen. */
+  .neo3d-transport {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .neo3d-stage {
     height: clamp(340px, 58vh, 520px);
   }

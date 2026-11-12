@@ -13,8 +13,12 @@ export interface Apod {
   copyright?: string;
 }
 
+/**
+ * APOD's upstream sometimes hangs rather than failing, so the wait is capped well below
+ * the default: callers have another picture to show and should get to it promptly.
+ */
 export function fetchApod(signal?: AbortSignal): Promise<Apod> {
-  return fetchJson<Apod>('/apod', { params: { thumbs: true }, signal });
+  return fetchJson<Apod>('/apod', { params: { thumbs: true }, signal, timeoutMs: 6000 });
 }
 
 /** A still image to show for the entry, or null when it has none (some videos). */
