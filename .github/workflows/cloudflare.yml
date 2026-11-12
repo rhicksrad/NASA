@@ -30,6 +30,9 @@ jobs:
         with:
           version: 9
           run_install: false
+          # A fresh folder per job: the default (~/setup-pnpm) persists on a self-hosted
+          # runner and its half-written state has failed an install.
+          dest: ${{ runner.temp }}/setup-pnpm
       - uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -53,6 +56,9 @@ jobs:
         with:
           version: 9
           run_install: false
+          # A fresh folder per job: the default (~/setup-pnpm) persists on a self-hosted
+          # runner and its half-written state has failed an install.
+          dest: ${{ runner.temp }}/setup-pnpm
       - uses: actions/setup-node@v6
         with:
           node-version: 20

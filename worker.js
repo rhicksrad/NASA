@@ -102,6 +102,20 @@ function requireApi(origin) {
 }
 function safeWaitUntil(event, p) { try { if (event?.waitUntil) return event.waitUntil(p); } catch {} p.catch(()=>{}); }
 
+/* ------------------------------ Secret hygiene ----------------------------- */
+// Upstream URLs carry the NASA key as a query parameter. Nothing that leaves
+// this Worker (diagnostic headers, error bodies) may include it.
+function publicUrl(url) {
+  const u = new URL(String(url));
+  if (u.searchParams.has('api_key')) u.searchParams.set('api_key', 'REDACTED');
+  return u.toString();
+}
+function scrub(text) {
+  const key = (typeof NASA_API !== 'undefined' && NASA_API) ? String(NASA_API) : '';
+  const out = String(text ?? '');
+  return key ? out.split(key).join('REDACTED') : out;
+}
+
 /* --------------------------- Fetch with deadline --------------------------- */
 function withTimeout(ms) {
   const ac = new AbortController();
@@ -121,7 +135,7 @@ async function xfer(upstreamUrl, origin, {
     if (hit) {
       const body = await hit.text().catch(()=> '');
       const headers = { 'Content-Type': hit.headers.get('content-type') || 'application/octet-stream', ...sec(), ...cors(origin) };
-      if (diagHeader) headers[diagHeader] = url.toString();
+      if (diagHeader) headers[diagHeader] = publicUrl(url);
       return new Response(body, { status: hit.status, headers });
     }
   }
@@ -136,7 +150,7 @@ async function xfer(upstreamUrl, origin, {
       const ct = r.headers.get('content-type') || 'application/octet-stream';
       const text = await r.text().catch(()=> '');
       const outHeaders = { 'Content-Type': ct, ...sec(), ...cors(origin) };
-      if (diagHeader) outHeaders[diagHeader] = url.toString();
+      if (diagHeader) outHeaders[diagHeader] = publicUrl(url);
 
       if (!r.ok) {
         if ([429,500,502,503,504].includes(r.status) && attempt < retries) {
@@ -144,7 +158,7 @@ async function xfer(upstreamUrl, origin, {
           await new Promise(res => setTimeout(res, wait));
           attempt++; continue;
         }
-        return new Response(JSON.stringify({ ok:false, status:r.status, url:url.toString(), body:text.slice(0, 2000) }), {
+        return new Response(JSON.stringify({ ok:false, status:r.status, url:publicUrl(url), body:scrub(text).slice(0, 2000) }), {
           status:r.status, headers:{ ...outHeaders, 'Cache-Control':'no-store' }
         });
       }
@@ -159,7 +173,7 @@ async function xfer(upstreamUrl, origin, {
         await new Promise(res => setTimeout(res, wait));
         attempt++; continue;
       }
-      return json(502, { ok:false, error:'Upstream fetch failed', detail:String(e), url:url.toString() }, origin);
+      return json(502, { ok:false, error:'Upstream fetch failed', detail:scrub(e), url:publicUrl(url) }, origin);
     }
   }
 }
@@ -501,7 +515,7 @@ async function handle(event) {
       return json(200, { ok:true, start, end, count: items.length, items }, origin,
         { 'Cache-Control':'public, max-age=300, stale-while-revalidate=3600' });
     } catch (e) {
-      return json(502, { ok:false, message:'DONKI upstream error', error:String(e) }, origin);
+      return json(502, { ok:false, message:'DONKI upstream error', error:scrub(e) }, origin);
     }
   }
 
@@ -524,7 +538,7 @@ async function handle(event) {
           ? markdown(200, toStormMarkdown(activityId, payload), origin, cacheHdr)
           : json(200, payload, origin, cacheHdr);
       } catch (e) {
-        return json(502, { ok:false, message:'DONKI upstream error', error:String(e) }, origin);
+        return json(502, { ok:false, message:'DONKI upstream error', error:scrub(e) }, origin);
       }
     }
   }
@@ -540,7 +554,7 @@ async function handle(event) {
           { 'Cache-Control':'public, max-age=300, stale-while-revalidate=3600' });
       } catch (e) {
         const notFound = /404/.test(String(e));
-        return json(notFound ? 404 : 502, { ok:false, message:'EONET upstream error', error:String(e) }, origin);
+        return json(notFound ? 404 : 502, { ok:false, message:'EONET upstream error', error:scrub(e) }, origin);
       }
     }
   }

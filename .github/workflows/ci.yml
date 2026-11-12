@@ -30,11 +30,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          # The merge commit and its parents are enough to list what the pull request
+          # changed; full history of this repo takes over a minute to fetch.
+          fetch-depth: 2
       - uses: pnpm/action-setup@v5
         with:
           version: 9
           run_install: false
+          # A fresh folder per job: the default (~/setup-pnpm) persists on a self-hosted
+          # runner and its half-written state has failed an install.
+          dest: ${{ runner.temp }}/setup-pnpm
       - uses: actions/setup-node@v6
         with:
           node-version: 20
@@ -47,13 +52,14 @@ jobs:
       - name: Did the site change?
         id: changed
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          IS_PR: ${{ github.event_name == 'pull_request' }}
         run: |
-          if [ -z "$BASE_SHA" ]; then
+          if [ "$IS_PR" != "true" ]; then
             echo "site=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          # HEAD is the merge of the pull request into its base; HEAD^1 is the base.
+          changed=$(git diff --name-only HEAD^1 HEAD)
           if grep -Eq '^(src/|tests/|public/|partials/|[^/]+\.html$|package\.json$|pnpm-lock\.yaml$|vite\.config\.ts$|playwright\.config\.ts$|tsconfig\.json$|\.github/workflows/ci\.yml$)' <<< "$changed"; then
             echo "site=true" >> "$GITHUB_OUTPUT"
           else
@@ -75,6 +81,9 @@ jobs:
         with:
           version: 9
           run_install: false
+          # A fresh folder per job: the default (~/setup-pnpm) persists on a self-hosted
+          # runner and its half-written state has failed an install.
+          dest: ${{ runner.temp }}/setup-pnpm
       - uses: actions/setup-node@v6
         with:
           node-version: 20
