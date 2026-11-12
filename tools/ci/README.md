@@ -67,7 +67,7 @@ from an account that has admin on the repo (it lasts one hour):
     curl -fsSLO https://raw.githubusercontent.com/rhicksrad/NASA/main/tools/ci/refuse_untrusted.sh
     REPO=rhicksrad/NASA TOKEN=<token> bash setup_web_runner.sh
 
-The script registers the runner as `<host>-nasa` with labels
+The script registers the runner as `<host>-nasa` (set `RUNNER_NAME` to choose another name) with labels
 `web, web-trusted, playwright, python, <host>`, writes its `.env` (shared Node
 tool cache, shared Playwright browsers, the hook), puts it in a systemd user
 slice capped at four cores and 8 GB, and adds a weekly cleanup timer. It can

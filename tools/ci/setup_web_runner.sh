@@ -15,7 +15,8 @@ REPO=${REPO:?set REPO=owner/name}
 RUNNER_VERSION=${RUNNER_VERSION:-2.338.2}
 HOST=$(hostname | tr 'A-Z' 'a-z')
 SHORT=$(printf '%s' "${REPO#*/}" | tr 'A-Z' 'a-z')
-NAME=${NAME:-$HOST-$SHORT}
+# Not NAME: WSL exports its own NAME, which would become the runner name.
+RUNNER_NAME=${RUNNER_NAME:-$HOST-$SHORT}
 LABELS=${LABELS:-web,web-trusted,playwright,python,$HOST}
 BASE=$HOME/actions-runners
 DIR=$BASE/$SHORT
@@ -36,7 +37,7 @@ fi
 if [ ! -f "$DIR/.runner" ]; then
   : "${TOKEN:?set TOKEN to a registration token for $REPO}"
   (cd "$DIR" && ./config.sh --unattended --url "https://github.com/$REPO" --token "$TOKEN" \
-    --name "$NAME" --labels "$LABELS" --work _work)
+    --name "$RUNNER_NAME" --labels "$LABELS" --work _work)
 fi
 
 # The service has no login shell, so everything a job needs goes here.
@@ -56,7 +57,7 @@ UNIT
 
 cat > "$UNITS/runner-$SHORT.service" <<UNIT
 [Unit]
-Description=GitHub Actions runner $NAME ($REPO)
+Description=GitHub Actions runner $RUNNER_NAME ($REPO)
 After=network-online.target
 
 [Service]
@@ -104,4 +105,4 @@ UNIT
 systemctl --user daemon-reload
 systemctl --user enable --now "runner-$SHORT.service" web-runners-cleanup.timer
 systemctl --user --no-pager status "runner-$SHORT.service" | head -5 || true
-echo "Runner $NAME registered for $REPO with labels: $LABELS"
+echo "Runner $RUNNER_NAME registered for $REPO with labels: $LABELS"
