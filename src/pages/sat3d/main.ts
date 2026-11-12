@@ -30,7 +30,8 @@ interface SatelliteEntry extends NormalizedTle {
 }
 
 const ISS_ID = 25544;
-const SAMPLE_SAT_IDS = [ISS_ID, 49044, 48275, 48274, 44362, 39444, 39634];
+// 48275 and 44362 were dropped: the TLE API no longer has records for them.
+const SAMPLE_SAT_IDS = [ISS_ID, 49044, 48274, 39444, 39634];
 const DEFAULT_COLOR = 0xffffff;
 const ISS_COLOR = 0xffd166;
 const SELECTED_COLOR = 0x22e7ff;
