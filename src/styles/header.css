@@ -177,6 +177,12 @@ body {
   color: var(--c-text-2);
 }
 
+/* Links inside a sentence are told apart by more than colour. */
+.page-banner p a {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
 .page-banner img {
   display: block;
   width: 100%;
